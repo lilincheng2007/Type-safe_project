@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { UserRole } from '@/domain-types'
 import { getDefaultRouteForRole, isUserRole, setAuthSession } from '@/lib/auth-session'
+import { verifyLogin } from '@/lib/account-store'
 
 const roleOptions: Array<{ value: UserRole; label: string }> = [
   { value: 'customer', label: '顾客' },
@@ -34,8 +35,19 @@ export default function Login() {
 
   const handleSubmit = () => {
     const trimmedAccount = account.trim()
-    if (!trimmedAccount || !password.trim()) {
+    const trimmedPassword = password.trim()
+    if (!trimmedAccount || !trimmedPassword) {
       setErrorMessage('请输入账号和密码。')
+      return
+    }
+
+    const verifyResult = verifyLogin(role, trimmedAccount, trimmedPassword)
+    if (!verifyResult.ok) {
+      setErrorMessage(
+        verifyResult.reason === 'not-found'
+          ? `未找到该角色下的账号：${trimmedAccount}`
+          : '密码错误，请重新输入。',
+      )
       return
     }
 

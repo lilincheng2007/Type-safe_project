@@ -10,8 +10,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { MerchantId, Order, ProductId } from '@/domain-types'
+import { getAuthSession } from '@/lib/auth-session'
+import { getCustomerAccountByUsername, updateCustomerAccountProfile } from '@/lib/account-store'
 import { useMockSystem } from '@/hooks/useMockSystem'
-import { customers, merchants, orders, products } from '@/lib/delivery-data'
+import { merchants, products } from '@/lib/delivery-data'
 
 type CustomerTab = 'home' | 'cart' | 'profile'
 
@@ -26,13 +28,15 @@ function isCustomerTab(value: string): value is CustomerTab {
 }
 
 export default function CustomerPortal() {
-  const customer = customers[0]
+  const session = getAuthSession()
+  const customerAccount = session ? getCustomerAccountByUsername(session.account) : null
   const { openMockDialog, showNotice } = useMockSystem()
   const [activeTab, setActiveTab] = useState<CustomerTab>('home')
   const [selectedMerchantId, setSelectedMerchantId] = useState<MerchantId>(merchants[0]?.id ?? '')
   const [cartLines, setCartLines] = useState<CartLine[]>([])
-  const [walletBalance, setWalletBalance] = useState(customer.walletBalance)
-  const [myOrders, setMyOrders] = useState<Order[]>(orders.filter((order) => order.customerId === customer.id))
+  const [walletBalance, setWalletBalance] = useState(customerAccount?.profile.walletBalance ?? 0)
+  const [pendingOrders, setPendingOrders] = useState<Order[]>(customerAccount?.profile.pendingOrders ?? [])
+  const [historyOrders] = useState<Order[]>(customerAccount?.profile.historyOrders ?? [])
   const [isRechargeOpen, setIsRechargeOpen] = useState(false)
   const [rechargeAmountInput, setRechargeAmountInput] = useState('')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
@@ -63,7 +67,19 @@ export default function CustomerPortal() {
     }, 0)
   }, [cartLines])
 
-  const pendingOrders = myOrders.filter((order) => order.status === '配送中' || order.status === '制作中')
+  const allOrders = [...pendingOrders, ...historyOrders]
+
+  const syncCustomerProfile = (nextWalletBalance: number, nextPendingOrders: Order[], nextHistoryOrders: Order[]) => {
+    if (!session) {
+      return
+    }
+    updateCustomerAccountProfile(session.account, (profile) => ({
+      ...profile,
+      walletBalance: nextWalletBalance,
+      pendingOrders: nextPendingOrders,
+      historyOrders: nextHistoryOrders,
+    }))
+  }
 
   const addProductToCart = (merchantId: MerchantId, productId: ProductId) => {
     setCartLines((prev) => {
@@ -128,20 +144,23 @@ export default function CustomerPortal() {
 
       return {
         id: `o-local-${Date.now()}-${index + 1}`,
-        customerId: customer.id,
+        customerId: customerAccount?.profile.id ?? 'unknown-customer',
         merchantId,
         items,
         totalAmount,
-        deliveryAddress: customer.defaultAddress,
+        deliveryAddress: customerAccount?.profile.defaultAddress ?? '请完善默认收货地址',
         status: '制作中',
         placedAt: orderTimeText,
       }
     })
 
-    setWalletBalance((prev) => prev - cartTotal)
-    setMyOrders((prev) => [...createdOrders, ...prev])
+    const nextWalletBalance = walletBalance - cartTotal
+    const nextPendingOrders = [...createdOrders, ...pendingOrders]
+    setWalletBalance(nextWalletBalance)
+    setPendingOrders(nextPendingOrders)
     setCartLines([])
     setActiveTab('profile')
+    syncCustomerProfile(nextWalletBalance, nextPendingOrders, historyOrders)
     showNotice(`结算成功，已创建 ${createdOrders.length} 笔待收货订单。`, 'success')
   }
 
@@ -175,9 +194,11 @@ export default function CustomerPortal() {
       ],
       onSelect: (option) => {
         if (option.id === 'recharge-success') {
-          setWalletBalance((prev) => prev + amount)
+          const nextWalletBalance = walletBalance + amount
+          setWalletBalance(nextWalletBalance)
           setRechargeAmountInput('')
           setIsRechargeOpen(false)
+          syncCustomerProfile(nextWalletBalance, pendingOrders, historyOrders)
           showNotice(`充值成功，到账 ¥${amount.toFixed(2)}。`, 'success')
           return
         }
@@ -186,6 +207,20 @@ export default function CustomerPortal() {
         showNotice('充值失败，请稍后重试。', 'error')
       },
     })
+  }
+
+  if (!customerAccount) {
+    return (
+      <DeliveryPageShell
+        title="顾客端核心功能"
+        description="当前账号未绑定顾客信息，请先完成顾客注册资料。"
+        roleBadge="顾客 APP"
+      >
+        <Card className="border-orange-100 bg-white/95">
+          <CardContent className="p-6 text-sm text-slate-600">未找到当前顾客账号档案。</CardContent>
+        </Card>
+      </DeliveryPageShell>
+    )
   }
 
   return (
@@ -225,7 +260,7 @@ export default function CustomerPortal() {
                 <CardDescription>常用收货地址</CardDescription>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <LocateFixed className="size-4 text-orange-500" />
-                  {customer.defaultAddress}
+                  {customerAccount?.profile.defaultAddress ?? '请完善默认收货地址'}
                 </CardTitle>
               </CardHeader>
             </Card>
@@ -404,7 +439,7 @@ export default function CustomerPortal() {
             <Card className="border-orange-100 bg-white/95 py-0">
               <CardHeader className="pb-2">
                 <CardDescription>历史订单</CardDescription>
-                <CardTitle>{myOrders.length} 单</CardTitle>
+                <CardTitle>{historyOrders.length} 单</CardTitle>
               </CardHeader>
             </Card>
             <Card className="border-orange-100 bg-white/95 py-0">
@@ -459,7 +494,7 @@ export default function CustomerPortal() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {myOrders.map((order) => (
+              {allOrders.map((order) => (
                 <button
                   key={order.id}
                   type="button"

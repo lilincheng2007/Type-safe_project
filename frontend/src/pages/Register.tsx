@@ -7,12 +7,28 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import type { UserRole } from '@/domain-types'
 import { useMockSystem } from '@/hooks/useMockSystem'
+import { registerAccount } from '@/lib/account-store'
+
+type RegisterRole = Exclude<UserRole, 'admin'>
+
+const registerRoleOptions: Array<{ value: RegisterRole; label: string }> = [
+  { value: 'customer', label: '顾客' },
+  { value: 'merchant', label: '商家' },
+  { value: 'rider', label: '骑手' },
+]
+
+function isRegisterRole(value: string): value is RegisterRole {
+  return value === 'customer' || value === 'merchant' || value === 'rider'
+}
 
 export default function Register() {
   const navigate = useNavigate()
   const { showNotice } = useMockSystem()
 
+  const [role, setRole] = useState<RegisterRole>('customer')
   const [account, setAccount] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -26,6 +42,12 @@ export default function Register() {
 
     if (password !== confirmPassword) {
       setErrorMessage('两次输入的密码不一致。')
+      return
+    }
+
+    const registerResult = registerAccount(role, account.trim(), password.trim())
+    if (!registerResult.ok) {
+      setErrorMessage(registerResult.message)
       return
     }
 
@@ -51,6 +73,29 @@ export default function Register() {
                 handleSubmit()
               }}
             >
+              <div className="space-y-2">
+                <Label htmlFor="register-role">角色（管理员不可注册）</Label>
+                <Select
+                  value={role}
+                  onValueChange={(value) => {
+                    if (isRegisterRole(value)) {
+                      setRole(value)
+                    }
+                  }}
+                >
+                  <SelectTrigger id="register-role" className="h-11 rounded-xl">
+                    <SelectValue placeholder="请选择注册角色" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {registerRoleOptions.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="register-account">账号</Label>
                 <div className="relative">

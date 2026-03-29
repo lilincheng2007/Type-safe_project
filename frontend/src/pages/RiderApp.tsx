@@ -4,16 +4,33 @@ import { DeliveryPageShell } from '@/components/DeliveryPageShell'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { getAuthSession } from '@/lib/auth-session'
+import { getRiderAccountByUsername } from '@/lib/account-store'
 import { useMockSystem } from '@/hooks/useMockSystem'
-import { orders, riders } from '@/lib/delivery-data'
 
 const pageName = '骑手端 APP'
 const route = '/delivery/rider'
 
 export default function RiderApp() {
   const { openMockDialog } = useMockSystem()
-  const rider = riders[0]
-  const assignedOrders = orders.filter((item) => item.riderId === rider.id)
+  const session = getAuthSession()
+  const riderAccount = session ? getRiderAccountByUsername(session.account) : null
+  const rider = riderAccount?.profile.rider ?? null
+  const assignedOrders = riderAccount ? riderAccount.profile.pendingOrders : []
+
+  if (!riderAccount || !rider) {
+    return (
+      <DeliveryPageShell
+        title="骑手端核心功能"
+        description="当前账号未绑定骑手信息，请先完成骑手注册资料。"
+        roleBadge="骑手 APP"
+      >
+        <Card className="border-orange-100 bg-white/95">
+          <CardContent className="p-6 text-sm text-slate-600">未找到当前骑手账号档案。</CardContent>
+        </Card>
+      </DeliveryPageShell>
+    )
+  }
 
   return (
     <DeliveryPageShell
@@ -189,7 +206,7 @@ export default function RiderApp() {
           </CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-slate-700">
-          当月薪资（模拟）：{rider.salary} 元。客服可在严重投诉场景下触发扣款流程。
+          当前账户余额：{riderAccount.profile.walletBalance} 元；当月薪资（模拟）：{rider.salary} 元。客服可在严重投诉场景下触发扣款流程。
         </CardContent>
       </Card>
     </DeliveryPageShell>
