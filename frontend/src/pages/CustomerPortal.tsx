@@ -35,6 +35,7 @@ export default function CustomerPortal() {
   const [myOrders, setMyOrders] = useState<Order[]>(orders.filter((order) => order.customerId === customer.id))
   const [isRechargeOpen, setIsRechargeOpen] = useState(false)
   const [rechargeAmountInput, setRechargeAmountInput] = useState('')
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
 
   const selectedMerchant = useMemo(
     () => merchants.find((merchant) => merchant.id === selectedMerchantId) ?? null,
@@ -433,13 +434,18 @@ export default function CustomerPortal() {
                 <p className="text-sm text-slate-500">暂无待收货订单。</p>
               ) : (
                 pendingOrders.map((order) => (
-                  <div key={order.id} className="rounded-xl border border-orange-100 p-4">
+                  <button
+                    key={order.id}
+                    type="button"
+                    className="w-full rounded-xl border border-orange-100 p-4 text-left transition-colors hover:bg-orange-50/60"
+                    onClick={() => setSelectedOrder(order)}
+                  >
                     <div className="flex items-center justify-between">
                       <p className="font-medium text-slate-900">订单号：{order.id}</p>
                       <Badge variant="outline">{order.status}</Badge>
                     </div>
                     <p className="mt-1 text-sm text-slate-600">收货地址：{order.deliveryAddress}</p>
-                  </div>
+                  </button>
                 ))
               )}
             </CardContent>
@@ -454,7 +460,12 @@ export default function CustomerPortal() {
             </CardHeader>
             <CardContent className="space-y-3">
               {myOrders.map((order) => (
-                <div key={order.id} className="rounded-xl border border-orange-100 p-4">
+                <button
+                  key={order.id}
+                  type="button"
+                  className="w-full rounded-xl border border-orange-100 p-4 text-left transition-colors hover:bg-orange-50/60"
+                  onClick={() => setSelectedOrder(order)}
+                >
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-medium text-slate-900">订单号：{order.id}</p>
                     <Badge variant="outline">{order.status}</Badge>
@@ -462,7 +473,7 @@ export default function CustomerPortal() {
                   <p className="mt-1 text-sm text-slate-600">
                     金额：{order.totalAmount} 元 · 下单时间：{order.placedAt}
                   </p>
-                </div>
+                </button>
               ))}
             </CardContent>
           </Card>
@@ -493,6 +504,45 @@ export default function CustomerPortal() {
               取消
             </Button>
             <Button onClick={handleRechargeConfirm}>确认充值</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={selectedOrder !== null} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+        <DialogContent className="max-w-md rounded-2xl border border-orange-100 bg-white p-6">
+          <DialogHeader>
+            <DialogTitle>订单详情</DialogTitle>
+            <DialogDescription>
+              {selectedOrder ? `订单号：${selectedOrder.id}` : '查看订单商品与金额信息'}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedOrder ? (
+            <div className="space-y-3">
+              <div className="rounded-xl bg-orange-50 px-3 py-2 text-sm text-slate-700">
+                订单金额：
+                <span className="ml-1 font-semibold text-orange-600">¥{selectedOrder.totalAmount.toFixed(2)}</span>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-900">商品明细</p>
+                {selectedOrder.items.map((item) => (
+                  <div
+                    key={`${selectedOrder.id}-${item.productId}`}
+                    className="flex items-center justify-between rounded-lg border border-orange-100 px-3 py-2"
+                  >
+                    <div className="text-sm text-slate-700">
+                      <p>{item.name}</p>
+                      <p className="text-xs text-slate-500">x{item.quantity}</p>
+                    </div>
+                    <p className="text-sm font-medium text-slate-900">¥{(item.unitPrice * item.quantity).toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedOrder(null)}>
+              关闭
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
