@@ -10,7 +10,7 @@ import { orders, riders } from '@/lib/delivery-data'
 const pageName = '订单中心'
 const route = '/delivery/orders'
 
-const statusFlow = ['待接单', '制作中', '配送中', '已完成'] as const
+const statusFlow = ['待接单', '制作中', '配送中', '已送达', '已完成'] as const
 
 export default function OrderCenter() {
   const { openMockDialog } = useMockSystem()
@@ -27,9 +27,9 @@ export default function OrderCenter() {
             <ArrowRightLeft className="size-5 text-orange-500" />
             订单状态流转
           </CardTitle>
-          <CardDescription>标准状态：待接单 → 制作中 → 配送中 → 已完成</CardDescription>
+          <CardDescription>标准状态：待接单 → 制作中 → 配送中 → 已送达 → 已完成</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-4">
+        <CardContent className="grid gap-3 md:grid-cols-5">
           {statusFlow.map((status) => (
             <div key={status} className="rounded-xl border border-orange-100 p-3 text-center">
               <p className="font-medium text-slate-900">{status}</p>

@@ -16,7 +16,7 @@ export type RiderStatus = '空闲' | '接单' | '配送中'
 
 export type ServiceChannel = '在线' | '电话'
 
-export type OrderStatus = '待接单' | '制作中' | '配送中' | '已完成' | '已取消'
+export type OrderStatus = '待接单' | '制作中' | '配送中' | '已送达' | '已完成' | '已取消'
 export type ProductShelfStatus = '上架' | '下架'
 
 export interface Voucher {
@@ -108,6 +108,7 @@ export interface Order {
   deliveryAddress: string
   status: OrderStatus
   placedAt: string
+  customerConfirmedReceipt?: boolean
 }
 
 export interface MerchantApplication {

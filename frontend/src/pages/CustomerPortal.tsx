@@ -1,5 +1,5 @@
 import { Clock3, LocateFixed, Minus, Plus, Search, ShoppingCart, Store, UserRound, Wallet } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { DeliveryPageShell } from '@/components/DeliveryPageShell'
 import { Badge } from '@/components/ui/badge'
@@ -11,7 +11,14 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { MerchantId, Order, ProductId } from '@/domain-types'
 import { getAuthSession } from '@/lib/auth-session'
-import { getAccountStore, getCustomerAccountByUsername, updateCustomerAccountProfile, updateMerchantAccountProfile } from '@/lib/account-store'
+import {
+  getAccountStore,
+  getCustomerAccountByUsername,
+  subscribeAccountStore,
+  updateAccountStore,
+  updateCustomerAccountProfile,
+  updateMerchantAccountProfile,
+} from '@/lib/account-store'
 import { useMockSystem } from '@/hooks/useMockSystem'
 
 type CustomerTab = 'home' | 'cart' | 'profile'
@@ -36,7 +43,7 @@ export default function CustomerPortal() {
       username: account.username,
       store,
     })),
-  )
+  ).filter((entry) => entry.store.merchant.id === 'm-2001' || entry.store.merchant.id.startsWith('m-local-'))
   const merchants = merchantStoreProfiles.map((entry) => entry.store.merchant)
   const products = merchantStoreProfiles.flatMap((entry) => entry.store.products)
   const [activeTab, setActiveTab] = useState<CustomerTab>('home')
@@ -44,13 +51,16 @@ export default function CustomerPortal() {
   const [cartLines, setCartLines] = useState<CartLine[]>([])
   const [walletBalance, setWalletBalance] = useState(customerAccount?.profile.walletBalance ?? 0)
   const [pendingOrders, setPendingOrders] = useState<Order[]>(customerAccount?.profile.pendingOrders ?? [])
-  const [historyOrders] = useState<Order[]>(customerAccount?.profile.historyOrders ?? [])
+  const [historyOrders, setHistoryOrders] = useState<Order[]>(customerAccount?.profile.historyOrders ?? [])
   const [isRechargeOpen, setIsRechargeOpen] = useState(false)
   const [rechargeAmountInput, setRechargeAmountInput] = useState('')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [viewVersion, setViewVersion] = useState(0)
 
   const selectedMerchant = merchants.find((merchant) => merchant.id === selectedMerchantId) ?? null
-  const selectedMerchantProducts = products.filter((product) => product.merchantId === selectedMerchantId)
+  const selectedMerchantProducts = products.filter(
+    (product) => product.merchantId === selectedMerchantId && product.shelfStatus === '上架',
+  )
   const cartGroupedByMerchant = useMemo(() => {
     const grouped: Record<string, CartLine[]> = {}
     for (const line of cartLines) {
@@ -66,6 +76,34 @@ export default function CustomerPortal() {
     const product = products.find((item) => item.id === line.productId)
     return sum + (product ? product.price * line.quantity : 0)
   }, 0)
+
+  useEffect(() => subscribeAccountStore(() => setViewVersion((value) => value + 1)), [])
+
+  useEffect(() => {
+    if (!customerAccount) {
+      return
+    }
+    setWalletBalance(customerAccount.profile.walletBalance)
+    setPendingOrders(customerAccount.profile.pendingOrders)
+    setHistoryOrders(customerAccount.profile.historyOrders)
+    setSelectedOrder((current) => {
+      if (!current) {
+        return null
+      }
+      return (
+        customerAccount.profile.pendingOrders.find((order) => order.id === current.id) ??
+        customerAccount.profile.historyOrders.find((order) => order.id === current.id) ??
+        null
+      )
+    })
+  }, [customerAccount?.username, viewVersion])
+
+  useEffect(() => {
+    if (!selectedMerchantId || merchants.some((merchant) => merchant.id === selectedMerchantId)) {
+      return
+    }
+    setSelectedMerchantId(merchants[0]?.id ?? '')
+  }, [merchants, selectedMerchantId])
 
   const syncCustomerProfile = (nextWalletBalance: number, nextPendingOrders: Order[], nextHistoryOrders: Order[]) => {
     if (!session) {
@@ -227,6 +265,105 @@ export default function CustomerPortal() {
     })
   }
 
+  const handleConfirmReceipt = (orderId: string) => {
+    if (!session || !customerAccount) {
+      return
+    }
+
+    const targetOrder = pendingOrders.find((order) => order.id === orderId)
+    if (!targetOrder || targetOrder.status !== '已送达') {
+      showNotice('当前订单暂不可确认收货。', 'info')
+      return
+    }
+
+    const completedOrder = {
+      ...targetOrder,
+      status: '已完成' as const,
+      customerConfirmedReceipt: true,
+    }
+    const nextPendingOrders = pendingOrders.filter((order) => order.id !== orderId)
+    const nextHistoryOrders = [completedOrder, ...historyOrders]
+
+    updateAccountStore((store) => ({
+      ...store,
+      customerAccounts: store.customerAccounts.map((account) =>
+        account.username === session.account
+          ? {
+              ...account,
+              profile: {
+                ...account.profile,
+                pendingOrders: nextPendingOrders,
+                historyOrders: nextHistoryOrders,
+              },
+            }
+          : account,
+      ),
+      riderAccounts: store.riderAccounts.map((account) =>
+        account.profile.rider.id === targetOrder.riderId
+          ? {
+              ...account,
+              profile: {
+                ...account.profile,
+                historyOrders: account.profile.historyOrders.map((order) =>
+                  order.id === orderId
+                    ? {
+                        ...order,
+                        customerConfirmedReceipt: true,
+                      }
+                    : order,
+                ),
+              },
+            }
+          : account,
+      ),
+    }))
+
+    setPendingOrders(nextPendingOrders)
+    setHistoryOrders(nextHistoryOrders)
+    setSelectedOrder(completedOrder)
+    showNotice('已确认收货，订单已转入历史订单。', 'success')
+  }
+
+  const handleCancelOrder = (orderId: string) => {
+    if (!session || !customerAccount) {
+      return
+    }
+
+    const targetOrder = pendingOrders.find((order) => order.id === orderId)
+    if (!targetOrder) {
+      showNotice('未找到可取消的订单。', 'info')
+      return
+    }
+
+    const cancelledOrder = {
+      ...targetOrder,
+      status: '已取消' as const,
+    }
+    const nextPendingOrders = pendingOrders.filter((order) => order.id !== orderId)
+    const nextHistoryOrders = [cancelledOrder, ...historyOrders]
+
+    updateAccountStore((store) => ({
+      ...store,
+      customerAccounts: store.customerAccounts.map((account) =>
+        account.username === session.account
+          ? {
+              ...account,
+              profile: {
+                ...account.profile,
+                pendingOrders: nextPendingOrders,
+                historyOrders: nextHistoryOrders,
+              },
+            }
+          : account,
+      ),
+    }))
+
+    setPendingOrders(nextPendingOrders)
+    setHistoryOrders(nextHistoryOrders)
+    setSelectedOrder(cancelledOrder)
+    showNotice('订单已取消，并已移入历史订单。', 'success')
+  }
+
   if (!customerAccount) {
     return (
       <DeliveryPageShell
@@ -308,26 +445,32 @@ export default function CustomerPortal() {
               <CardDescription>点击商家后可浏览该商家对应菜品</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-2">
-              {merchants.map((merchant) => (
-                <button
-                  key={merchant.id}
-                  type="button"
-                  className={`rounded-xl border p-4 text-left transition-colors ${
-                    selectedMerchantId === merchant.id
-                      ? 'border-orange-400 bg-orange-50'
-                      : 'border-orange-100 bg-white hover:bg-orange-50/60'
-                  }`}
-                  onClick={() => setSelectedMerchantId(merchant.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-slate-900">{merchant.storeName}</p>
-                    <Badge variant="outline">{merchant.category}</Badge>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-600">
-                    评分 {merchant.rating.toFixed(1)} · {merchant.address}
-                  </p>
-                </button>
-              ))}
+              {merchants.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-orange-200 p-8 text-center text-sm text-slate-500 md:col-span-2">
+                  当前仅展示商家后台新建的店铺，暂未发现可浏览商家。
+                </div>
+              ) : (
+                merchants.map((merchant) => (
+                  <button
+                    key={merchant.id}
+                    type="button"
+                    className={`rounded-xl border p-4 text-left transition-colors ${
+                      selectedMerchantId === merchant.id
+                        ? 'border-orange-400 bg-orange-50'
+                        : 'border-orange-100 bg-white hover:bg-orange-50/60'
+                    }`}
+                    onClick={() => setSelectedMerchantId(merchant.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-slate-900">{merchant.storeName}</p>
+                      <Badge variant="outline">{merchant.category}</Badge>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600">
+                      评分 {merchant.rating.toFixed(1)} · {merchant.address}
+                    </p>
+                  </button>
+                ))
+              )}
             </CardContent>
           </Card>
 
@@ -337,22 +480,36 @@ export default function CustomerPortal() {
               <CardDescription>{selectedMerchant ? `${selectedMerchant.storeName} 的可选菜品` : '请选择商家'}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-2">
-              {selectedMerchantProducts.map((product) => (
-                <div key={product.id} className="space-y-2 rounded-xl border border-orange-100 p-4">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium text-slate-900">{product.name}</p>
-                    <Badge variant="outline">{product.inventoryStatus}</Badge>
-                  </div>
-                  <p className="text-sm text-slate-600">{product.description}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-orange-600">{product.price} 元</span>
-                    <Button size="sm" onClick={() => addProductToCart(product.merchantId, product.id)}>
-                      <ShoppingCart className="size-4" />
-                      加入购物车
-                    </Button>
-                  </div>
+              {selectedMerchantProducts.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-orange-200 p-8 text-center text-sm text-slate-500 md:col-span-2">
+                  当前商家暂无可售商品。
                 </div>
-              ))}
+              ) : (
+                selectedMerchantProducts.map((product) => {
+                  const isSoldOut = product.inventoryCount <= 0
+
+                  return (
+                    <div key={product.id} className="space-y-2 rounded-xl border border-orange-100 p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium text-slate-900">{product.name}</p>
+                        {isSoldOut ? <Badge variant="outline">售罄</Badge> : null}
+                      </div>
+                      <p className="text-sm text-slate-600">{product.description}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-orange-600">{product.price} 元</span>
+                        <Button
+                          size="sm"
+                          onClick={() => addProductToCart(product.merchantId, product.id)}
+                          disabled={isSoldOut}
+                        >
+                          <ShoppingCart className="size-4" />
+                          {isSoldOut ? '已售罄' : '加入购物车'}
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -487,18 +644,29 @@ export default function CustomerPortal() {
                 <p className="text-sm text-slate-500">暂无待收货订单。</p>
               ) : (
                 pendingOrders.map((order) => (
-                  <button
-                    key={order.id}
-                    type="button"
-                    className="w-full rounded-xl border border-orange-100 p-4 text-left transition-colors hover:bg-orange-50/60"
-                    onClick={() => setSelectedOrder(order)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium text-slate-900">订单号：{order.id}</p>
-                      <Badge variant="outline">{order.status}</Badge>
+                  <div key={order.id} className="rounded-xl border border-orange-100 p-4">
+                    <button
+                      type="button"
+                      className="w-full text-left transition-colors hover:bg-orange-50/60"
+                      onClick={() => setSelectedOrder(order)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium text-slate-900">订单号：{order.id}</p>
+                        <Badge variant="outline">{order.status}</Badge>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-600">收货地址：{order.deliveryAddress}</p>
+                    </button>
+                    <div className="mt-3 flex justify-end gap-2">
+                      <Button size="sm" variant="outline" onClick={() => handleCancelOrder(order.id)}>
+                        取消订单
+                      </Button>
+                      {order.status === '已送达' ? (
+                        <Button size="sm" onClick={() => handleConfirmReceipt(order.id)}>
+                          确认收货
+                        </Button>
+                      ) : null}
                     </div>
-                    <p className="mt-1 text-sm text-slate-600">收货地址：{order.deliveryAddress}</p>
-                  </button>
+                  </div>
                 ))
               )}
             </CardContent>
@@ -575,6 +743,10 @@ export default function CustomerPortal() {
           </DialogHeader>
           {selectedOrder ? (
             <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-xl bg-orange-50 px-3 py-2 text-sm text-slate-700">
+                <span>订单状态</span>
+                <Badge variant="outline">{selectedOrder.status}</Badge>
+              </div>
               <div className="rounded-xl bg-orange-50 px-3 py-2 text-sm text-slate-700">
                 订单金额：
                 <span className="ml-1 font-semibold text-orange-600">¥{selectedOrder.totalAmount.toFixed(2)}</span>
@@ -597,6 +769,14 @@ export default function CustomerPortal() {
             </div>
           ) : null}
           <DialogFooter>
+            {selectedOrder?.status === '已送达' ? (
+              <Button onClick={() => handleConfirmReceipt(selectedOrder.id)}>确认收货</Button>
+            ) : null}
+            {selectedOrder && selectedOrder.status !== '已完成' && selectedOrder.status !== '已取消' ? (
+              <Button variant="outline" onClick={() => handleCancelOrder(selectedOrder.id)}>
+                取消订单
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={() => setSelectedOrder(null)}>
               关闭
             </Button>

@@ -68,9 +68,11 @@ export interface AccountStore {
   merchantAccounts: MerchantAccount[]
   riderAccounts: RiderAccount[]
   adminAccounts: AdminAccount[]
+  availableGrabOrders: Order[]
 }
 
 const STORE_KEY = 'delivery-platform-account-store-v1'
+const STORE_EVENT = 'delivery-platform-account-store-change'
 
 function splitOrdersByHistory(sourceOrders: Order[]) {
   const pending = sourceOrders.filter((item) => item.status !== '已完成' && item.status !== '已取消')
@@ -108,6 +110,7 @@ function normalizeAccountStore(store: AccountStore): AccountStore {
         })),
       },
     })),
+    availableGrabOrders: Array.isArray(store.availableGrabOrders) ? store.availableGrabOrders : [],
   }
 }
 
@@ -185,11 +188,19 @@ function buildSeedStore(): AccountStore {
     merchantAccounts,
     riderAccounts,
     adminAccounts,
+    availableGrabOrders: [],
   }
 }
 
 function saveStore(store: AccountStore) {
   localStorage.setItem(STORE_KEY, JSON.stringify(store))
+  window.dispatchEvent(new CustomEvent(STORE_EVENT))
+}
+
+export function updateAccountStore(updater: (store: AccountStore) => AccountStore) {
+  const store = getAccountStore()
+  const nextStore = updater(store)
+  saveStore(nextStore)
 }
 
 function isAccountStore(value: unknown): value is AccountStore {
@@ -229,6 +240,11 @@ export function getAccountStore(): AccountStore {
   const seeded = buildSeedStore()
   saveStore(seeded)
   return seeded
+}
+
+export function subscribeAccountStore(listener: () => void) {
+  window.addEventListener(STORE_EVENT, listener)
+  return () => window.removeEventListener(STORE_EVENT, listener)
 }
 
 type LoginResult =
@@ -381,6 +397,16 @@ export function updateCustomerAccountProfile(username: string, updater: (profile
 export function updateMerchantAccountProfile(username: string, updater: (profile: MerchantProfile) => MerchantProfile) {
   const store = getAccountStore()
   const account = store.merchantAccounts.find((item) => item.username === username)
+  if (!account) {
+    return
+  }
+  account.profile = updater(account.profile)
+  saveStore(store)
+}
+
+export function updateRiderAccountProfile(username: string, updater: (profile: RiderProfile) => RiderProfile) {
+  const store = getAccountStore()
+  const account = store.riderAccounts.find((item) => item.username === username)
   if (!account) {
     return
   }

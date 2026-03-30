@@ -24,7 +24,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { Merchant, Product, ProductShelfStatus } from '@/domain-types'
 import type { MerchantStoreProfile } from '@/lib/account-store'
 import { getAuthSession } from '@/lib/auth-session'
-import { getMerchantAccountByUsername, updateMerchantAccountProfile } from '@/lib/account-store'
+import { getMerchantAccountByUsername, updateAccountStore, updateMerchantAccountProfile } from '@/lib/account-store'
 import { useMockSystem } from '@/hooks/useMockSystem'
 
 type MerchantTab = 'products' | 'orders' | 'profile'
@@ -205,7 +205,7 @@ export default function MerchantConsole() {
       return
     }
 
-    const nextStores = stores.map((storeItem) => {
+    const nextStores: MerchantStoreProfile[] = stores.map((storeItem) => {
       if (storeItem.merchant.id !== selectedStore.merchant.id) {
         return storeItem
       }
@@ -303,11 +303,11 @@ export default function MerchantConsole() {
         return storeItem
       }
 
-      return {
-        ...storeItem,
-        pendingOrders: storeItem.pendingOrders.filter((order) => order.id !== orderId),
-        historyOrders: [{ ...completedOrder, status: '已完成' }, ...storeItem.historyOrders],
-        products: storeItem.products.map((product) => {
+        return {
+          ...storeItem,
+          pendingOrders: storeItem.pendingOrders.filter((order) => order.id !== orderId),
+          historyOrders: [{ ...completedOrder, status: '已完成' as const }, ...storeItem.historyOrders],
+          products: storeItem.products.map((product) => {
           const matchedItem = completedOrder.items.find((item) => item.productId === product.id)
           if (!matchedItem) {
             return product
@@ -324,7 +324,28 @@ export default function MerchantConsole() {
       }
     })
 
-    updateStores(nextStores)
+    setStores(nextStores)
+    updateAccountStore((store) => ({
+      ...store,
+      merchantAccounts: store.merchantAccounts.map((account) =>
+        account.username === merchantAccount.username
+          ? {
+              ...account,
+              profile: {
+                ...account.profile,
+                stores: nextStores,
+              },
+            }
+          : account,
+      ),
+      availableGrabOrders: [
+        {
+          ...completedOrder,
+          status: '待接单',
+        },
+        ...store.availableGrabOrders.filter((order) => order.id !== completedOrder.id),
+      ],
+    }))
     setExpandedOrderId((current) => (current === orderId ? null : current))
     showNotice('订单已完成出餐。', 'success')
   }
