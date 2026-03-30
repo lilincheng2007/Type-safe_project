@@ -67,8 +67,6 @@ export default function CustomerPortal() {
     }, 0)
   }, [cartLines])
 
-  const allOrders = [...pendingOrders, ...historyOrders]
-
   const syncCustomerProfile = (nextWalletBalance: number, nextPendingOrders: Order[], nextHistoryOrders: Order[]) => {
     if (!session) {
       return
@@ -494,22 +492,26 @@ export default function CustomerPortal() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {allOrders.map((order) => (
-                <button
-                  key={order.id}
-                  type="button"
-                  className="w-full rounded-xl border border-orange-100 p-4 text-left transition-colors hover:bg-orange-50/60"
-                  onClick={() => setSelectedOrder(order)}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-medium text-slate-900">订单号：{order.id}</p>
-                    <Badge variant="outline">{order.status}</Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-slate-600">
-                    金额：{order.totalAmount} 元 · 下单时间：{order.placedAt}
-                  </p>
-                </button>
-              ))}
+              {historyOrders.length === 0 ? (
+                <p className="text-sm text-slate-500">暂无历史订单。</p>
+              ) : (
+                historyOrders.map((order) => (
+                  <button
+                    key={order.id}
+                    type="button"
+                    className="w-full rounded-xl border border-orange-100 p-4 text-left transition-colors hover:bg-orange-50/60"
+                    onClick={() => setSelectedOrder(order)}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium text-slate-900">订单号：{order.id}</p>
+                      <Badge variant="outline">{order.status}</Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-600">
+                      金额：{order.totalAmount} 元 · 下单时间：{order.placedAt}
+                    </p>
+                  </button>
+                ))
+              )}
             </CardContent>
           </Card>
         </TabsContent>
