@@ -11,9 +11,8 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { MerchantId, Order, ProductId } from '@/domain-types'
 import { getAuthSession } from '@/lib/auth-session'
-import { getCustomerAccountByUsername, updateCustomerAccountProfile } from '@/lib/account-store'
+import { getAccountStore, getCustomerAccountByUsername, updateCustomerAccountProfile, updateMerchantAccountProfile } from '@/lib/account-store'
 import { useMockSystem } from '@/hooks/useMockSystem'
-import { merchants, products } from '@/lib/delivery-data'
 
 type CustomerTab = 'home' | 'cart' | 'profile'
 
@@ -31,6 +30,15 @@ export default function CustomerPortal() {
   const session = getAuthSession()
   const customerAccount = session ? getCustomerAccountByUsername(session.account) : null
   const { openMockDialog, showNotice } = useMockSystem()
+  const accountStore = getAccountStore()
+  const merchantStoreProfiles = accountStore.merchantAccounts.flatMap((account) =>
+    account.profile.stores.map((store) => ({
+      username: account.username,
+      store,
+    })),
+  )
+  const merchants = merchantStoreProfiles.map((entry) => entry.store.merchant)
+  const products = merchantStoreProfiles.flatMap((entry) => entry.store.products)
   const [activeTab, setActiveTab] = useState<CustomerTab>('home')
   const [selectedMerchantId, setSelectedMerchantId] = useState<MerchantId>(merchants[0]?.id ?? '')
   const [cartLines, setCartLines] = useState<CartLine[]>([])
@@ -41,14 +49,8 @@ export default function CustomerPortal() {
   const [rechargeAmountInput, setRechargeAmountInput] = useState('')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
 
-  const selectedMerchant = useMemo(
-    () => merchants.find((merchant) => merchant.id === selectedMerchantId) ?? null,
-    [selectedMerchantId],
-  )
-  const selectedMerchantProducts = useMemo(
-    () => products.filter((product) => product.merchantId === selectedMerchantId),
-    [selectedMerchantId],
-  )
+  const selectedMerchant = merchants.find((merchant) => merchant.id === selectedMerchantId) ?? null
+  const selectedMerchantProducts = products.filter((product) => product.merchantId === selectedMerchantId)
   const cartGroupedByMerchant = useMemo(() => {
     const grouped: Record<string, CartLine[]> = {}
     for (const line of cartLines) {
@@ -60,12 +62,10 @@ export default function CustomerPortal() {
     return grouped
   }, [cartLines])
 
-  const cartTotal = useMemo(() => {
-    return cartLines.reduce((sum, line) => {
-      const product = products.find((item) => item.id === line.productId)
-      return sum + (product ? product.price * line.quantity : 0)
-    }, 0)
-  }, [cartLines])
+  const cartTotal = cartLines.reduce((sum, line) => {
+    const product = products.find((item) => item.id === line.productId)
+    return sum + (product ? product.price * line.quantity : 0)
+  }, 0)
 
   const syncCustomerProfile = (nextWalletBalance: number, nextPendingOrders: Order[], nextHistoryOrders: Order[]) => {
     if (!session) {
@@ -154,6 +154,26 @@ export default function CustomerPortal() {
 
     const nextWalletBalance = walletBalance - cartTotal
     const nextPendingOrders = [...createdOrders, ...pendingOrders]
+
+    createdOrders.forEach((order) => {
+      const targetMerchantProfile = merchantStoreProfiles.find((entry) => entry.store.merchant.id === order.merchantId)
+      if (!targetMerchantProfile) {
+        return
+      }
+
+      updateMerchantAccountProfile(targetMerchantProfile.username, (profile) => ({
+        ...profile,
+        stores: profile.stores.map((store) =>
+          store.merchant.id === order.merchantId
+            ? {
+                ...store,
+                pendingOrders: [order, ...store.pendingOrders],
+              }
+            : store,
+        ),
+      }))
+    })
+
     setWalletBalance(nextWalletBalance)
     setPendingOrders(nextPendingOrders)
     setCartLines([])

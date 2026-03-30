@@ -78,6 +78,39 @@ function splitOrdersByHistory(sourceOrders: Order[]) {
   return { pending, history }
 }
 
+function normalizeProduct(product: Product): Product {
+  const inventoryCount =
+    typeof product.inventoryCount === 'number' && Number.isFinite(product.inventoryCount)
+      ? product.inventoryCount
+      : product.inventoryStatus === '售罄'
+        ? 0
+        : product.inventoryStatus === '紧张'
+          ? 8
+          : 24
+
+  return {
+    ...product,
+    inventoryCount,
+    shelfStatus: product.shelfStatus ?? '上架',
+  }
+}
+
+function normalizeAccountStore(store: AccountStore): AccountStore {
+  return {
+    ...store,
+    merchantAccounts: store.merchantAccounts.map((account) => ({
+      ...account,
+      profile: {
+        ...account.profile,
+        stores: account.profile.stores.map((storeItem) => ({
+          ...storeItem,
+          products: storeItem.products.map(normalizeProduct),
+        })),
+      },
+    })),
+  }
+}
+
 function buildSeedStore(): AccountStore {
   const customerAccounts: CustomerAccount[] = customers.map((customer, index) => {
     const relatedOrders = orders.filter((order) => order.customerId === customer.id)
@@ -183,7 +216,11 @@ export function getAccountStore(): AccountStore {
   try {
     const parsed: unknown = JSON.parse(raw)
     if (isAccountStore(parsed)) {
-      return parsed
+      const normalized = normalizeAccountStore(parsed)
+      if (JSON.stringify(normalized) !== JSON.stringify(parsed)) {
+        saveStore(normalized)
+      }
+      return normalized
     }
   } catch {
     // fall through to reseed

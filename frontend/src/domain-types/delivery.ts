@@ -17,6 +17,7 @@ export type RiderStatus = '空闲' | '接单' | '配送中'
 export type ServiceChannel = '在线' | '电话'
 
 export type OrderStatus = '待接单' | '制作中' | '配送中' | '已完成' | '已取消'
+export type ProductShelfStatus = '上架' | '下架'
 
 export interface Voucher {
   id: VoucherId
@@ -45,7 +46,9 @@ export interface Product {
   description: string
   imageUrl: string
   monthlySales: number
+  inventoryCount: number
   inventoryStatus: '充足' | '紧张' | '售罄'
+  shelfStatus: ProductShelfStatus
   discountText?: string
 }
 

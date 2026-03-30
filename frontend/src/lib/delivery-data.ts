@@ -64,7 +64,9 @@ export const products: Product[] = [
     description: '经典川味，微辣。',
     imageUrl: 'https://picsum.photos/200/120?food-1',
     monthlySales: 768,
+    inventoryCount: 36,
     inventoryStatus: '充足',
+    shelfStatus: '上架',
     discountText: '会员价 25.5',
   },
   {
@@ -75,7 +77,9 @@ export const products: Product[] = [
     description: '慢炖牛腩，配时蔬。',
     imageUrl: 'https://picsum.photos/200/120?food-2',
     monthlySales: 514,
+    inventoryCount: 8,
     inventoryStatus: '紧张',
+    shelfStatus: '上架',
   },
   {
     id: 'p-3003',
@@ -85,7 +89,9 @@ export const products: Product[] = [
     description: '芒果+西米+西柚，冰爽口感。',
     imageUrl: 'https://picsum.photos/200/120?drink-1',
     monthlySales: 903,
+    inventoryCount: 24,
     inventoryStatus: '充足',
+    shelfStatus: '下架',
     discountText: '第二杯半价',
   },
 ]
