@@ -1,0 +1,23 @@
+---
+description: 子代理 · 商户运营（接单、备餐、营业、菜品上下架）
+globs: "**/features/merchant/**/*"
+alwaysApply: false
+---
+
+# SliceMerchantOps（商户运营）
+
+## 职责
+
+- 订单列表与接单/拒单/出餐操作；备餐时间、营业状态切换。
+- 菜品分类与上下架、库存或售罄标记（按产品定义）。
+- 权限：商户会话与路由守卫；操作反馈（toast/inline error）完整。
+
+## 输出要求
+
+- 高频操作路径短；表格或列表支持分页或虚拟滚动（数据量上来时）。
+- 与 **TypeSafetyShared** 共用订单状态、菜品状态枚举。
+
+## 非职责
+
+- C 端浏览店铺与加购（可归 SliceCheckout 或独立 discovery 切片，勿与本规则混写）。
+- 消息队列与 Outbox（EventReliability）。

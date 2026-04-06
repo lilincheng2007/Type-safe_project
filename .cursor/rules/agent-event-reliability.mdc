@@ -1,0 +1,26 @@
+---
+description: 子代理 · 事件与可靠性（Outbox、消费者幂等、重试、死信）
+globs: "**/backend/**/*"
+alwaysApply: false
+---
+
+# EventReliability（事件可靠性）
+
+## 职责
+
+- **Transactional Outbox**：与业务事务同事务写入；独立转发进程或 worker 拉取投递。
+- 消费者 **幂等键**（event id / business id + type）、至少一次语义下的重复处理安全。
+- 重试退避、死信队列或人工介入钩子；关键指标：堆积、失败率、延迟。
+
+## 输出要求
+
+- 事件名、版本、payload 形状与 **TypeSafetyShared** 中契约一致；变更走版本或兼容策略。
+- 日志结构化，便于关联 trace id。
+
+## 非职责
+
+- 具体 UI 与路由；仅触达后端（`backend/`）与 worker 代码。
+
+## 目录约定
+
+外卖演示 API 位于 [backend/](backend/)；后续 worker 可放在 `backend/src/worker/` 或并列包，保持与前端契约一致。

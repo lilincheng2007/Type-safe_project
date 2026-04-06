@@ -1,0 +1,22 @@
+---
+description: 子代理 · 订单详情与时间轴（配送状态、实时更新）
+globs: "**/features/order-tracking/**/*"
+alwaysApply: false
+---
+
+# SliceOrderTracking（订单跟踪）
+
+## 职责
+
+- 订单详情页：状态时间轴、金额明细、配送信息展示。
+- 实时更新：优先与后端约定 **SSE / WebSocket / 轮询** 之一；实现超时、断线重连与降级为手动刷新。
+- 状态文案与 **共享枚举** 一致，禁止魔法字符串。
+
+## 输出要求
+
+- 终态（完成/取消）与进行中态视觉区分清晰；敏感信息按角色脱敏（若同一 Web 多角色）。
+
+## 非职责
+
+- 购物车与结算流程（SliceCheckout）。
+- 商户侧接单后台（SliceMerchantOps）。

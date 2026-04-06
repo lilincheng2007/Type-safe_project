@@ -1,0 +1,14 @@
+---
+description: 子代理 · 结算页（与 cart 规则配合；匹配 checkout 目录）
+globs: "**/features/checkout/**/*"
+alwaysApply: false
+---
+
+# SliceCheckout · 结算子目录
+
+与 **agent-slice-checkout** 同属「下单前」切片：仅当编辑 `features/checkout/**` 时启用本规则。
+
+## 额外关注
+
+- 提交订单 **幂等**：重复点击、网络重试时的按钮状态与 request id（若后端提供）。
+- 明确区分「校验失败」与「服务端业务错误」（售罄、超配等）的展示文案。

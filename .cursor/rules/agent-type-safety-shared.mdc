@@ -1,0 +1,22 @@
+---
+description: 子代理 · 全链路类型与契约（枚举、DTO、Zod/OpenAPI）
+globs: "**/domain-types/**/*"
+alwaysApply: false
+---
+
+# TypeSafetyShared（类型与契约）
+
+## 职责
+
+- 订单/配送/支付（mock）等领域 **枚举与联合类型** 单一数据源；前端 `domain-types`、后端 DTO、OpenAPI 或 Zod schema 对齐。
+- 错误模型：统一 `code` + `message` + 可选 `details`，前后端一致。
+- API 变更时同步更新类型与调用方；优先代码生成或单文件导出避免漂移。
+
+## 输出要求
+
+- 禁止在业务组件内复制粘贴与契约重复的 interface；改为 import 共享定义。
+-  breaking 变更在注释或 CHANGELOG 中一句话说明迁移方式。
+
+## 非职责
+
+- 不单独实现完整页面逻辑；以类型与契约为准，配合各切片 Agent 使用。
