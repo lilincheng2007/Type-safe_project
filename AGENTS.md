@@ -7,14 +7,14 @@
 | 路径 | 说明 |
 |------|------|
 | [frontend/](frontend/) | Vite + React，**仅通过 HTTP 调用** `backend` API；业务状态不在浏览器内伪造持久化。 |
-| [backend/](backend/) | TypeScript + Hono，默认端口 **8787**；内存种子数据 + JWT 鉴权。 |
-| [backend-scala-sample/](backend-scala-sample/) | 原模版的 Scala/http4s 示例，**与外卖 TS API 无关**。 |
+| [backend/](backend/) | **Scala 3 + http4s + Circe**，默认端口 **8787**（可用环境变量 `PORT`）；内存种子数据 + JWT（`JWT_SECRET` 可选，默认与旧 Node 演示一致）。 |
+| [backend-scala-sample/](backend-scala-sample/) | 原模版的 Scala/http4s + PostgreSQL 示例，**与当前外卖 API 独立**，仅供对照。 |
 | [模版/](模版/) | 迁移后仅余占位文件时可忽略或清理。 |
 
 ## 本地启动
 
 1. 安装根目录脚本依赖（可选，用于一条命令双端）：在仓库根执行 `npm install`。
-2. 终端一：`cd backend && npm install && npm run dev`
+2. 终端一：`cd backend && sbt run`（需本机已装 [sbt](https://www.scala-sbt.org/) 与 JDK）
 3. 终端二：`cd frontend && npm install && npm run dev`（Vite 已将 `/api` 代理到 `http://localhost:8787`，见 [frontend/vite.config.ts](frontend/vite.config.ts) 与 [frontend/.env.development](frontend/.env.development)）。
 4. 或使用根目录：`npm run dev`（需已 `npm install`）。
 
@@ -34,7 +34,7 @@
 | **SliceOrderTracking** | `agent-slice-order-tracking.mdc` | 订单详情、时间轴、配送状态、实时更新策略 |
 | **SliceMerchantOps** | `agent-slice-merchant-ops.mdc` | 商户接单、备餐时间、营业状态、菜品上下架 |
 | **EventReliability** | `agent-event-reliability.mdc` | Outbox、消费者幂等、重试、死信（**代码在 `backend/`**） |
-| **TypeSafetyShared** | `agent-type-safety-shared.mdc` | 共享枚举/DTO、前后端契约对齐（含 [frontend/src/domain-types/](frontend/src/domain-types/) 与后端 `backend/src/types.ts`） |
+| **TypeSafetyShared** | `agent-type-safety-shared.mdc` | 共享枚举/DTO、前后端契约对齐（含 [frontend/src/domain-types/](frontend/src/domain-types/) 与后端 `backend/src/main/scala/delivery/model/`） |
 
 ## 推荐对话起手式
 
