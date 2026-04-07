@@ -144,7 +144,7 @@ export default function DeliveryDashboard() {
   return (
     <DeliveryPageShell
       title="外卖平台 - 业务总览"
-      description="基于图书馆系统模版重构为外卖平台，覆盖顾客、商家、骑手、运营经理和客服等核心角色。"
+      description="演示型外卖平台总览：覆盖顾客、商家、骑手与平台运营等核心角色。"
     >
       <FloatingPageTools events={pageEvents} onEventSelect={(event) => openMockDialog(event.dialog)} />
 

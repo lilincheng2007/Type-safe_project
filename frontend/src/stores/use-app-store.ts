@@ -25,7 +25,7 @@ export const useAppStore = create<AppStore>()(
         })),
     }),
     {
-      name: 'frontend-sample-template',
+      name: 'delivery-demo-ui',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         theme: state.theme,
