@@ -1,4 +1,4 @@
-import type { UserRole } from '@/domain-types'
+import type { UserRole } from '@/delivery/model'
 
 export interface AuthSession {
   token: string

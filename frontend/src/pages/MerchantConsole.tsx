@@ -9,13 +9,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { MerchantAccountPublic, MerchantStoreProfile } from '@/domain-types/accounts'
-import { fetchMe } from '@/lib/api/authApi'
-import { createMerchantStoreApi } from '@/lib/api/deliveryApi'
-import { useMockSystem } from '@/hooks/useMockSystem'
-
-const pageName = '商家端后台'
-const route = '/delivery/merchant'
+import type { MerchantAccountPublic } from '@/delivery/model/accounts'
+import type { MerchantStoreProfile } from '@/delivery/model/profiles'
+import { createMerchantStoreIO, fetchMeIO, runTask } from '@/api'
+import { useAppChrome } from '@/hooks/useAppChrome'
 
 type MerchantTab = 'products' | 'orders' | 'profile'
 
@@ -24,7 +21,7 @@ function isMerchantTab(value: string): value is MerchantTab {
 }
 
 export default function MerchantConsole() {
-  const { openMockDialog, showNotice } = useMockSystem()
+  const { showNotice } = useAppChrome()
   const [bootstrapDone, setBootstrapDone] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [merchantAccount, setMerchantAccount] = useState<MerchantAccountPublic | null>(null)
@@ -36,7 +33,7 @@ export default function MerchantConsole() {
   const [stores, setStores] = useState<MerchantStoreProfile[]>([])
 
   const refreshMerchant = useCallback(async () => {
-    const me = await fetchMe()
+    const me = await runTask(fetchMeIO())
     if (me.role === 'merchant' && me.merchantAccount) {
       setMerchantAccount(me.merchantAccount)
       setStores(me.merchantAccount.profile.stores)
@@ -119,7 +116,7 @@ export default function MerchantConsole() {
     }
 
     try {
-      const created = await createMerchantStoreApi({ storeName: trimmedName, address: trimmedAddress })
+      const created = await runTask(createMerchantStoreIO({ storeName: trimmedName, address: trimmedAddress }))
       await refreshMerchant()
       setSelectedStoreId(created.merchantId)
       setNewStoreName('')
@@ -215,63 +212,13 @@ export default function MerchantConsole() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() =>
-                              openMockDialog({
-                                pageName,
-                                route,
-                                componentName: `${product.name}-编辑`,
-                                interactionName: '编辑商品',
-                                title: `选择「${product.name}」编辑结果`,
-                                description: '模拟商家编辑商品价格或描述后的结果。',
-                                options: [
-                                  {
-                                    id: 'edit-success',
-                                    title: '编辑成功',
-                                    description: '商品信息已更新并同步到顾客端。',
-                                    badge: 'success',
-                                    noticeMessage: '商品已更新。',
-                                  },
-                                  {
-                                    id: 'edit-invalid',
-                                    title: '参数校验失败',
-                                    description: '价格或描述不符合平台规范。',
-                                    badge: 'warning',
-                                  },
-                                ],
-                                onSelect: () => undefined,
-                              })
-                            }
+                            onClick={() => showNotice('商品编辑由后端 API 提供后再接线。', 'info')}
                           >
                             编辑
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() =>
-                              openMockDialog({
-                                pageName,
-                                route,
-                                componentName: `${product.name}-上下架`,
-                                interactionName: '商品上下架',
-                                title: `选择「${product.name}」上下架结果`,
-                                description: '模拟商品上架/下架后的状态变化。',
-                                options: [
-                                  {
-                                    id: 'on-shelf',
-                                    title: '上架成功',
-                                    description: '顾客端可立即检索到该商品。',
-                                    badge: 'success',
-                                    noticeMessage: '商品已上架。',
-                                  },
-                                  {
-                                    id: 'off-shelf',
-                                    title: '下架成功',
-                                    description: '商品已从顾客端隐藏。',
-                                    badge: 'info',
-                                  },
-                                ],
-                                onSelect: () => undefined,
-                              })
-                            }
+                            onClick={() => showNotice('商品上下架由后端 API 提供后再接线。', 'info')}
                           >
                             上/下架
                           </Button>
@@ -313,36 +260,15 @@ export default function MerchantConsole() {
                       <div className="mt-3 flex gap-2">
                         <Button
                           size="sm"
-                          onClick={() =>
-                            openMockDialog({
-                              pageName,
-                              route,
-                              componentName: `订单-${order.id}-接单`,
-                              interactionName: '商家接单',
-                              title: `选择订单 ${order.id} 接单结果`,
-                              description: '模拟商家接单时的库存与容量校验。',
-                              options: [
-                                {
-                                  id: 'accept-order',
-                                  title: '接单成功',
-                                  description: '订单进入制作中状态。',
-                                  badge: 'success',
-                                  noticeMessage: '订单已接单。',
-                                },
-                                {
-                                  id: 'reject-order',
-                                  title: '拒单',
-                                  description: '商家繁忙，订单取消并退款。',
-                                  badge: 'warning',
-                                },
-                              ],
-                              onSelect: () => undefined,
-                            })
-                          }
+                          onClick={() => showNotice('商家接单由后端 API 提供后再接线。', 'info')}
                         >
                           接单
                         </Button>
-                        <Button size="sm" variant="outline">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => showNotice('出餐完成由后端 API 提供后再接线。', 'info')}
+                        >
                           出餐完成
                         </Button>
                       </div>

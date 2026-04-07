@@ -5,14 +5,12 @@ import { DeliveryPageShell } from '@/components/DeliveryPageShell'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useMockSystem } from '@/hooks/useMockSystem'
-import { fetchPlatformMeta, type PlatformMetaResponse } from '@/lib/api/deliveryApi'
-
-const pageName = '平台管理后台'
-const route = '/delivery/admin'
+import { useAppChrome } from '@/hooks/useAppChrome'
+import type { PlatformMetaResponse } from '@/delivery/model/api'
+import { fetchPlatformMetaIO, runTask } from '@/api'
 
 export default function PlatformAdmin() {
-  const { openMockDialog } = useMockSystem()
+  const { showNotice } = useAppChrome()
   const [meta, setMeta] = useState<PlatformMetaResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -20,7 +18,7 @@ export default function PlatformAdmin() {
     let cancelled = false
     ;(async () => {
       try {
-        const data = await fetchPlatformMeta()
+        const data = await runTask(fetchPlatformMetaIO())
         if (!cancelled) setMeta(data)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : '加载失败')
@@ -66,64 +64,14 @@ export default function PlatformAdmin() {
           </CardHeader>
           <CardContent className="space-y-3">
             <Button
-              onClick={() =>
-                openMockDialog({
-                  pageName,
-                  route,
-                  componentName: '商家入驻审核',
-                  interactionName: '审核新商家',
-                  title: '选择商家入驻审核结果',
-                  description: '模拟运营经理对入驻申请的审核流程。',
-                  options: [
-                    {
-                      id: 'merchant-approved',
-                      title: '审核通过',
-                      description: '新商家入驻成功并进入待配置状态。',
-                      badge: 'success',
-                      noticeMessage: '商家已通过审核。',
-                    },
-                    {
-                      id: 'merchant-rejected',
-                      title: '审核拒绝',
-                      description: '资料不完整或经营资质不合规。',
-                      badge: 'warning',
-                    },
-                  ],
-                  onSelect: () => undefined,
-                })
-              }
+              onClick={() => showNotice('商家入驻审核由后端 API 提供后再接线。', 'info')}
             >
               <Handshake className="size-4" />
               审核入驻申请
             </Button>
             <Button
               variant="outline"
-              onClick={() =>
-                openMockDialog({
-                  pageName,
-                  route,
-                  componentName: '发放优惠活动',
-                  interactionName: '运营活动发放',
-                  title: '选择活动发放结果',
-                  description: '模拟运营经理发放优惠活动给指定用户或商家。',
-                  options: [
-                    {
-                      id: 'campaign-publish-success',
-                      title: '发放成功',
-                      description: '活动已下发到目标用户。',
-                      badge: 'success',
-                      noticeMessage: '优惠活动已发放。',
-                    },
-                    {
-                      id: 'campaign-publish-failed',
-                      title: '发放失败',
-                      description: '活动条件配置错误，未通过校验。',
-                      badge: 'error',
-                    },
-                  ],
-                  onSelect: () => undefined,
-                })
-              }
+              onClick={() => showNotice('活动发放由后端 API 提供后再接线。', 'info')}
             >
               <Megaphone className="size-4" />
               发放活动
@@ -145,38 +93,7 @@ export default function PlatformAdmin() {
           </CardHeader>
           <CardContent className="space-y-3">
             <Button
-              onClick={() =>
-                openMockDialog({
-                  pageName,
-                  route,
-                  componentName: '处理投诉',
-                  interactionName: '客服工单处理',
-                  title: '选择投诉处理结果',
-                  description: '模拟客服处理投诉后对订单或骑手的影响。',
-                  options: [
-                    {
-                      id: 'ticket-resolved',
-                      title: '投诉已解决',
-                      description: '工单关闭并完成用户回访。',
-                      badge: 'success',
-                      noticeMessage: '投诉已处理完成。',
-                    },
-                    {
-                      id: 'cancel-order',
-                      title: '取消订单并退款',
-                      description: '根据投诉严重程度取消订单。',
-                      badge: 'warning',
-                    },
-                    {
-                      id: 'deduct-rider-salary',
-                      title: '扣除骑手薪资',
-                      description: '违规配送触发骑手扣款流程。',
-                      badge: 'warning',
-                    },
-                  ],
-                  onSelect: () => undefined,
-                })
-              }
+              onClick={() => showNotice('投诉工单处理由后端 API 提供后再接线。', 'info')}
             >
               处理咨询 / 投诉
             </Button>

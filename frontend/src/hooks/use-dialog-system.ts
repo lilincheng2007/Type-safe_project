@@ -1,10 +1,9 @@
-import { useMockSystem } from '@/hooks/useMockSystem'
+import { useAppChrome } from '@/hooks/useAppChrome'
 
 export function useDialogSystem() {
-  const { openMockDialog, openFeedbackDialog, showNotice } = useMockSystem()
+  const { openFeedbackDialog, showNotice } = useAppChrome()
 
   return {
-    openDialog: openMockDialog,
     openFeedbackDialog,
     showNotice,
   }

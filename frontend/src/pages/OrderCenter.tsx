@@ -5,16 +5,14 @@ import { DeliveryPageShell } from '@/components/DeliveryPageShell'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useMockSystem } from '@/hooks/useMockSystem'
-import { fetchOrdersPanel, type OrdersPanelResponse } from '@/lib/api/deliveryApi'
-
-const pageName = '订单中心'
-const route = '/delivery/orders'
+import { useAppChrome } from '@/hooks/useAppChrome'
+import type { OrdersPanelResponse } from '@/delivery/model/api'
+import { fetchOrdersPanelIO, runTask } from '@/api'
 
 const statusFlow = ['待接单', '制作中', '配送中', '已完成'] as const
 
 export default function OrderCenter() {
-  const { openMockDialog } = useMockSystem()
+  const { showNotice } = useAppChrome()
   const [panel, setPanel] = useState<OrdersPanelResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,7 +20,7 @@ export default function OrderCenter() {
     let cancelled = false
     ;(async () => {
       try {
-        const data = await fetchOrdersPanel()
+        const data = await runTask(fetchOrdersPanelIO())
         if (!cancelled) setPanel(data)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : '加载失败')
@@ -77,40 +75,7 @@ export default function OrderCenter() {
           <p className="text-sm text-slate-700">
             当前可调度骑手：{riders.filter((item) => item.status !== '配送中').length} / {riders.length}
           </p>
-          <Button
-            onClick={() =>
-              openMockDialog({
-                pageName,
-                route,
-                componentName: '执行派单',
-                interactionName: '自动派单',
-                title: '选择自动派单结果',
-                description: '模拟订单中心执行基础派单逻辑后的结果。',
-                options: [
-                  {
-                    id: 'dispatch-success',
-                    title: '派单成功',
-                    description: '已通知附近 3 位骑手参与抢单。',
-                    badge: 'success',
-                    noticeMessage: '派单成功，等待骑手确认。',
-                  },
-                  {
-                    id: 'dispatch-timeout',
-                    title: '抢单超时',
-                    description: '附近骑手未响应，进入二次派单。',
-                    badge: 'warning',
-                  },
-                  {
-                    id: 'dispatch-failed',
-                    title: '派单失败',
-                    description: '调度服务异常，需人工介入。',
-                    badge: 'error',
-                  },
-                ],
-                onSelect: () => undefined,
-              })
-            }
-          >
+          <Button onClick={() => showNotice('自动派单由后端 API 提供后再接线。', 'info')}>
             执行派单
           </Button>
         </CardContent>
@@ -137,32 +102,7 @@ export default function OrderCenter() {
                 size="sm"
                 variant="outline"
                 className="mt-3"
-                onClick={() =>
-                  openMockDialog({
-                    pageName,
-                    route,
-                    componentName: `订单-${order.id}`,
-                    interactionName: '手动推进状态',
-                    title: `选择订单 ${order.id} 的状态推进结果`,
-                    description: '模拟订单中心手动推进订单状态。',
-                    options: [
-                      {
-                        id: 'status-next',
-                        title: '推进到下一状态',
-                        description: '订单按标准链路推进。',
-                        badge: 'success',
-                        noticeMessage: '订单状态已更新。',
-                      },
-                      {
-                        id: 'status-cancel',
-                        title: '取消订单',
-                        description: '订单被客服或系统取消。',
-                        badge: 'warning',
-                      },
-                    ],
-                    onSelect: () => undefined,
-                  })
-                }
+                onClick={() => showNotice('订单状态推进由后端 API 提供后再接线。', 'info')}
               >
                 <Route className="size-4" />
                 推进状态

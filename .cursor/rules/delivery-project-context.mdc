@@ -5,16 +5,16 @@ alwaysApply: true
 
 # 外卖 Web（方案三）
 
-- **架构取向**：少量后端服务 + 域事件解耦（订单相关事件）；首版仅 **Web**。
+- **架构取向**：用户 / 订单 / 商户 / 骑手 / 管理员 **分服务** + 网关；每服务 **独立 PostgreSQL 库**；首版仅 **Web**。
 - **前端**：[frontend/](frontend/)（Vite + React）；**只调 API**，不写浏览器内「伪后端」持久化。
-- **后端（Scala）**：[backend/](backend/)（http4s + Circe + JWT + 内存种子）；开发端口默认 **8787**（`PORT` 可改），Vite 代理 `/api`。
+- **后端（Scala）**：[backend/](backend/) 多模块 `shared` + 各 `*-service` + `gateway`；本地 `sbt stack/run` 单进程起全栈；**对外 API 经网关 8787**，Vite 代理 `/api`。
 - **Scala 样本**：[backend-scala-sample/](backend-scala-sample/) 与当前外卖 API 独立，仅作参考。
 - **建议目录（前端新功能）**：
   - `frontend/src/features/cart/`、`…/checkout/`：购物车与结算（**SliceCheckout**）
   - `frontend/src/features/order-tracking/`：订单详情与时间轴（**SliceOrderTracking**）
   - `frontend/src/features/merchant/`：商户接单与菜品运营（**SliceMerchantOps**）
-  - `backend/src/main/scala/delivery/`：路由、store、后续 worker/outbox（**EventReliability**）
-  - `frontend/src/domain-types/` 与 `backend/src/main/scala/delivery/model/`：契约对齐（**TypeSafetyShared**）
+  - `backend/order-service/`、`backend/shared/`：订单域与 outbox 等（**EventReliability**）
+  - `frontend/src/delivery/model/`（`domain-types/` 仅重导出）与 `backend/shared/src/main/scala/delivery/model/`：契约对齐（**TypeSafetyShared**）
 
 ## 如何用「子代理」
 

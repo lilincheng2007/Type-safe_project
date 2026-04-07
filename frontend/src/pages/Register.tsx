@@ -8,9 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import type { UserRole } from '@/domain-types'
-import { registerApi } from '@/lib/api/authApi'
-import { useMockSystem } from '@/hooks/useMockSystem'
+import type { UserRole } from '@/delivery/model'
+import { registerIO, runTask } from '@/api'
+import { useAppChrome } from '@/hooks/useAppChrome'
 
 type RegisterRole = Exclude<UserRole, 'admin'>
 
@@ -26,7 +26,7 @@ function isRegisterRole(value: string): value is RegisterRole {
 
 export default function Register() {
   const navigate = useNavigate()
-  const { showNotice } = useMockSystem()
+  const { showNotice } = useAppChrome()
 
   const [role, setRole] = useState<RegisterRole>('customer')
   const [account, setAccount] = useState('')
@@ -49,7 +49,7 @@ export default function Register() {
     setIsSubmitting(true)
     setErrorMessage('')
     try {
-      await registerApi({ role, username: account.trim(), password: password.trim() })
+      await runTask(registerIO({ role, username: account.trim(), password: password.trim() }))
       showNotice('注册成功，请登录。', 'success')
       navigate('/auth/login')
     } catch (e) {

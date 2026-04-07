@@ -7,12 +7,10 @@ import { FloatingPageTools } from '@/components/FloatingPageTools'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useMockSystem } from '@/hooks/useMockSystem'
-import type { PageEventDefinition } from '@/lib/mock-types'
-import { fetchDeliveryOverview, type DeliveryOverviewResponse } from '@/lib/api/deliveryApi'
-
-const pageName = '外卖平台总览'
-const route = '/delivery/dashboard'
+import { useAppChrome } from '@/hooks/useAppChrome'
+import type { PageToolEvent } from '@/lib/mock-types'
+import type { DeliveryOverviewResponse } from '@/delivery/model/api'
+import { fetchDeliveryOverviewIO, runTask } from '@/api'
 
 const entries = [
   {
@@ -49,7 +47,7 @@ const entries = [
 
 export default function DeliveryDashboard() {
   const navigate = useNavigate()
-  const { openMockDialog, showNotice } = useMockSystem()
+  const { showNotice } = useAppChrome()
   const [overview, setOverview] = useState<DeliveryOverviewResponse | null>(null)
   const [overviewError, setOverviewError] = useState<string | null>(null)
 
@@ -57,7 +55,7 @@ export default function DeliveryDashboard() {
     let cancelled = false
     ;(async () => {
       try {
-        const data = await fetchDeliveryOverview()
+        const data = await runTask(fetchDeliveryOverviewIO())
         if (!cancelled) setOverview(data)
       } catch (e) {
         if (!cancelled) setOverviewError(e instanceof Error ? e.message : '加载失败')
@@ -74,70 +72,16 @@ export default function DeliveryDashboard() {
   const campaigns = overview?.campaigns ?? []
   const complaintTickets = overview?.complaintTickets ?? []
 
-  const pageEvents: PageEventDefinition[] = [
+  const pageEvents: PageToolEvent[] = [
     {
       id: 'push-status',
       label: '发送状态推送',
-      description: '模拟订单状态变更后触发短信/APP 消息推送。',
-      dialog: {
-        pageName,
-        route,
-        eventName: '发送状态推送',
-        interactionName: '消息推送服务',
-        title: '选择消息推送结果',
-        description: '模拟订单状态变化后平台发送通知的结果。',
-        options: [
-          {
-            id: 'push-success',
-            title: '推送成功',
-            description: '顾客、商家、骑手均收到状态更新。',
-            badge: 'success',
-            noticeMessage: '通知已送达目标用户。',
-          },
-          {
-            id: 'push-delay',
-            title: '推送延迟',
-            description: '部分用户通知延迟，系统稍后重试。',
-            badge: 'warning',
-          },
-          {
-            id: 'push-failed',
-            title: '推送失败',
-            description: '消息网关异常，触发告警。',
-            badge: 'error',
-          },
-        ],
-        onSelect: () => undefined,
-      },
+      description: '订单状态变更后的通知能力由后端消息服务与 API 提供。',
     },
     {
       id: 'daily-settlement',
       label: '日结对账',
-      description: '模拟平台对商家加盟费与骑手薪资进行日结。',
-      dialog: {
-        pageName,
-        route,
-        eventName: '日结对账',
-        interactionName: '财务结算任务',
-        title: '选择日结任务结果',
-        description: '模拟每日结算任务执行后的结果。',
-        options: [
-          {
-            id: 'settlement-success',
-            title: '结算成功',
-            description: '商家费用与骑手薪资已更新。',
-            badge: 'success',
-            noticeMessage: '日结任务完成。',
-          },
-          {
-            id: 'settlement-partial',
-            title: '部分失败',
-            description: '少量账单异常，已进入人工复核。',
-            badge: 'warning',
-          },
-        ],
-        onSelect: () => undefined,
-      },
+      description: '财务结算任务由后端批处理与 API 提供。',
     },
   ]
 
@@ -146,7 +90,10 @@ export default function DeliveryDashboard() {
       title="外卖平台 - 业务总览"
       description="演示型外卖平台总览：覆盖顾客、商家、骑手与平台运营等核心角色。"
     >
-      <FloatingPageTools events={pageEvents} onEventSelect={(event) => openMockDialog(event.dialog)} />
+      <FloatingPageTools
+        events={pageEvents}
+        onEventSelect={(event) => showNotice(`${event.label}：${event.description}`, 'info')}
+      />
 
       {overviewError ? (
         <Card className="border-rose-200 bg-rose-50/90">
@@ -230,36 +177,7 @@ export default function DeliveryDashboard() {
           ))}
           <Button
             variant="outline"
-            onClick={() =>
-              openMockDialog({
-                pageName,
-                route,
-                componentName: '新增活动',
-                interactionName: '运营活动创建',
-                title: '选择活动创建结果',
-                description: '模拟运营经理新增平台促销活动的后续结果。',
-                options: [
-                  {
-                    id: 'campaign-created',
-                    title: '创建成功',
-                    description: '活动已进入待发布状态。',
-                    badge: 'success',
-                    noticeMessage: '活动创建成功。',
-                  },
-                  {
-                    id: 'campaign-rejected',
-                    title: '审核驳回',
-                    description: '活动预算超过上限，需要重新提交。',
-                    badge: 'warning',
-                  },
-                ],
-                onSelect: (option) => {
-                  if (option.id === 'campaign-created') {
-                    showNotice('已创建新的促销活动草案。', 'success')
-                  }
-                },
-              })
-            }
+            onClick={() => showNotice('新增活动由后端 API 提供后再接线。', 'info')}
           >
             新增活动
           </Button>

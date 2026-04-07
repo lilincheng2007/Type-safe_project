@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react'
 import { Navigate } from 'react-router-dom'
 
-import type { UserRole } from '@/domain-types'
+import type { UserRole } from '@/delivery/model'
 import { getAuthSession, getDefaultRouteForRole } from '@/lib/auth-session'
 
 interface RoleRouteGuardProps {

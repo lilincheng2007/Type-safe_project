@@ -2,18 +2,15 @@ import { BellRing, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import type { MockResultOption, PageEventDefinition } from '@/lib/mock-types'
+import type { PageToolEvent } from '@/lib/mock-types'
 import { useAppStore } from '@/stores/use-app-store'
 
-interface FloatingPageToolsProps<TEventOption extends MockResultOption = MockResultOption> {
-  events: PageEventDefinition<TEventOption>[]
-  onEventSelect: (event: PageEventDefinition<TEventOption>) => void
+interface FloatingPageToolsProps {
+  events: PageToolEvent[]
+  onEventSelect: (event: PageToolEvent) => void
 }
 
-export function FloatingPageTools<TEventOption extends MockResultOption = MockResultOption>({
-  events,
-  onEventSelect,
-}: FloatingPageToolsProps<TEventOption>) {
+export function FloatingPageTools({ events, onEventSelect }: FloatingPageToolsProps) {
   const activeToolPanel = useAppStore((state) => state.activeToolPanel)
   const setActiveToolPanel = useAppStore((state) => state.setActiveToolPanel)
   const toggleToolPanel = useAppStore((state) => state.toggleToolPanel)

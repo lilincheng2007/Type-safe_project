@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import type { UserRole } from '@/domain-types'
+import type { UserRole } from '@/delivery/model'
 import { clearAuthSession, getAuthSession } from '@/lib/auth-session'
 import { cn } from '@/lib/utils'
 

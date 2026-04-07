@@ -56,6 +56,13 @@ export interface PageEventDefinition<
   dialog: MockDialogRequest<TOption>
 }
 
+/** 页面工具条事件（无模拟弹窗，仅展示说明，操作走后端 API） */
+export interface PageToolEvent {
+  id: string
+  label: string
+  description: string
+}
+
 export interface NoticeState {
   tone: NoticeTone
   message: string

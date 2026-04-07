@@ -8,8 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import type { UserRole } from '@/domain-types'
-import { loginApi } from '@/lib/api/authApi'
+import type { UserRole } from '@/delivery/model'
+import { loginIO, runTask } from '@/api'
 import { getDefaultRouteForRole, isUserRole, setAuthSession } from '@/lib/auth-session'
 
 const roleOptions: Array<{ value: UserRole; label: string }> = [
@@ -45,7 +45,7 @@ export default function Login() {
     setIsSubmitting(true)
     setErrorMessage('')
     try {
-      const data = await loginApi({ role, username: trimmedAccount, password: trimmedPassword })
+      const data = await runTask(loginIO({ role, username: trimmedAccount, password: trimmedPassword }))
       setAuthSession(data.token, data.username, data.role)
       navigate(getDefaultRouteForRole(data.role))
     } catch (e) {

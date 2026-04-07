@@ -9,11 +9,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { Merchant, MerchantId, Order, Product, ProductId } from '@/domain-types'
-import type { CustomerAccountPublic } from '@/domain-types/accounts'
-import { fetchMe } from '@/lib/api/authApi'
-import { checkoutApi, fetchCatalog, patchCustomerProfileApi } from '@/lib/api/deliveryApi'
-import { useMockSystem } from '@/hooks/useMockSystem'
+import type { CustomerAccountPublic } from '@/delivery/model/accounts'
+import type { Merchant, MerchantId, Order, Product, ProductId } from '@/delivery/model'
+import { checkoutIO, fetchCatalogIO, fetchMeIO, patchCustomerProfileIO, runTask } from '@/api'
+import { useAppChrome } from '@/hooks/useAppChrome'
 
 type CustomerTab = 'home' | 'cart' | 'profile'
 
@@ -28,7 +27,7 @@ function isCustomerTab(value: string): value is CustomerTab {
 }
 
 export default function CustomerPortal() {
-  const { openMockDialog, showNotice } = useMockSystem()
+  const { showNotice } = useAppChrome()
   const [bootstrapDone, setBootstrapDone] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [customerAccount, setCustomerAccount] = useState<CustomerAccountPublic | null>(null)
@@ -45,7 +44,7 @@ export default function CustomerPortal() {
     let cancelled = false
     ;(async () => {
       try {
-        const me = await fetchMe()
+        const me = await runTask(fetchMeIO())
         if (cancelled) return
         if (me.role === 'customer' && me.customerAccount) {
           setCustomerAccount(me.customerAccount)
@@ -55,7 +54,7 @@ export default function CustomerPortal() {
         } else {
           setCustomerAccount(null)
         }
-        const cat = await fetchCatalog()
+        const cat = await runTask(fetchCatalogIO())
         if (cancelled) return
         setMerchants(cat.merchants)
         setProducts(cat.products)
@@ -145,7 +144,7 @@ export default function CustomerPortal() {
     }
 
     try {
-      const data = await checkoutApi(cartLines)
+      const data = await runTask(checkoutIO(cartLines))
       const nextPending = [...data.orders, ...pendingOrders]
       setWalletBalance(data.walletBalance)
       setPendingOrders(nextPending)
@@ -169,58 +168,26 @@ export default function CustomerPortal() {
     }
   }
 
-  const handleRechargeConfirm = () => {
+  const handleRechargeConfirm = async () => {
     const amount = Number.parseFloat(rechargeAmountInput)
     if (!Number.isFinite(amount) || amount <= 0) {
       showNotice('请输入有效的充值金额。', 'error')
       return
     }
 
-    openMockDialog({
-      pageName: '顾客端 APP',
-      route: '/delivery/customer',
-      componentName: '确认充值',
-      interactionName: '充值结果模拟',
-      title: '选择充值结果',
-      description: `本次充值金额 ¥${amount.toFixed(2)}，请选择模拟结果。`,
-      options: [
-        {
-          id: 'recharge-success',
-          title: '充值成功',
-          description: '余额增加并关闭充值窗口。',
-          badge: 'success',
-        },
-        {
-          id: 'recharge-failed',
-          title: '充值失败',
-          description: '余额不变，提示稍后重试。',
-          badge: 'error',
-        },
-      ],
-      onSelect: async (option) => {
-        if (option.id === 'recharge-success') {
-          const nextWalletBalance = walletBalance + amount
-          try {
-            await patchCustomerProfileApi({ walletBalance: nextWalletBalance })
-            setWalletBalance(nextWalletBalance)
-            setCustomerAccount((prev) =>
-              prev
-                ? { ...prev, profile: { ...prev.profile, walletBalance: nextWalletBalance } }
-                : prev,
-            )
-            setRechargeAmountInput('')
-            setIsRechargeOpen(false)
-            showNotice(`充值成功，到账 ¥${amount.toFixed(2)}。`, 'success')
-          } catch (err) {
-            showNotice(err instanceof Error ? err.message : '充值同步失败', 'error')
-          }
-          return
-        }
-
-        setIsRechargeOpen(false)
-        showNotice('充值失败，请稍后重试。', 'error')
-      },
-    })
+    const nextWalletBalance = walletBalance + amount
+    try {
+      await runTask(patchCustomerProfileIO({ walletBalance: nextWalletBalance }))
+      setWalletBalance(nextWalletBalance)
+      setCustomerAccount((prev) =>
+        prev ? { ...prev, profile: { ...prev.profile, walletBalance: nextWalletBalance } } : prev,
+      )
+      setRechargeAmountInput('')
+      setIsRechargeOpen(false)
+      showNotice(`充值成功，到账 ¥${amount.toFixed(2)}。`, 'success')
+    } catch (err) {
+      showNotice(err instanceof Error ? err.message : '充值同步失败', 'error')
+    }
   }
 
   if (!bootstrapDone) {

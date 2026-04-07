@@ -5,15 +5,12 @@ import { DeliveryPageShell } from '@/components/DeliveryPageShell'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import type { RiderAccountPublic } from '@/domain-types/accounts'
-import { fetchMe } from '@/lib/api/authApi'
-import { useMockSystem } from '@/hooks/useMockSystem'
-
-const pageName = '骑手端 APP'
-const route = '/delivery/rider'
+import type { RiderAccountPublic } from '@/delivery/model/accounts'
+import { fetchRiderMeIO, runTask } from '@/api'
+import { useAppChrome } from '@/hooks/useAppChrome'
 
 export default function RiderApp() {
-  const { openMockDialog } = useMockSystem()
+  const { showNotice } = useAppChrome()
   const [bootstrapDone, setBootstrapDone] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [riderAccount, setRiderAccount] = useState<RiderAccountPublic | null>(null)
@@ -22,7 +19,7 @@ export default function RiderApp() {
     let cancelled = false
     ;(async () => {
       try {
-        const me = await fetchMe()
+        const me = await runTask(fetchRiderMeIO())
         if (cancelled) return
         if (me.role === 'rider' && me.riderAccount) {
           setRiderAccount(me.riderAccount)
@@ -122,34 +119,7 @@ export default function RiderApp() {
           <div className="rounded-xl border border-orange-100 p-4 text-sm text-slate-700">
             当前定位：{rider.realtimeLocation} · 所属站点：{rider.station}
           </div>
-          <Button
-            onClick={() =>
-              openMockDialog({
-                pageName,
-                route,
-                componentName: '抢单',
-                interactionName: '骑手抢单',
-                title: '选择抢单结果',
-                description: '模拟骑手参与抢单后的系统反馈。',
-                options: [
-                  {
-                    id: 'grab-success',
-                    title: '抢单成功',
-                    description: '订单分配给当前骑手。',
-                    badge: 'success',
-                    noticeMessage: '抢单成功，请尽快前往商家。',
-                  },
-                  {
-                    id: 'grab-failed',
-                    title: '抢单失败',
-                    description: '该订单已被其他骑手抢到。',
-                    badge: 'warning',
-                  },
-                ],
-                onSelect: () => undefined,
-              })
-            }
-          >
+          <Button onClick={() => showNotice('抢单由后端 API 提供后再接线。', 'info')}>
             参与抢单
           </Button>
         </CardContent>
@@ -174,65 +144,14 @@ export default function RiderApp() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() =>
-                    openMockDialog({
-                      pageName,
-                      route,
-                      componentName: `订单-${order.id}-导航`,
-                      interactionName: '第三方地图导航',
-                      title: `选择订单 ${order.id} 导航结果`,
-                      description: '模拟跳转第三方地图 App 进行导航。',
-                      options: [
-                        {
-                          id: 'nav-success',
-                          title: '导航启动成功',
-                          description: '已跳转到第三方地图并规划最优路线。',
-                          badge: 'success',
-                          noticeMessage: '导航已启动。',
-                        },
-                        {
-                          id: 'nav-failed',
-                          title: '导航启动失败',
-                          description: '未检测到地图应用，请改用网页导航。',
-                          badge: 'warning',
-                        },
-                      ],
-                      onSelect: () => undefined,
-                    })
-                  }
+                  onClick={() => showNotice('地图导航为端能力；与订单联动由后端 API 提供后再接线。', 'info')}
                 >
                   <Navigation className="size-4" />
                   去导航
                 </Button>
                 <Button
                   size="sm"
-                  onClick={() =>
-                    openMockDialog({
-                      pageName,
-                      route,
-                      componentName: `订单-${order.id}-状态`,
-                      interactionName: '更新配送状态',
-                      title: `选择订单 ${order.id} 状态更新`,
-                      description: '模拟骑手更新订单配送状态。',
-                      options: [
-                        {
-                          id: 'status-picking',
-                          title: '已取餐',
-                          description: '订单状态更新为配送中。',
-                          badge: 'success',
-                          noticeMessage: '已更新为配送中。',
-                        },
-                        {
-                          id: 'status-complete',
-                          title: '已送达',
-                          description: '订单完成并记录履约时间。',
-                          badge: 'success',
-                          noticeMessage: '订单已完成。',
-                        },
-                      ],
-                      onSelect: () => undefined,
-                    })
-                  }
+                  onClick={() => showNotice('配送状态更新由后端 API 提供后再接线。', 'info')}
                 >
                   <Route className="size-4" />
                   更新状态

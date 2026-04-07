@@ -7,23 +7,24 @@
 | 路径 | 说明 |
 |------|------|
 | [frontend/](frontend/) | Vite + React，**仅通过 HTTP 调用** `backend` API；业务状态不在浏览器内伪造持久化。 |
-| [backend/](backend/) | **Scala 3 + http4s + Circe**，默认端口 **8787**（可用环境变量 `PORT`）；内存种子数据 + JWT（`JWT_SECRET` 可选，默认与旧 Node 演示一致）。 |
+| [backend/](backend/) | **Scala 3 + http4s + Circe** 微服务：`user` / `order` / `merchant` / `rider` / `admin` + **网关**；**对外 API 经网关 `8787`**（`npm run dev:backend` 用 `stack/run` 单进程起全栈）。每服务独立 PostgreSQL 库（`delivery_user` 等），JSONB 快照 + JWT。 |
 | [backend-scala-sample/](backend-scala-sample/) | 原模版的 Scala/http4s + PostgreSQL 示例，**与当前外卖 API 独立**，仅供对照。 |
 | [模版/](模版/) | 迁移后仅余占位文件时可忽略或清理。 |
 
 ## 本地启动
 
-1. 安装根目录脚本依赖（可选，用于一条命令双端）：在仓库根执行 `npm install`。
-2. 终端一：`cd backend && sbt run`（需本机已装 [sbt](https://www.scala-sbt.org/) 与 JDK）
-3. 终端二：`cd frontend && npm install && npm run dev`（Vite 已将 `/api` 代理到 `http://localhost:8787`，见 [frontend/vite.config.ts](frontend/vite.config.ts) 与 [frontend/.env.development](frontend/.env.development)）。
-4. 或使用根目录：`npm run dev`（需已 `npm install`）。
+1. 安装根目录脚本依赖（可选）：在仓库根执行 `npm install`。
+2. PostgreSQL：可用 `docker compose -f backend/docker-compose.yml up -d`（默认用户/密码 `postgres`/`postgres`，与代码默认一致）；首次初始化会建库 `delivery_user`、`delivery_order` 等（见 [backend/docker/init-databases.sql](backend/docker/init-databases.sql)）。**若用本机已装的 Postgres**，请保证存在上述五个库，或通过环境变量覆盖连接：`DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`（默认 `postgres`/`postgres`）。若仍见 `role "db" does not exist`，说明曾用旧默认；请不要再使用用户 `db`，或显式 `export DB_USER=…` 指向你实例中的角色。
+3. 终端一：`cd backend && sbt run` 或 `sbt stack/run`（或根目录 `npm run dev:backend`）；单 JVM 起全栈并监听网关 **8787**。也可分别 `sbt userService/run` 等（端口 8782–8786 + 网关 8787）。
+4. 终端二：`cd frontend && npm install && npm run dev`（Vite 将 `/api` 代理到 `http://localhost:8787`）。
+5. 或根目录：`npm run dev`（需已 `npm install`）。
 
 演示账号（与种子数据一致）：`customer_demo` / `merchant_demo` / `rider_demo` / `admin`，密码均为 `123456`。
 
 ## 前端 API 层
 
-- [frontend/src/lib/api/client.ts](frontend/src/lib/api/client.ts)：带 `Authorization: Bearer` 的 `fetch` 封装。
-- [frontend/src/lib/api/authApi.ts](frontend/src/lib/api/authApi.ts)、[deliveryApi.ts](frontend/src/lib/api/deliveryApi.ts)：具体路由。
+- [frontend/src/api/client.ts](frontend/src/api/client.ts)：带 `Authorization: Bearer` 的 `fetch` 与 **`TaskIO`**；[frontend/src/api/services/](frontend/src/api/services/) 按 **user / order / merchant / admin / rider** 微服务拆分调用（路径常量 [gateway-paths.ts](frontend/src/api/gateway-paths.ts)）；入口 [frontend/src/api/index.ts](frontend/src/api/index.ts)。
+- 契约类型：[frontend/src/delivery/model/](frontend/src/delivery/model/)。`lib/api/*` 为兼容重导出（deprecated）。
 - 会话仅保存 JWT 与角色：[frontend/src/lib/auth-session.ts](frontend/src/lib/auth-session.ts)。
 
 ## 子代理分工
@@ -34,7 +35,7 @@
 | **SliceOrderTracking** | `agent-slice-order-tracking.mdc` | 订单详情、时间轴、配送状态、实时更新策略 |
 | **SliceMerchantOps** | `agent-slice-merchant-ops.mdc` | 商户接单、备餐时间、营业状态、菜品上下架 |
 | **EventReliability** | `agent-event-reliability.mdc` | Outbox、消费者幂等、重试、死信（**代码在 `backend/`**） |
-| **TypeSafetyShared** | `agent-type-safety-shared.mdc` | 共享枚举/DTO、前后端契约对齐（含 [frontend/src/domain-types/](frontend/src/domain-types/) 与后端 `backend/src/main/scala/delivery/model/`） |
+| **TypeSafetyShared** | `agent-type-safety-shared.mdc` | 共享枚举/DTO、前后端契约对齐（含 [frontend/src/delivery/model/](frontend/src/delivery/model/) 与 `backend/src/main/scala/delivery/model/`；`domain-types/` 为重导出） |
 
 ## 推荐对话起手式
 
