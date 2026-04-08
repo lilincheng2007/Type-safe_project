@@ -11,8 +11,12 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { CustomerAccountPublic } from '@/delivery/model/accounts'
 import type { Merchant, MerchantId, Order, Product, ProductId } from '@/delivery/model'
-import { checkoutIO, fetchCatalogIO, fetchMeIO, patchCustomerProfileIO, runTask } from '@/api'
 import { useAppChrome } from '@/hooks/useAppChrome'
+import { fetchCatalogIO } from '@/merchant/api/CatalogApi'
+import { checkoutIO } from '@/order/api/CheckoutApi'
+import { runTask } from '@/shared/http/client'
+import { fetchCustomerMeIO } from '@/user/api/CustomerMeApi'
+import { patchCustomerProfileIO } from '@/user/api/CustomerProfilePatchApi'
 
 type CustomerTab = 'home' | 'cart' | 'profile'
 
@@ -44,16 +48,12 @@ export default function CustomerPortal() {
     let cancelled = false
     ;(async () => {
       try {
-        const me = await runTask(fetchMeIO())
+        const me = await runTask(fetchCustomerMeIO())
         if (cancelled) return
-        if (me.role === 'customer' && me.customerAccount) {
-          setCustomerAccount(me.customerAccount)
-          setWalletBalance(me.customerAccount.profile.walletBalance)
-          setPendingOrders(me.customerAccount.profile.pendingOrders)
-          setHistoryOrders(me.customerAccount.profile.historyOrders)
-        } else {
-          setCustomerAccount(null)
-        }
+        setCustomerAccount(me.customerAccount)
+        setWalletBalance(me.customerAccount.profile.walletBalance)
+        setPendingOrders(me.customerAccount.profile.pendingOrders)
+        setHistoryOrders(me.customerAccount.profile.historyOrders)
         const cat = await runTask(fetchCatalogIO())
         if (cancelled) return
         setMerchants(cat.merchants)

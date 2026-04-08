@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { UserRole } from '@/delivery/model'
-import { loginIO, runTask } from '@/api'
+import { runTask } from '@/shared/http/client'
+import { loginIO } from '@/user/api/LoginApi'
 import { getDefaultRouteForRole, isUserRole, setAuthSession } from '@/lib/auth-session'
 
 const roleOptions: Array<{ value: UserRole; label: string }> = [

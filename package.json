@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev:backend\" \"npm run dev --prefix frontend\"",
-    "dev:backend": "cd backend && sbt -batch stack/run",
+    "dev:backend": "cd backend && sbt -batch run",
     "dev:frontend": "npm run dev --prefix frontend"
   },
   "devDependencies": {

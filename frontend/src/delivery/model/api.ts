@@ -1,110 +1,23 @@
-/**
- * 与后端 `ApiDto.scala` 中请求/响应 DTO 及路由 JSON 契约对齐。
- */
-
-import type {
-  AdminAccountPublic,
-  CustomerAccountPublic,
-  MerchantAccountPublic,
-  RiderAccountPublic,
-} from './accounts'
-import type { ComplaintTicket, CustomerServiceAgent, MerchantApplication, OperationsManager, PromotionCampaign } from './platform'
-import type { Merchant, Product } from './catalog'
-import type { UserRole } from './ids'
-import type { Order } from './order'
-import type { Rider } from './rider'
-import type { MerchantProfile } from './profiles'
-
-export interface LoginRequest {
-  role: string
-  username: string
-  password: string
-}
-
-export interface RegisterRequest {
-  role: string
-  username: string
-  password: string
-}
-
-export interface LoginResponse {
-  token: string
-  username: string
-  role: UserRole
-}
-
-export type MeResponse =
-  | { username: string; role: 'customer'; customerAccount: CustomerAccountPublic }
-  | { username: string; role: 'merchant'; merchantAccount: MerchantAccountPublic }
-  | { username: string; role: 'rider'; riderAccount: RiderAccountPublic }
-  | { username: string; role: 'admin'; adminAccount: AdminAccountPublic }
-
-export interface OkResponse {
-  ok: boolean
-}
-
-export interface CheckoutLine {
-  merchantId: string
-  productId: string
-  quantity: number
-}
-
-export interface CheckoutRequest {
-  lines: CheckoutLine[]
-}
-
-export interface CheckoutResponse {
-  orders: Order[]
-  walletBalance: number
-}
-
-export interface CustomerProfilePatchBody {
-  walletBalance?: number
-  defaultAddress?: string
-  name?: string
-  phone?: string
-}
-
-export interface MerchantProfileBody {
-  profile: MerchantProfile
-}
-
-export interface CreateStoreRequest {
-  storeName: string
-  address: string
-}
-
-export interface CreateStoreResponse {
-  ok: boolean
-  merchantId: string
-}
-
-export interface CatalogResponse {
-  merchants: Merchant[]
-  products: Product[]
-}
-
-export interface DeliveryOverviewResponse {
-  merchants: Merchant[]
-  orders: Order[]
-  riders: Rider[]
-  campaigns: PromotionCampaign[]
-  complaintTickets: ComplaintTicket[]
-}
-
-export interface OrdersPanelResponse {
-  orders: Order[]
-  riders: Rider[]
-}
-
-export interface PlatformMetaResponse {
-  campaigns: PromotionCampaign[]
-  complaintTickets: ComplaintTicket[]
-  merchantApplications: MerchantApplication[]
-  serviceAgents: CustomerServiceAgent[]
-  operationsManagers: OperationsManager[]
-}
-
-export interface ErrorBody {
-  error: string
-}
+export type { LoginRequest } from '@/user/objects/LoginRequest'
+export type { RegisterRequest } from '@/user/objects/RegisterRequest'
+export type { LoginResponse } from '@/user/objects/LoginResponse'
+export type { MeResponse } from '@/user/objects/MeResponse'
+export type { CustomerMeResponse } from '@/user/objects/CustomerMeResponse'
+export type { MerchantMeResponse } from '@/merchant/objects/MerchantMeResponse'
+export type { RiderMeResponse } from '@/rider/objects/RiderMeResponse'
+export type { AdminMeResponse } from '@/admin/objects/AdminMeResponse'
+export type { OkResponse } from '@/shared/objects/OkResponse'
+export type { HealthOk } from '@/shared/objects/HealthOk'
+export type { CheckoutLine } from '@/order/objects/CheckoutLine'
+export type { CheckoutRequest } from '@/order/objects/CheckoutRequest'
+export type { CheckoutResponse } from '@/order/objects/CheckoutResponse'
+export type { CustomerProfilePatch } from '@/user/objects/CustomerProfilePatch'
+export type { MerchantProfileBody } from '@/merchant/objects/MerchantProfileBody'
+export type { CreateStoreRequest } from '@/merchant/objects/CreateStoreRequest'
+export type { CreateStoreResponse } from '@/merchant/objects/CreateStoreResponse'
+export type { CatalogResponse } from '@/merchant/objects/CatalogResponse'
+export type { OverviewResponse } from '@/admin/objects/OverviewResponse'
+export type { OrdersPanelResponse } from '@/admin/objects/OrdersPanelResponse'
+export type { PlatformMetaResponse } from '@/admin/objects/PlatformMetaResponse'
+export type { ErrorBody } from '@/shared/objects/ErrorBody'
+export type { DeliveryState } from '@/shared/objects/DeliveryState'

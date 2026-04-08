@@ -11,7 +11,9 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { MerchantAccountPublic } from '@/delivery/model/accounts'
 import type { MerchantStoreProfile } from '@/delivery/model/profiles'
-import { createMerchantStoreIO, fetchMeIO, runTask } from '@/api'
+import { createMerchantStoreIO } from '@/merchant/api/MerchantStoreApi'
+import { fetchMerchantMeIO } from '@/merchant/api/MerchantMeApi'
+import { runTask } from '@/shared/http/client'
 import { useAppChrome } from '@/hooks/useAppChrome'
 
 type MerchantTab = 'products' | 'orders' | 'profile'
@@ -33,15 +35,10 @@ export default function MerchantConsole() {
   const [stores, setStores] = useState<MerchantStoreProfile[]>([])
 
   const refreshMerchant = useCallback(async () => {
-    const me = await runTask(fetchMeIO())
-    if (me.role === 'merchant' && me.merchantAccount) {
-      setMerchantAccount(me.merchantAccount)
-      setStores(me.merchantAccount.profile.stores)
-      return me.merchantAccount
-    }
-    setMerchantAccount(null)
-    setStores([])
-    return null
+    const me = await runTask(fetchMerchantMeIO())
+    setMerchantAccount(me.merchantAccount)
+    setStores(me.merchantAccount.profile.stores)
+    return me.merchantAccount
   }, [])
 
   useEffect(() => {

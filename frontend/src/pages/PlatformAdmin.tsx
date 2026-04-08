@@ -5,19 +5,24 @@ import { DeliveryPageShell } from '@/components/DeliveryPageShell'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { fetchAdminMeIO } from '@/admin/api/AdminMeApi'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import type { PlatformMetaResponse } from '@/delivery/model/api'
-import { fetchPlatformMetaIO, runTask } from '@/api'
+import { fetchPlatformMetaIO } from '@/admin/api/PlatformMetaApi'
+import { runTask } from '@/shared/http/client'
 
 export default function PlatformAdmin() {
   const { showNotice } = useAppChrome()
   const [meta, setMeta] = useState<PlatformMetaResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [adminName, setAdminName] = useState<string>('')
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
+        const me = await runTask(fetchAdminMeIO())
+        if (!cancelled) setAdminName(me.adminAccount.displayName)
         const data = await runTask(fetchPlatformMetaIO())
         if (!cancelled) setMeta(data)
       } catch (e) {
@@ -43,6 +48,11 @@ export default function PlatformAdmin() {
       description="包含运营经理后台、客服后台和基础管理能力：商家审核、活动发放、加盟费收取、投诉处理等。"
       roleBadge="管理后台"
     >
+      {adminName ? (
+        <Card className="border-orange-100 bg-white/95">
+          <CardContent className="p-4 text-sm text-slate-700">当前管理员：{adminName}</CardContent>
+        </Card>
+      ) : null}
       {error ? (
         <Card className="border-rose-200 bg-rose-50/90">
           <CardContent className="p-4 text-sm text-rose-800">{error}</CardContent>

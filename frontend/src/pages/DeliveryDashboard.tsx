@@ -7,10 +7,12 @@ import { FloatingPageTools } from '@/components/FloatingPageTools'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import type { ComplaintTicket, PromotionCampaign } from '@/delivery/model'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import type { PageToolEvent } from '@/lib/mock-types'
-import type { DeliveryOverviewResponse } from '@/delivery/model/api'
-import { fetchDeliveryOverviewIO, runTask } from '@/api'
+import type { OverviewResponse } from '@/delivery/model/api'
+import { fetchOverviewIO } from '@/admin/api/OverviewApi'
+import { runTask } from '@/shared/http/client'
 
 const entries = [
   {
@@ -48,14 +50,14 @@ const entries = [
 export default function DeliveryDashboard() {
   const navigate = useNavigate()
   const { showNotice } = useAppChrome()
-  const [overview, setOverview] = useState<DeliveryOverviewResponse | null>(null)
+  const [overview, setOverview] = useState<OverviewResponse | null>(null)
   const [overviewError, setOverviewError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
-        const data = await runTask(fetchDeliveryOverviewIO())
+        const data = await runTask(fetchOverviewIO())
         if (!cancelled) setOverview(data)
       } catch (e) {
         if (!cancelled) setOverviewError(e instanceof Error ? e.message : '加载失败')
@@ -123,7 +125,7 @@ export default function DeliveryDashboard() {
         <Card className="border-orange-100 bg-white/95 py-0">
           <CardHeader className="pb-2">
             <CardDescription>待处理投诉</CardDescription>
-            <CardTitle>{complaintTickets.filter((item) => item.status !== '已解决').length}</CardTitle>
+            <CardTitle>{complaintTickets.filter((item: ComplaintTicket) => item.status !== '已解决').length}</CardTitle>
           </CardHeader>
         </Card>
       </section>
@@ -163,7 +165,7 @@ export default function DeliveryDashboard() {
           <CardDescription>运营经理已规划的促销活动</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {campaigns.map((campaign) => (
+          {campaigns.map((campaign: PromotionCampaign) => (
             <div
               key={campaign.id}
               className="flex items-center justify-between rounded-xl border border-orange-100 px-4 py-3"

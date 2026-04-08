@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { RiderAccountPublic } from '@/delivery/model/accounts'
-import { fetchRiderMeIO, runTask } from '@/api'
+import { fetchRiderMeIO } from '@/rider/api/RiderMeApi'
+import { runTask } from '@/shared/http/client'
 import { useAppChrome } from '@/hooks/useAppChrome'
 
 export default function RiderApp() {
@@ -21,11 +22,7 @@ export default function RiderApp() {
       try {
         const me = await runTask(fetchRiderMeIO())
         if (cancelled) return
-        if (me.role === 'rider' && me.riderAccount) {
-          setRiderAccount(me.riderAccount)
-        } else {
-          setRiderAccount(null)
-        }
+        setRiderAccount(me.riderAccount)
       } catch (e) {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : '加载失败')
       } finally {
