@@ -3,8 +3,10 @@ import { NavLink, useNavigate } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { runTask } from '@/delivery/io/TaskIO'
 import type { UserRole } from '@/delivery/model'
-import { clearAuthSession, getAuthSession } from '@/lib/auth-session'
+import { clearAuthSessionIO } from '@/lib/auth-session'
+import { useAuthSession } from '@/hooks/useAuthSession'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
@@ -36,7 +38,7 @@ export function DeliveryPageShell({
   children,
 }: DeliveryPageShellProps) {
   const navigate = useNavigate()
-  const session = getAuthSession()
+  const session = useAuthSession()
   const currentRole: UserRole | null = session?.role ?? null
   const visibleNavItems = navItems.filter((item) => currentRole && item.roles.includes(currentRole))
 
@@ -57,8 +59,9 @@ export function DeliveryPageShell({
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  clearAuthSession()
-                  navigate('/auth/login')
+                  void runTask(clearAuthSessionIO()).then(() => {
+                    navigate('/auth/login')
+                  })
                 }}
               >
                 退出登录

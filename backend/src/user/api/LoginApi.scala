@@ -2,28 +2,18 @@ package delivery.user.api
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
-import delivery.auth.JwtSupport
-import delivery.http.support.AuthHttp
-import delivery.shared.json.ApiJsonCodecs.given
+import delivery.shared.api.ApiPlan
 import delivery.shared.objects.DeliveryState
 import delivery.user.objects.{LoginRequest, LoginResponse}
-import delivery.store.UserDomainOps
-import org.http4s.HttpRoutes
-import org.http4s.circe.CirceEntityCodec.given
-import org.http4s.dsl.io.*
+import delivery.user.service.UserService
 
-object LoginApi:
+object LoginApi extends ApiPlan[LoginApi.LoginCommand, Either[String, LoginResponse]]:
 
-  def routes(ref: Ref[IO, DeliveryState]): HttpRoutes[IO] = HttpRoutes.of[IO] {
-    case req @ POST -> Root / "api" / "auth" / "login" =>
-      for
-        body <- req.as[LoginRequest]
-        state <- ref.get
-        resp <- UserDomainOps.verifyLogin(state.user, body.role, body.username, body.password) match
-          case Left(msg) => AuthHttp.unauthorizedJson(msg)
-          case Right(()) =>
-            Ok(LoginResponse(JwtSupport.signToken(body.username, body.role), body.username, body.role))
-      yield resp
-  }
+  final case class LoginCommand(ref: Ref[IO, DeliveryState], body: LoginRequest)
+
+  override val name: String = "LoginApi"
+
+  override def plan(input: LoginApi.LoginCommand): IO[Either[String, LoginResponse]] =
+    UserService.login(input.ref, input.body)
 
 end LoginApi

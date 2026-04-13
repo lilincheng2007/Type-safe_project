@@ -1,2 +1,2 @@
-export type { OrderItem } from '@/order/objects/OrderItem'
-export type { Order } from '@/order/objects/Order'
+export type { OrderItem } from '@/objects/order/OrderItem'
+export type { Order } from '@/objects/order/Order'

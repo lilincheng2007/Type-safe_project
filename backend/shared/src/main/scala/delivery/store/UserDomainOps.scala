@@ -1,5 +1,6 @@
 package delivery.store
 
+import cats.effect.IO
 import delivery.model.*
 
 object UserDomainOps:
@@ -12,42 +13,44 @@ object UserDomainOps:
       case Some(_)                  => Right(())
 
   def registerCustomer(state: UserServiceState, username: String, password: String)
-      : Either[String, UserServiceState] =
+      : IO[Either[String, UserServiceState]] =
     if state.authCredentials.exists(c => c.role == "customer" && c.username == username) then
-      Left("该角色下账号已存在。")
+      IO.pure(Left("该角色下账号已存在。"))
     else
-      val newCustomer = Customer(
-        id = s"u-${System.currentTimeMillis()}",
-        name = username,
-        phone = "",
-        defaultAddress = "请完善默认收货地址",
-        walletBalance = 0,
-        orderHistoryIds = Nil,
-        vouchers = Nil
-      )
-      val acc = CustomerAccount(
-        "customer",
-        username,
-        password,
-        CustomerProfile(
-          newCustomer.id,
-          newCustomer.name,
-          newCustomer.phone,
-          newCustomer.defaultAddress,
-          Nil,
-          0,
-          Nil,
-          Nil
+      IO.realTime.map(_.toMillis).map { nowMillis =>
+        val newCustomer = Customer(
+          id = s"u-$nowMillis",
+          name = username,
+          phone = "",
+          defaultAddress = "请完善默认收货地址",
+          walletBalance = 0,
+          orderHistoryIds = Nil,
+          vouchers = Nil
         )
-      )
-      val cred = AuthCredential("customer", username, password)
-      Right(
-        state.copy(
-          customers = state.customers :+ newCustomer,
-          customerAccounts = state.customerAccounts :+ acc,
-          authCredentials = state.authCredentials :+ cred
+        val acc = CustomerAccount(
+          "customer",
+          username,
+          password,
+          CustomerProfile(
+            newCustomer.id,
+            newCustomer.name,
+            newCustomer.phone,
+            newCustomer.defaultAddress,
+            Nil,
+            0,
+            Nil,
+            Nil
+          )
         )
-      )
+        val cred = AuthCredential("customer", username, password)
+        Right(
+          state.copy(
+            customers = state.customers :+ newCustomer,
+            customerAccounts = state.customerAccounts :+ acc,
+            authCredentials = state.authCredentials :+ cred
+          )
+        )
+      }
 
   def registerMerchantCredential(state: UserServiceState, username: String, password: String)
       : Either[String, UserServiceState] =

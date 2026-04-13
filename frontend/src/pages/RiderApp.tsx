@@ -6,8 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { RiderAccountPublic } from '@/delivery/model/accounts'
-import { fetchRiderMeIO } from '@/rider/api/RiderMeApi'
-import { runTask } from '@/shared/http/client'
+import { fetchRiderMeIO } from '@/api/rider/RiderMeApi'
+import { runTask } from '@/api/shared/client'
 import { useAppChrome } from '@/hooks/useAppChrome'
 
 export default function RiderApp() {

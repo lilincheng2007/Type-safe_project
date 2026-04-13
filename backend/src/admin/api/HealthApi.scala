@@ -1,27 +1,16 @@
 package delivery.admin.api
 
 import cats.effect.IO
-import delivery.shared.json.ApiJsonCodecs.given
+import delivery.shared.api.ApiPlan
 import delivery.shared.objects.HealthOk
-import io.circe.Json
-import org.http4s.HttpRoutes
-import org.http4s.circe.CirceEntityCodec.given
-import org.http4s.circe.jsonEncoder
-import org.http4s.dsl.io.*
 
-object HealthApi:
+object HealthApi extends ApiPlan[HealthApi.HealthQuery.type, HealthOk]:
 
-  val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
-    case GET -> Root =>
-      Ok(
-        Json.obj(
-          "service" -> Json.fromString("delivery-backend"),
-          "message" -> Json.fromString("单体服务，按 admin/order/user/merchant/rider 逻辑分层")
-        )
-      )
+  case object HealthQuery
 
-    case GET -> Root / "api" / "health" =>
-      Ok(HealthOk(ok = true))
-  }
+  override val name: String = "HealthApi"
+
+  override def plan(input: HealthApi.HealthQuery.type): IO[HealthOk] =
+    IO.pure(HealthOk(ok = true))
 
 end HealthApi

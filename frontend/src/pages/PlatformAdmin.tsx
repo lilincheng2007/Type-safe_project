@@ -5,11 +5,11 @@ import { DeliveryPageShell } from '@/components/DeliveryPageShell'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { fetchAdminMeIO } from '@/admin/api/AdminMeApi'
+import { fetchAdminMeIO } from '@/api/admin/AdminMeApi'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import type { PlatformMetaResponse } from '@/delivery/model/api'
-import { fetchPlatformMetaIO } from '@/admin/api/PlatformMetaApi'
-import { runTask } from '@/shared/http/client'
+import { fetchPlatformMetaIO } from '@/api/admin/PlatformMetaApi'
+import { runTask } from '@/api/shared/client'
 
 export default function PlatformAdmin() {
   const { showNotice } = useAppChrome()

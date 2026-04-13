@@ -1,2 +1,2 @@
-export type { Merchant } from '@/merchant/objects/Merchant'
-export type { Product } from '@/merchant/objects/Product'
+export type { Merchant } from '@/objects/merchant/Merchant'
+export type { Product } from '@/objects/merchant/Product'

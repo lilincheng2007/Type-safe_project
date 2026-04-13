@@ -1,4 +1,14 @@
 import { useEffect, useRef } from 'react'
+import {
+  addEventListenerIO,
+  currentPagePathIO,
+  documentBodyIO,
+  parentWindowIO,
+  postMessageIO,
+  removeEventListenerIO,
+  setBodyCursorIO,
+} from '@/delivery/io/browser'
+import { runTask } from '@/delivery/io/TaskIO'
 
 type InspectorSelectionPayload = {
   tagName: string
@@ -23,11 +33,11 @@ function normalizeText(value: string | null | undefined) {
   return (value ?? '').replace(/\s+/g, ' ').trim()
 }
 
-function buildSelector(element: HTMLElement) {
+function buildSelector(element: HTMLElement, body: HTMLBodyElement) {
   const parts: string[] = []
   let current: HTMLElement | null = element
 
-  while (current && current !== document.body && parts.length < 5) {
+  while (current && current !== body && parts.length < 5) {
     let part = current.tagName.toLowerCase()
     const id = current.id.trim()
     const testId = current.getAttribute('data-testid')?.trim()
@@ -75,7 +85,7 @@ function buildSummary(payload: Omit<InspectorSelectionPayload, 'summary'>) {
   return details.join(' · ')
 }
 
-function buildSelectionPayload(element: HTMLElement): InspectorSelectionPayload {
+function buildSelectionPayload(element: HTMLElement, body: HTMLBodyElement, pagePath: string): InspectorSelectionPayload {
   const tagName = element.tagName.toLowerCase()
   const text = normalizeText(element.innerText || element.textContent).slice(0, 180)
   const className = Array.from(element.classList).join(' ')
@@ -86,8 +96,7 @@ function buildSelectionPayload(element: HTMLElement): InspectorSelectionPayload 
   const name = element.getAttribute('name')?.trim() ?? ''
   const placeholder = element.getAttribute('placeholder')?.trim() ?? ''
   const href = element instanceof HTMLAnchorElement ? element.href : ''
-  const selector = buildSelector(element)
-  const pagePath = window.location.pathname + window.location.search + window.location.hash
+  const selector = buildSelector(element, body)
 
   const payloadWithoutSummary = {
     tagName,
@@ -162,7 +171,7 @@ export function PreviewInspectorBridge() {
 
       if (data.type === 'preview-inspector:set-mode' && typeof data.enabled === 'boolean') {
         enabledRef.current = data.enabled
-        document.body.style.cursor = data.enabled ? 'crosshair' : ''
+        void runTask(setBodyCursorIO(data.enabled ? 'crosshair' : ''))
         if (!data.enabled) {
           clearHighlight()
         }
@@ -183,13 +192,15 @@ export function PreviewInspectorBridge() {
       event.stopPropagation()
 
       applyHighlight(target)
-      window.parent.postMessage(
-        {
-          source: PREVIEW_SOURCE,
-          type: 'preview-inspector:selection',
-          payload: buildSelectionPayload(target),
-        },
-        '*',
+      void Promise.all([runTask(documentBodyIO()), runTask(currentPagePathIO()), runTask(parentWindowIO())]).then(
+        ([body, pagePath, parentWindow]) =>
+          runTask(
+            postMessageIO(parentWindow, {
+              source: PREVIEW_SOURCE,
+              type: 'preview-inspector:selection',
+              payload: buildSelectionPayload(target, body, pagePath),
+            }),
+          ),
       )
     }
 
@@ -197,13 +208,15 @@ export function PreviewInspectorBridge() {
       if (event.altKey && event.key.toLowerCase() === 't') {
         event.preventDefault()
         event.stopPropagation()
-        window.parent.postMessage(
-          {
-            source: PREVIEW_SOURCE,
-            type: 'preview-inspector:toggle-mode',
-          },
-          '*',
-        )
+        void runTask(parentWindowIO())
+          .then((parentWindow) =>
+            runTask(
+              postMessageIO(parentWindow, {
+                source: PREVIEW_SOURCE,
+                type: 'preview-inspector:toggle-mode',
+              }),
+            ),
+          )
         return
       }
 
@@ -213,35 +226,47 @@ export function PreviewInspectorBridge() {
 
       event.preventDefault()
       event.stopPropagation()
-      window.parent.postMessage(
-        {
-          source: PREVIEW_SOURCE,
-          type: 'preview-inspector:undo',
-        },
-        '*',
-      )
+      void runTask(parentWindowIO())
+        .then((parentWindow) =>
+          runTask(
+            postMessageIO(parentWindow, {
+              source: PREVIEW_SOURCE,
+              type: 'preview-inspector:undo',
+            }),
+          ),
+        )
     }
 
-    window.parent.postMessage(
-      {
-        source: PREVIEW_SOURCE,
-        type: 'preview-inspector:ready',
-      },
-      '*',
-    )
+    const messageListener: EventListener = handleMessage as EventListener
+    const keydownListener: EventListener = handleKeyDown as EventListener
+    const pointerMoveListener: EventListener = handlePointerMove as EventListener
+    const clickListener: EventListener = handleClick as EventListener
 
-    window.addEventListener('message', handleMessage)
-    document.addEventListener('keydown', handleKeyDown, true)
-    document.addEventListener('mousemove', handlePointerMove, true)
-    document.addEventListener('click', handleClick, true)
+    void runTask(parentWindowIO())
+      .then((parentWindow) =>
+        runTask(
+          postMessageIO(parentWindow, {
+            source: PREVIEW_SOURCE,
+            type: 'preview-inspector:ready',
+          }),
+        ),
+      )
+    void Promise.all([
+      runTask(addEventListenerIO(window, 'message', messageListener)),
+      runTask(addEventListenerIO(document, 'keydown', keydownListener, true)),
+      runTask(addEventListenerIO(document, 'mousemove', pointerMoveListener, true)),
+      runTask(addEventListenerIO(document, 'click', clickListener, true)),
+    ])
 
     return () => {
-      document.body.style.cursor = ''
+      void runTask(setBodyCursorIO(''))
       clearHighlight()
-      window.removeEventListener('message', handleMessage)
-      document.removeEventListener('keydown', handleKeyDown, true)
-      document.removeEventListener('mousemove', handlePointerMove, true)
-      document.removeEventListener('click', handleClick, true)
+      void Promise.all([
+        runTask(removeEventListenerIO(window, 'message', messageListener)),
+        runTask(removeEventListenerIO(document, 'keydown', keydownListener, true)),
+        runTask(removeEventListenerIO(document, 'mousemove', pointerMoveListener, true)),
+        runTask(removeEventListenerIO(document, 'click', clickListener, true)),
+      ])
     }
   }, [])
 

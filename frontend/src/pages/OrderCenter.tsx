@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import type { OrdersPanelResponse } from '@/delivery/model/api'
-import { fetchOrdersPanelIO } from '@/admin/api/OrdersPanelApi'
-import { runTask } from '@/shared/http/client'
+import { fetchOrdersPanelIO } from '@/api/admin/OrdersPanelApi'
+import { runTask } from '@/api/shared/client'
 
 const statusFlow = ['待接单', '制作中', '配送中', '已完成'] as const
 

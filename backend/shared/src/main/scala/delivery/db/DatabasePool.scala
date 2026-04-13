@@ -9,7 +9,7 @@ import javax.sql.DataSource
 object DatabasePool:
 
   def resource(using log: Logger[IO]): Resource[IO, HikariDataSource] =
-    resourceFor(DatabaseConfig.fromEnv)
+    Resource.eval(DatabaseConfig.fromEnv).flatMap(resourceFor)
 
   def resourceFor(cfg: DatabaseConfig)(using log: Logger[IO]): Resource[IO, HikariDataSource] =
     Resource.make(acquire(cfg))(release).evalTap { _ =>

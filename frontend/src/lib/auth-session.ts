@@ -1,4 +1,7 @@
 import type { UserRole } from '@/delivery/model'
+import type { TaskIO } from '@/delivery/io/TaskIO'
+import { localStorageGetItemIO, localStorageRemoveItemIO, localStorageSetItemIO, nowIO } from '@/delivery/io/browser'
+import { flatMapTask, mapTask } from '@/delivery/io/TaskIO'
 
 export interface AuthSession {
   token: string
@@ -42,22 +45,22 @@ export function getDefaultRouteForRole(role: UserRole): RoleHomeRoute {
   return roleHomeRouteMap[role]
 }
 
-export function setAuthSession(token: string, account: string, role: UserRole) {
-  const session: AuthSession = {
-    token,
-    account,
-    role,
-    loggedInAt: Date.now(),
-  }
-  localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session))
+export function setAuthSessionIO(token: string, account: string, role: UserRole): TaskIO<void> {
+  return flatMapTask(nowIO(), (loggedInAt) =>
+    localStorageSetItemIO(
+      AUTH_SESSION_KEY,
+      JSON.stringify({
+        token,
+        account,
+        role,
+        loggedInAt,
+      } satisfies AuthSession),
+    ),
+  )
 }
 
-export function getAuthSession(): AuthSession | null {
-  const raw = localStorage.getItem(AUTH_SESSION_KEY)
-  if (!raw) {
-    return null
-  }
-
+function parseAuthSession(raw: string | null): AuthSession | null {
+  if (!raw) return null
   try {
     const parsed: unknown = JSON.parse(raw)
     return isAuthSession(parsed) ? parsed : null
@@ -66,10 +69,14 @@ export function getAuthSession(): AuthSession | null {
   }
 }
 
-export function getAuthToken(): string | null {
-  return getAuthSession()?.token ?? null
+export function getAuthSessionIO(): TaskIO<AuthSession | null> {
+  return mapTask(localStorageGetItemIO(AUTH_SESSION_KEY), parseAuthSession)
 }
 
-export function clearAuthSession() {
-  localStorage.removeItem(AUTH_SESSION_KEY)
+export function getAuthTokenIO(): TaskIO<string | null> {
+  return mapTask(getAuthSessionIO(), (session) => session?.token ?? null)
+}
+
+export function clearAuthSessionIO(): TaskIO<void> {
+  return localStorageRemoveItemIO(AUTH_SESSION_KEY)
 }

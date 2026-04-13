@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { UserRole } from '@/delivery/model'
-import { runTask } from '@/shared/http/client'
-import { registerIO } from '@/user/api/RegisterApi'
+import { runTask } from '@/api/shared/client'
+import { registerIO } from '@/api/user/RegisterApi'
 import { useAppChrome } from '@/hooks/useAppChrome'
 
 type RegisterRole = Exclude<UserRole, 'admin'>

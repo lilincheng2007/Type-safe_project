@@ -2,23 +2,18 @@ package delivery.admin.api
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
+import delivery.shared.api.ApiPlan
+import delivery.admin.service.AdminService
 import delivery.admin.objects.OrdersPanelResponse
-import delivery.http.support.AuthHttp
-import delivery.shared.json.ApiJsonCodecs.given
 import delivery.shared.objects.DeliveryState
-import org.http4s.HttpRoutes
-import org.http4s.circe.CirceEntityCodec.given
-import org.http4s.dsl.io.*
 
-object OrdersPanelApi:
+object OrdersPanelApi extends ApiPlan[OrdersPanelApi.OrdersPanelQuery, OrdersPanelResponse]:
 
-  def routes(ref: Ref[IO, DeliveryState]): HttpRoutes[IO] = HttpRoutes.of[IO] {
-    case req @ GET -> Root / "api" / "delivery" / "orders-panel" =>
-      AuthHttp.requireRole(req, "admin") { _ =>
-        ref.get.flatMap { state =>
-          Ok(OrdersPanelResponse(orders = state.order.orders, riders = state.rider.riders))
-        }
-      }
-  }
+  final case class OrdersPanelQuery(ref: Ref[IO, DeliveryState])
+
+  override val name: String = "OrdersPanelApi"
+
+  override def plan(input: OrdersPanelApi.OrdersPanelQuery): IO[OrdersPanelResponse] =
+    AdminService.fetchOrdersPanel(input.ref)
 
 end OrdersPanelApi

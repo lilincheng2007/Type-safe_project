@@ -11,8 +11,8 @@ import type { ComplaintTicket, PromotionCampaign } from '@/delivery/model'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import type { PageToolEvent } from '@/lib/mock-types'
 import type { OverviewResponse } from '@/delivery/model/api'
-import { fetchOverviewIO } from '@/admin/api/OverviewApi'
-import { runTask } from '@/shared/http/client'
+import { fetchOverviewIO } from '@/api/admin/OverviewApi'
+import { runTask } from '@/api/shared/client'
 
 const entries = [
   {

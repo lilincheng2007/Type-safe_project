@@ -2,20 +2,18 @@ package delivery.merchant.api
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
+import delivery.shared.api.ApiPlan
 import delivery.merchant.objects.CatalogResponse
-import delivery.shared.json.ApiJsonCodecs.given
+import delivery.merchant.service.MerchantService
 import delivery.shared.objects.DeliveryState
-import org.http4s.HttpRoutes
-import org.http4s.circe.CirceEntityCodec.given
-import org.http4s.dsl.io.*
 
-object CatalogApi:
+object CatalogApi extends ApiPlan[CatalogApi.CatalogQuery, CatalogResponse]:
 
-  def routes(ref: Ref[IO, DeliveryState]): HttpRoutes[IO] = HttpRoutes.of[IO] {
-    case GET -> Root / "api" / "delivery" / "catalog" =>
-      ref.get.flatMap { state =>
-        Ok(CatalogResponse(state.merchant.catalogMerchants, state.merchant.catalogProducts))
-      }
-  }
+  final case class CatalogQuery(ref: Ref[IO, DeliveryState])
+
+  override val name: String = "CatalogApi"
+
+  override def plan(input: CatalogApi.CatalogQuery): IO[CatalogResponse] =
+    MerchantService.fetchCatalog(input.ref)
 
 end CatalogApi

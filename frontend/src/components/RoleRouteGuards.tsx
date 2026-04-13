@@ -1,8 +1,9 @@
+import { useAuthSession } from '@/hooks/useAuthSession'
 import type { ReactElement } from 'react'
 import { Navigate } from 'react-router-dom'
 
 import type { UserRole } from '@/delivery/model'
-import { getAuthSession, getDefaultRouteForRole } from '@/lib/auth-session'
+import { getDefaultRouteForRole } from '@/lib/auth-session'
 
 interface RoleRouteGuardProps {
   allowedRoles: readonly UserRole[]
@@ -10,7 +11,11 @@ interface RoleRouteGuardProps {
 }
 
 export function RoleRouteGuard({ allowedRoles, children }: RoleRouteGuardProps) {
-  const session = getAuthSession()
+  const session = useAuthSession()
+
+  if (session === undefined) {
+    return null
+  }
 
   if (!session) {
     return <Navigate replace to="/auth/login" />
@@ -24,7 +29,11 @@ export function RoleRouteGuard({ allowedRoles, children }: RoleRouteGuardProps) 
 }
 
 export function GuestRouteGuard({ children }: { children: ReactElement }) {
-  const session = getAuthSession()
+  const session = useAuthSession()
+  if (session === undefined) {
+    return null
+  }
+
   if (!session) {
     return children
   }

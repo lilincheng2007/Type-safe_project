@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { FeedbackModal } from '@/components/FeedbackModal'
+import { runTask } from '@/delivery/io/TaskIO'
+import { clearTimeoutIO, setTimeoutIO } from '@/delivery/io/browser'
 import { AppChromeContext } from '@/lib/app-chrome-context'
 import type { AgentFeedbackInput } from '@/lib/agent-feedback-client'
-import { sendAgentFeedback } from '@/lib/agent-feedback-client'
+import { sendAgentFeedbackIO } from '@/lib/agent-feedback-client'
 import type { FeedbackDialogRequest, NoticeState, NoticeTone } from '@/lib/mock-types'
 import { cn } from '@/lib/utils'
 
@@ -46,8 +48,16 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const timer = window.setTimeout(() => setNotice(null), 4000)
-    return () => window.clearTimeout(timer)
+    let timer = -1
+    void runTask(setTimeoutIO(() => setNotice(null), 4000)).then((id) => {
+      timer = id
+    })
+
+    return () => {
+      if (timer >= 0) {
+        void runTask(clearTimeoutIO(timer))
+      }
+    }
   }, [notice])
 
   const handleFeedbackSubmit = async (text: string) => {
@@ -61,7 +71,7 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
     }
 
     setIsSubmittingFeedback(true)
-    const result = await sendAgentFeedback(buildFeedbackPayload(feedbackRequest, trimmedText))
+    const result = await runTask(sendAgentFeedbackIO(buildFeedbackPayload(feedbackRequest, trimmedText)))
     setIsSubmittingFeedback(false)
     showNotice(result.message, result.ok ? 'success' : 'error')
 

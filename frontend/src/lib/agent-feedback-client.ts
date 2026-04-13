@@ -1,3 +1,6 @@
+import type { TaskIO } from '@/delivery/io/TaskIO'
+import { fetchIO } from '@/delivery/io/browser'
+
 export interface AgentFeedbackInput {
   pageName: string
   route: string
@@ -29,34 +32,36 @@ function buildPrompt(input: AgentFeedbackInput) {
   ].join('\n')
 }
 
-export async function sendAgentFeedback(input: AgentFeedbackInput): Promise<AgentFeedbackResult> {
-  try {
-    const response = await fetch(WORKSPACE_TURN_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: buildPrompt(input),
-        mode: 'mock',
-      }),
-    })
+export function sendAgentFeedbackIO(input: AgentFeedbackInput): TaskIO<AgentFeedbackResult> {
+  return async () => {
+    try {
+      const response = await fetchIO(WORKSPACE_TURN_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: buildPrompt(input),
+          mode: 'mock',
+        }),
+      })()
 
-    if (!response.ok) {
+      if (!response.ok) {
+        return {
+          ok: false,
+          message: 'control server 当前不可用，反馈尚未发送给 agent',
+        }
+      }
+
+      return {
+        ok: true,
+        message: '反馈已发送给 agent，正在等待进一步处理',
+      }
+    } catch {
       return {
         ok: false,
         message: 'control server 当前不可用，反馈尚未发送给 agent',
       }
-    }
-
-    return {
-      ok: true,
-      message: '反馈已发送给 agent，正在等待进一步处理',
-    }
-  } catch {
-    return {
-      ok: false,
-      message: 'control server 当前不可用，反馈尚未发送给 agent',
     }
   }
 }

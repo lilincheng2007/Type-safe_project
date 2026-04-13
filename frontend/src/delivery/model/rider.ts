@@ -1,1 +1,1 @@
-export type { Rider } from '@/rider/objects/Rider'
+export type { Rider } from '@/objects/rider/Rider'

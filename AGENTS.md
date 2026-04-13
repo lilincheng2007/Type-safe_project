@@ -8,7 +8,6 @@
 |------|------|
 | [frontend/](frontend/) | Vite + React，**仅通过 HTTP 调用** `backend` API；业务状态不在浏览器内伪造持久化。 |
 | [backend/](backend/) | **Scala 3 + http4s + Circe** 微服务：`user` / `order` / `merchant` / `rider` / `admin` + **网关**；**对外 API 经网关 `8787`**（`npm run dev:backend` 用 `stack/run` 单进程起全栈）。每服务独立 PostgreSQL 库（`delivery_user` 等），JSONB 快照 + JWT。 |
-| [backend-scala-sample/](backend-scala-sample/) | 原模版的 Scala/http4s + PostgreSQL 示例，**与当前外卖 API 独立**，仅供对照。 |
 | [模版/](模版/) | 迁移后仅余占位文件时可忽略或清理。 |
 
 ## 本地启动

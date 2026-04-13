@@ -9,9 +9,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { UserRole } from '@/delivery/model'
-import { runTask } from '@/shared/http/client'
-import { loginIO } from '@/user/api/LoginApi'
-import { getDefaultRouteForRole, isUserRole, setAuthSession } from '@/lib/auth-session'
+import { runTask } from '@/api/shared/client'
+import { loginIO } from '@/api/user/LoginApi'
+import { getDefaultRouteForRole, isUserRole, setAuthSessionIO } from '@/lib/auth-session'
 
 const roleOptions: Array<{ value: UserRole; label: string }> = [
   { value: 'customer', label: '顾客' },
@@ -47,7 +47,7 @@ export default function Login() {
     setErrorMessage('')
     try {
       const data = await runTask(loginIO({ role, username: trimmedAccount, password: trimmedPassword }))
-      setAuthSession(data.token, data.username, data.role)
+      await runTask(setAuthSessionIO(data.token, data.username, data.role))
       navigate(getDefaultRouteForRole(data.role))
     } catch (e) {
       setErrorMessage(e instanceof Error ? e.message : '登录失败')
