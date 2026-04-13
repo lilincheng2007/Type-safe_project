@@ -2,7 +2,14 @@ package delivery.user.routes
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
+import cats.syntax.all.*
+import delivery.admin.api.AdminMeApi
+import delivery.admin.utils.AdminApiSupport
 import delivery.http.support.AuthHttp
+import delivery.merchant.api.MerchantMeApi
+import delivery.merchant.utils.MerchantApiSupport
+import delivery.rider.api.RiderMeApi
+import delivery.rider.utils.RiderApiSupport
 import delivery.shared.json.ApiJsonCodecs.given
 import delivery.shared.objects.{DeliveryState, ErrorBody}
 import delivery.user.api.*
@@ -36,11 +43,30 @@ object UserRoutes:
         yield response
 
       case req @ GET -> Root / "api" / "auth" / "me" =>
-        AuthHttp.requireRole(req, "customer") { username =>
-          CustomerMeApi.plan(CustomerMeApi.CustomerMeQuery(ref, username)).flatMap {
-            case None => NotFound(UserApiSupport.customerNotFound)
-            case Some(output) => Ok(output)
-          }
+        AuthHttp.withBearer(req) { (username, role) =>
+          role match
+            case "customer" =>
+              CustomerMeApi.plan(CustomerMeApi.CustomerMeQuery(ref, username)).flatMap {
+                case None => NotFound(UserApiSupport.customerNotFound)
+                case Some(output) => Ok(output)
+              }
+            case "merchant" =>
+              MerchantMeApi.plan(MerchantMeApi.MerchantMeQuery(ref, username)).flatMap {
+                case None => NotFound(MerchantApiSupport.merchantNotFound)
+                case Some(output) => Ok(output)
+              }
+            case "rider" =>
+              RiderMeApi.plan(RiderMeApi.RiderMeQuery(ref, username)).flatMap {
+                case None => NotFound(RiderApiSupport.riderNotFound)
+                case Some(output) => Ok(output)
+              }
+            case "admin" =>
+              AdminMeApi.plan(AdminMeApi.AdminMeQuery(ref, username)).flatMap {
+                case None => NotFound(AdminApiSupport.adminNotFound)
+                case Some(output) => Ok(output)
+              }
+            case _ =>
+              Forbidden(ErrorBody("权限不足"))
         }
 
       case req @ PATCH -> Root / "api" / "delivery" / "me" / "customer" / "profile" =>

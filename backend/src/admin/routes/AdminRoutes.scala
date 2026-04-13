@@ -23,14 +23,6 @@ object AdminRoutes:
       case GET -> Root / "api" / "health" =>
         HealthApi.plan(HealthApi.HealthQuery).flatMap(Ok(_))
 
-      case req @ GET -> Root / "api" / "auth" / "me" =>
-        AuthHttp.requireRole(req, "admin") { username =>
-          AdminMeApi.plan(AdminMeApi.AdminMeQuery(ref, username)).flatMap {
-            case None => NotFound(AdminApiSupport.adminNotFound)
-            case Some(output) => Ok(output)
-          }
-        }
-
       case req @ GET -> Root / "api" / "delivery" / "overview" =>
         AuthHttp.requireRole(req, "admin") { _ =>
           OverviewApi.plan(OverviewApi.OverviewQuery(ref)).flatMap(Ok(_))

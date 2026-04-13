@@ -10,7 +10,8 @@ export interface AuthSession {
   loggedInAt: number
 }
 
-const AUTH_SESSION_KEY = 'delivery-platform-auth-session-v2'
+export const AUTH_SESSION_KEY = 'delivery-platform-auth-session-v2'
+export const AUTH_SESSION_UPDATED_EVENT = 'delivery-auth-session-updated'
 
 type RoleHomeRoute = '/delivery/customer' | '/delivery/merchant' | '/delivery/rider' | '/delivery/dashboard'
 
@@ -46,17 +47,20 @@ export function getDefaultRouteForRole(role: UserRole): RoleHomeRoute {
 }
 
 export function setAuthSessionIO(token: string, account: string, role: UserRole): TaskIO<void> {
-  return flatMapTask(nowIO(), (loggedInAt) =>
-    localStorageSetItemIO(
-      AUTH_SESSION_KEY,
-      JSON.stringify({
-        token,
-        account,
-        role,
-        loggedInAt,
-      } satisfies AuthSession),
-    ),
-  )
+  return () =>
+    flatMapTask(nowIO(), (loggedInAt) =>
+      localStorageSetItemIO(
+        AUTH_SESSION_KEY,
+        JSON.stringify({
+          token,
+          account,
+          role,
+          loggedInAt,
+        } satisfies AuthSession),
+      ),
+    )().then(() => {
+      dispatchAuthSessionUpdated()
+    })
 }
 
 function parseAuthSession(raw: string | null): AuthSession | null {
@@ -69,6 +73,14 @@ function parseAuthSession(raw: string | null): AuthSession | null {
   }
 }
 
+export function readAuthSession(): AuthSession | null {
+  return parseAuthSession(window.localStorage.getItem(AUTH_SESSION_KEY))
+}
+
+function dispatchAuthSessionUpdated(): void {
+  window.dispatchEvent(new Event(AUTH_SESSION_UPDATED_EVENT))
+}
+
 export function getAuthSessionIO(): TaskIO<AuthSession | null> {
   return mapTask(localStorageGetItemIO(AUTH_SESSION_KEY), parseAuthSession)
 }
@@ -78,5 +90,8 @@ export function getAuthTokenIO(): TaskIO<string | null> {
 }
 
 export function clearAuthSessionIO(): TaskIO<void> {
-  return localStorageRemoveItemIO(AUTH_SESSION_KEY)
+  return () =>
+    localStorageRemoveItemIO(AUTH_SESSION_KEY)().then(() => {
+      dispatchAuthSessionUpdated()
+    })
 }

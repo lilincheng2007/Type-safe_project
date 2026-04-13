@@ -6,6 +6,7 @@ import delivery.shared.api.ApiPlan
 import delivery.shared.objects.{DeliveryState, OkResponse}
 import delivery.user.objects.CustomerProfilePatch
 import delivery.user.service.UserService
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 object CustomerProfilePatchApi
     extends ApiPlan[CustomerProfilePatchApi.CustomerProfilePatchCommand, Either[String, OkResponse]]:
@@ -17,9 +18,15 @@ object CustomerProfilePatchApi
       body: CustomerProfilePatch
   )
 
+  private val logger = Slf4jLogger.getLogger[IO]
+
   override val name: String = "CustomerProfilePatchApi"
 
   override def plan(input: CustomerProfilePatchApi.CustomerProfilePatchCommand): IO[Either[String, OkResponse]] =
-    UserService.patchCustomerProfile(input.ref, input.persist, input.username, input.body)
+    for
+      _ <- logger.info(s"$name started, username=${input.username}")
+      response <- UserService.patchCustomerProfile(input.ref, input.persist, input.username, input.body)
+      _ <- logger.info(s"$name finished, success=${response.isRight}")
+    yield response
 
 end CustomerProfilePatchApi

@@ -19,14 +19,6 @@ object MerchantRoutes:
       case GET -> Root / "api" / "delivery" / "catalog" =>
         CatalogApi.plan(CatalogApi.CatalogQuery(ref)).flatMap(Ok(_))
 
-      case req @ GET -> Root / "api" / "auth" / "me" =>
-        AuthHttp.requireRole(req, "merchant") { username =>
-          MerchantMeApi.plan(MerchantMeApi.MerchantMeQuery(ref, username)).flatMap {
-            case None => NotFound(MerchantApiSupport.merchantNotFound)
-            case Some(output) => Ok(output)
-          }
-        }
-
       case req @ PUT -> Root / "api" / "delivery" / "me" / "merchant" / "profile" =>
         AuthHttp.requireRole(req, "merchant") { username =>
           for

@@ -43,7 +43,7 @@ async function apiFetchPromise<T>(path: string, init?: RequestInit): Promise<T> 
   }
 
   const res = await runTask(fetchIO(url, { ...init, headers }))
-  if (res.status === 401 && token) {
+  if ((res.status === 401 || res.status === 403) && token) {
     await runTask(clearAuthSessionIO())
   }
   if (!res.ok) {
