@@ -1,3 +1,8 @@
 package delivery.merchant.objects
 
-type MerchantProfile = delivery.model.MerchantProfile
+final case class MerchantProfile(
+    id: String,
+    ownerName: String,
+    phone: String,
+    stores: List[MerchantStoreProfile]
+)

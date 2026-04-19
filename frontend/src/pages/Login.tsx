@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import type { UserRole } from '@/delivery/model'
+import type { UserRole } from '@/objects/shared'
 import { runTask } from '@/api/shared/client'
 import { loginIO } from '@/api/user/LoginApi'
 import { getDefaultRouteForRole, isUserRole, setAuthSessionIO } from '@/lib/auth-session'

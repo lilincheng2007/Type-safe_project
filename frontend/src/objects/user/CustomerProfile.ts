@@ -1,5 +1,5 @@
 import type { Order } from '@/objects/order/Order'
-import type { Voucher } from '@/delivery/model/voucher'
+import type { Voucher } from '@/objects/shared/Voucher'
 
 export interface CustomerProfile {
   id: string

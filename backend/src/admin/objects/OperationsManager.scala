@@ -1,3 +1,9 @@
 package delivery.admin.objects
 
-type OperationsManager = delivery.model.OperationsManager
+final case class OperationsManager(
+    id: String,
+    name: String,
+    region: String,
+    managedMerchantIds: List[String],
+    campaignPlans: List[String]
+)

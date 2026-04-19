@@ -1,4 +1,4 @@
-import type { RiderId, RiderStatus } from '@/delivery/model/ids'
+import type { RiderId, RiderStatus } from '@/objects/shared/ids'
 
 export interface Rider {
   id: RiderId

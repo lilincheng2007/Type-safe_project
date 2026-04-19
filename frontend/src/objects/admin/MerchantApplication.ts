@@ -1,4 +1,4 @@
-import type { MerchantCategory } from '@/delivery/model/ids'
+import type { MerchantCategory } from '@/objects/shared/ids'
 
 export interface MerchantApplication {
   id: string

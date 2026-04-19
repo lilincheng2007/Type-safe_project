@@ -1,3 +1,9 @@
 package delivery.admin.objects
 
-type CustomerServiceAgent = delivery.model.CustomerServiceAgent
+final case class CustomerServiceAgent(
+    id: String,
+    name: String,
+    department: String,
+    channel: String,
+    ticketIds: List[String]
+)

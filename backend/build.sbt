@@ -20,18 +20,12 @@ lazy val commonLibDeps = Seq(
   "org.slf4j" % "slf4j-simple" % "2.0.13"
 )
 
-lazy val shared = (project in file("shared")).settings(
-  name := "delivery-shared",
-  scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked"),
-  libraryDependencies ++= commonLibDeps
-)
-
 lazy val root = (project in file("."))
-  .dependsOn(shared)
   .settings(
     name := "delivery-backend",
     Compile / unmanagedSourceDirectories += baseDirectory.value / "src",
     scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked"),
+    libraryDependencies ++= commonLibDeps,
     Compile / run / mainClass := Some("delivery.Main"),
     Compile / run / fork := true,
     publish / skip := true

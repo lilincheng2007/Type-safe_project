@@ -1,3 +1,10 @@
 package delivery.rider.objects
 
-type RiderProfile = delivery.model.RiderProfile
+import delivery.order.objects.Order
+
+final case class RiderProfile(
+    rider: Rider,
+    walletBalance: Double,
+    pendingOrders: List[Order],
+    historyOrders: List[Order]
+)

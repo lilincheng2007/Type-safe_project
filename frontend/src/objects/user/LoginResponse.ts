@@ -1,4 +1,4 @@
-import type { UserRole } from '@/delivery/model/ids'
+import type { UserRole } from '@/objects/shared/ids'
 
 export interface LoginResponse {
   token: string

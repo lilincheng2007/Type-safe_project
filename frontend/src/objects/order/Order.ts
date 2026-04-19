@@ -1,4 +1,4 @@
-import type { MerchantId, OrderId, RiderId, UserId, OrderStatus } from '@/delivery/model/ids'
+import type { MerchantId, OrderId, RiderId, UserId, OrderStatus } from '@/objects/shared/ids'
 import type { OrderItem } from './OrderItem'
 
 export interface Order {

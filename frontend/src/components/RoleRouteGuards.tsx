@@ -2,7 +2,7 @@ import { useAuthSession } from '@/hooks/useAuthSession'
 import type { ReactElement } from 'react'
 import { Navigate } from 'react-router-dom'
 
-import type { UserRole } from '@/delivery/model'
+import type { UserRole } from '@/objects/shared/ids'
 import { getDefaultRouteForRole } from '@/lib/auth-session'
 
 interface RoleRouteGuardProps {

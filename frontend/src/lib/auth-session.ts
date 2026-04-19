@@ -1,7 +1,7 @@
-import type { UserRole } from '@/delivery/model'
-import type { TaskIO } from '@/delivery/io/TaskIO'
-import { localStorageGetItemIO, localStorageRemoveItemIO, localStorageSetItemIO, nowIO } from '@/delivery/io/browser'
-import { flatMapTask, mapTask } from '@/delivery/io/TaskIO'
+import type { UserRole } from '@/objects/shared/ids'
+import type { TaskIO } from '@/api/shared/TaskIO'
+import { localStorageGetItemIO, localStorageRemoveItemIO, localStorageSetItemIO, nowIO } from '@/api/shared/browser'
+import { flatMapTask, mapTask } from '@/api/shared/TaskIO'
 
 export interface AuthSession {
   token: string

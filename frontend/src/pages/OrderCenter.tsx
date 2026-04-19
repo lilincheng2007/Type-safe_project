@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAppChrome } from '@/hooks/useAppChrome'
-import type { OrdersPanelResponse } from '@/delivery/model/api'
+import type { OrdersPanelResponse } from '@/objects/admin'
 import { fetchOrdersPanelIO } from '@/api/admin/OrdersPanelApi'
 import { runTask } from '@/api/shared/client'
 

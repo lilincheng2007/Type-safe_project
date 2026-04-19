@@ -1,7 +1,11 @@
 package delivery.shared.objects
 
-import delivery.model.*
-import delivery.store.SeedBootstrap
+import delivery.admin.state.AdminServiceState
+import delivery.merchant.state.MerchantServiceState
+import delivery.order.state.OrderServiceState
+import delivery.rider.state.RiderServiceState
+import delivery.shared.bootstrap.SeedBootstrap
+import delivery.user.state.UserServiceState
 
 final case class DeliveryState(
     user: UserServiceState,

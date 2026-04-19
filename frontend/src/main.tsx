@@ -4,9 +4,9 @@ import { RouterProvider } from 'react-router-dom'
 import { PreviewInspectorBridge } from '@/components/PreviewInspectorBridge'
 
 import { AppChromeProvider } from '@/components/AppChromeProvider'
-import { rootElementByIdIO } from '@/delivery/io/browser'
-import type { TaskIO } from '@/delivery/io/TaskIO'
-import { runTask } from '@/delivery/io/TaskIO'
+import { rootElementByIdIO } from '@/api/shared/browser'
+import type { TaskIO } from '@/api/shared/TaskIO'
+import { runTask } from '@/api/shared/TaskIO'
 import { router } from '@/router'
 
 import './index.css'

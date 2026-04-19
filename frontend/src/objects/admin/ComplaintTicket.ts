@@ -1,4 +1,4 @@
-import type { OrderId } from '@/delivery/model/ids'
+import type { OrderId } from '@/objects/shared/ids'
 
 export interface ComplaintTicket {
   id: string

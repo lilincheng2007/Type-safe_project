@@ -1,3 +1,8 @@
 package delivery.order.objects
 
-type OrderItem = delivery.model.OrderItem
+final case class OrderItem(
+    productId: String,
+    name: String,
+    unitPrice: Double,
+    quantity: Int
+)

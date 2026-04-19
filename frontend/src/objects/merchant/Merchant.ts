@@ -1,4 +1,4 @@
-import type { MerchantCategory, ProductId, MerchantId } from '@/delivery/model/ids'
+import type { MerchantCategory, ProductId, MerchantId } from '@/objects/shared/ids'
 
 export interface Merchant {
   id: MerchantId

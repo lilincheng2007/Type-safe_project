@@ -2,6 +2,7 @@ package delivery.user.utils
 
 import delivery.shared.objects.ErrorBody
 import delivery.user.objects.{CustomerAccountPublic, CustomerMeResponse}
+import delivery.user.state.CustomerAccount
 
 object UserApiSupport:
 
@@ -9,7 +10,7 @@ object UserApiSupport:
 
   def invalidRole: ErrorBody = ErrorBody("无效角色")
 
-  def customerMeResponse(username: String, account: delivery.model.CustomerAccount): CustomerMeResponse =
+  def customerMeResponse(username: String, account: CustomerAccount): CustomerMeResponse =
     CustomerMeResponse(
       username = username,
       role = "customer",

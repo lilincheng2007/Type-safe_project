@@ -1,18 +1,17 @@
 package delivery.merchant.api
 
 import cats.effect.IO
-import cats.effect.kernel.Ref
 import delivery.shared.api.ApiPlan
 import delivery.merchant.objects.{CreateStoreRequest, CreateStoreResponse}
-import delivery.merchant.service.MerchantService
+import delivery.merchant.state.MerchantDomainOps
 import delivery.shared.objects.DeliveryState
+import delivery.shared.state.DeliveryStateOps
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-object MerchantStoreApi extends ApiPlan[MerchantStoreApi.MerchantStoreCommand, Either[String, CreateStoreResponse]]:
+object MerchantStoreApi extends ApiPlan[MerchantStoreApi.MerchantStoreCommand, Either[String, MerchantStoreApi.MerchantStoreSuccess]]:
 
   final case class MerchantStoreCommand(
-      ref: Ref[IO, DeliveryState],
-      persist: DeliveryState => IO[Unit],
+      state: DeliveryState,
       username: String,
       body: CreateStoreRequest
   )
@@ -21,11 +20,19 @@ object MerchantStoreApi extends ApiPlan[MerchantStoreApi.MerchantStoreCommand, E
 
   override val name: String = "MerchantStoreApi"
 
-  override def plan(input: MerchantStoreApi.MerchantStoreCommand): IO[Either[String, CreateStoreResponse]] =
+  override def plan(input: MerchantStoreApi.MerchantStoreCommand): IO[Either[String, MerchantStoreApi.MerchantStoreSuccess]] =
     for
       _ <- logger.info(s"$name started, username=${input.username}")
-      response <- MerchantService.createStore(input.ref, input.persist, input.username, input.body)
+      response <- MerchantDomainOps.createMerchantStore(input.state.merchant, input.username, input.body.storeName, input.body.address).flatMap {
+        case Left(msg) => IO.pure(Left(msg))
+        case Right((nextMerchant, merchantId)) =>
+          IO.pure(
+            Right(MerchantStoreSuccess(DeliveryStateOps.withMerchantState(input.state, nextMerchant), CreateStoreResponse(ok = true, merchantId = merchantId)))
+          )
+      }
       _ <- logger.info(s"$name finished, success=${response.isRight}")
     yield response
+
+  final case class MerchantStoreSuccess(nextState: DeliveryState, response: CreateStoreResponse)
 
 end MerchantStoreApi

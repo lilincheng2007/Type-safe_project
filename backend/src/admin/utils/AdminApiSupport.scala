@@ -1,13 +1,14 @@
 package delivery.admin.utils
 
 import delivery.admin.objects.{AdminAccountPublic, AdminMeResponse, OrdersPanelResponse, OverviewResponse, PlatformMetaResponse}
+import delivery.admin.state.AdminAccount
 import delivery.shared.objects.ErrorBody
 
 object AdminApiSupport:
 
   def adminNotFound: ErrorBody = ErrorBody("未找到账号")
 
-  def adminMeResponse(username: String, account: delivery.model.AdminAccount): AdminMeResponse =
+  def adminMeResponse(username: String, account: AdminAccount): AdminMeResponse =
     AdminMeResponse(
       username = username,
       role = "admin",

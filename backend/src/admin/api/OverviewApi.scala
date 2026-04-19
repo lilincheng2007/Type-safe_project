@@ -1,16 +1,15 @@
 package delivery.admin.api
 
 import cats.effect.IO
-import cats.effect.kernel.Ref
-import delivery.shared.api.ApiPlan
-import delivery.admin.service.AdminService
 import delivery.admin.objects.OverviewResponse
+import delivery.admin.utils.AdminApiSupport
+import delivery.shared.api.ApiPlan
 import delivery.shared.objects.DeliveryState
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 object OverviewApi extends ApiPlan[OverviewApi.OverviewQuery, OverviewResponse]:
 
-  final case class OverviewQuery(ref: Ref[IO, DeliveryState])
+  final case class OverviewQuery(state: DeliveryState)
 
   private val logger = Slf4jLogger.getLogger[IO]
 
@@ -19,7 +18,7 @@ object OverviewApi extends ApiPlan[OverviewApi.OverviewQuery, OverviewResponse]:
   override def plan(input: OverviewApi.OverviewQuery): IO[OverviewResponse] =
     for
       _ <- logger.info(s"$name started")
-      response <- AdminService.fetchOverview(input.ref)
+      response = AdminApiSupport.overview(input.state)
       _ <- logger.info(s"$name finished")
     yield response
 

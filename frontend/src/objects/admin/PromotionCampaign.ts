@@ -1,4 +1,4 @@
-import type { CampaignId } from '@/delivery/model/ids'
+import type { CampaignId } from '@/objects/shared/ids'
 
 export interface PromotionCampaign {
   id: CampaignId

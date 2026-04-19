@@ -1,19 +1,18 @@
 package delivery.user.api
 
 import cats.effect.IO
-import cats.effect.kernel.Ref
 import delivery.shared.api.ApiPlan
 import delivery.shared.objects.{DeliveryState, OkResponse}
+import delivery.shared.state.DeliveryStateOps
 import delivery.user.objects.CustomerProfilePatch
-import delivery.user.service.UserService
+import delivery.user.state.UserDomainOps
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 object CustomerProfilePatchApi
-    extends ApiPlan[CustomerProfilePatchApi.CustomerProfilePatchCommand, Either[String, OkResponse]]:
+    extends ApiPlan[CustomerProfilePatchApi.CustomerProfilePatchCommand, Either[String, CustomerProfilePatchApi.CustomerProfilePatchSuccess]]:
 
   final case class CustomerProfilePatchCommand(
-      ref: Ref[IO, DeliveryState],
-      persist: DeliveryState => IO[Unit],
+      state: DeliveryState,
       username: String,
       body: CustomerProfilePatch
   )
@@ -22,11 +21,16 @@ object CustomerProfilePatchApi
 
   override val name: String = "CustomerProfilePatchApi"
 
-  override def plan(input: CustomerProfilePatchApi.CustomerProfilePatchCommand): IO[Either[String, OkResponse]] =
+  override def plan(input: CustomerProfilePatchApi.CustomerProfilePatchCommand): IO[Either[String, CustomerProfilePatchApi.CustomerProfilePatchSuccess]] =
     for
       _ <- logger.info(s"$name started, username=${input.username}")
-      response <- UserService.patchCustomerProfile(input.ref, input.persist, input.username, input.body)
+      response <- UserDomainOps.patchCustomer(input.state.user, input.username, input.body) match
+        case Left(msg) => IO.pure(Left(msg))
+        case Right(nextUser) =>
+          IO.pure(Right(CustomerProfilePatchSuccess(DeliveryStateOps.withUserState(input.state, nextUser), OkResponse(ok = true))))
       _ <- logger.info(s"$name finished, success=${response.isRight}")
     yield response
+
+  final case class CustomerProfilePatchSuccess(nextState: DeliveryState, response: OkResponse)
 
 end CustomerProfilePatchApi

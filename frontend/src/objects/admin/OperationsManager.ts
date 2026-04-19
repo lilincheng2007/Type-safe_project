@@ -1,4 +1,4 @@
-import type { MerchantId, OperationsManagerId } from '@/delivery/model/ids'
+import type { MerchantId, OperationsManagerId } from '@/objects/shared/ids'
 
 export interface OperationsManager {
   id: OperationsManagerId

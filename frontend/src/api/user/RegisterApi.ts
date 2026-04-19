@@ -1,6 +1,6 @@
-import type { TaskIO } from '@/delivery/io/TaskIO'
+import type { TaskIO } from '@/api/shared/TaskIO'
 import type { OkResponse } from '@/objects/shared/OkResponse'
-import type { UserRole } from '@/delivery/model/ids'
+import type { UserRole } from '@/objects/shared/ids'
 import { apiPostIO } from '@/api/shared/client'
 
 export function registerIO(input: {
@@ -8,5 +8,5 @@ export function registerIO(input: {
   username: string
   password: string
 }): TaskIO<OkResponse> {
-  return apiPostIO('/auth/register', input)
+  return apiPostIO('/user/register', input)
 }

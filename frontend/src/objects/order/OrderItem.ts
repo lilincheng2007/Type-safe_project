@@ -1,4 +1,4 @@
-import type { ProductId } from '@/delivery/model/ids'
+import type { ProductId } from '@/objects/shared/ids'
 
 export interface OrderItem {
   productId: ProductId

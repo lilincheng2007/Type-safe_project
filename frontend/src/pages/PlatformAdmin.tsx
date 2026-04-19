@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { fetchAdminMeIO } from '@/api/admin/AdminMeApi'
 import { useAppChrome } from '@/hooks/useAppChrome'
-import type { PlatformMetaResponse } from '@/delivery/model/api'
+import type { PlatformMetaResponse } from '@/objects/admin'
 import { fetchPlatformMetaIO } from '@/api/admin/PlatformMetaApi'
 import { runTask } from '@/api/shared/client'
 

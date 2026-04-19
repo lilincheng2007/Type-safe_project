@@ -1,3 +1,8 @@
 package delivery.admin.objects
 
-type PromotionCampaign = delivery.model.PromotionCampaign
+final case class PromotionCampaign(
+    id: String,
+    title: String,
+    target: String,
+    status: String
+)

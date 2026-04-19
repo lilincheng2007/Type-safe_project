@@ -1,3 +1,12 @@
 package delivery.merchant.objects
 
-type Merchant = delivery.model.Merchant
+final case class Merchant(
+    id: String,
+    storeName: String,
+    category: String,
+    address: String,
+    phone: String,
+    rating: Double,
+    tags: List[String],
+    featuredProductIds: List[String]
+)

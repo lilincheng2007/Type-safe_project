@@ -1,4 +1,4 @@
-import type { CustomerServiceAgentId, ServiceChannel } from '@/delivery/model/ids'
+import type { CustomerServiceAgentId, ServiceChannel } from '@/objects/shared/ids'
 
 export interface CustomerServiceAgent {
   id: CustomerServiceAgentId

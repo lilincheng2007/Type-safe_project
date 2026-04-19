@@ -1,18 +1,17 @@
 package delivery.merchant.api
 
 import cats.effect.IO
-import cats.effect.kernel.Ref
 import delivery.shared.api.ApiPlan
 import delivery.merchant.objects.MerchantProfileBody
-import delivery.merchant.service.MerchantService
+import delivery.merchant.state.MerchantDomainOps
 import delivery.shared.objects.{DeliveryState, OkResponse}
+import delivery.shared.state.DeliveryStateOps
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-object MerchantProfileApi extends ApiPlan[MerchantProfileApi.MerchantProfileCommand, Either[String, OkResponse]]:
+object MerchantProfileApi extends ApiPlan[MerchantProfileApi.MerchantProfileCommand, Either[String, MerchantProfileApi.MerchantProfileSuccess]]:
 
   final case class MerchantProfileCommand(
-      ref: Ref[IO, DeliveryState],
-      persist: DeliveryState => IO[Unit],
+      state: DeliveryState,
       username: String,
       body: MerchantProfileBody
   )
@@ -21,11 +20,16 @@ object MerchantProfileApi extends ApiPlan[MerchantProfileApi.MerchantProfileComm
 
   override val name: String = "MerchantProfileApi"
 
-  override def plan(input: MerchantProfileApi.MerchantProfileCommand): IO[Either[String, OkResponse]] =
+  override def plan(input: MerchantProfileApi.MerchantProfileCommand): IO[Either[String, MerchantProfileApi.MerchantProfileSuccess]] =
     for
       _ <- logger.info(s"$name started, username=${input.username}")
-      response <- MerchantService.replaceProfile(input.ref, input.persist, input.username, input.body)
+      response <- MerchantDomainOps.replaceMerchantProfile(input.state.merchant, input.username, input.body.profile) match
+        case Left(msg) => IO.pure(Left(msg))
+        case Right(nextMerchant) =>
+          IO.pure(Right(MerchantProfileSuccess(DeliveryStateOps.withMerchantState(input.state, nextMerchant), OkResponse(ok = true))))
       _ <- logger.info(s"$name finished, success=${response.isRight}")
     yield response
+
+  final case class MerchantProfileSuccess(nextState: DeliveryState, response: OkResponse)
 
 end MerchantProfileApi

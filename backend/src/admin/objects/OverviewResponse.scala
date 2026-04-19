@@ -1,6 +1,8 @@
 package delivery.admin.objects
 
-import delivery.model.{ComplaintTicket, Merchant, Order, PromotionCampaign, Rider}
+import delivery.merchant.objects.Merchant
+import delivery.order.objects.Order
+import delivery.rider.objects.Rider
 
 final case class OverviewResponse(
     merchants: List[Merchant],

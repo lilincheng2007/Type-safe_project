@@ -1,9 +1,9 @@
-import type { TaskIO } from '@/delivery/io/TaskIO'
-import { fetchIO } from '@/delivery/io/browser'
+import type { TaskIO } from './TaskIO'
+import { fetchIO } from './browser'
 import { clearAuthSessionIO, getAuthTokenIO } from '@/lib/auth-session'
 
-export { runTask } from '@/delivery/io/TaskIO'
-import { runTask } from '@/delivery/io/TaskIO'
+export { runTask } from './TaskIO'
+import { runTask } from './TaskIO'
 
 const base = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api'
 

@@ -1,3 +1,10 @@
 package delivery.merchant.objects
 
-type MerchantStoreProfile = delivery.model.MerchantStoreProfile
+import delivery.order.objects.Order
+
+final case class MerchantStoreProfile(
+    merchant: Merchant,
+    products: List[Product],
+    pendingOrders: List[Order],
+    historyOrders: List[Order]
+)

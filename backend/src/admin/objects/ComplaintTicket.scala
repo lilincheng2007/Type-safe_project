@@ -1,3 +1,10 @@
 package delivery.admin.objects
 
-type ComplaintTicket = delivery.model.ComplaintTicket
+final case class ComplaintTicket(
+    id: String,
+    orderId: String,
+    customerName: String,
+    summary: String,
+    severity: String,
+    status: String
+)

@@ -1,5 +1,0 @@
-export type { CustomerServiceAgent } from '@/objects/admin/CustomerServiceAgent'
-export type { OperationsManager } from '@/objects/admin/OperationsManager'
-export type { MerchantApplication } from '@/objects/admin/MerchantApplication'
-export type { ComplaintTicket } from '@/objects/admin/ComplaintTicket'
-export type { PromotionCampaign } from '@/objects/admin/PromotionCampaign'

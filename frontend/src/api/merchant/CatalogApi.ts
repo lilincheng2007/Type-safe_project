@@ -1,7 +1,7 @@
-import type { TaskIO } from '@/delivery/io/TaskIO'
+import type { TaskIO } from '@/api/shared/TaskIO'
 import type { CatalogResponse } from '@/objects/merchant/CatalogResponse'
 import { apiGetIO } from '@/api/shared/client'
 
 export function fetchCatalogIO(): TaskIO<CatalogResponse> {
-  return apiGetIO('/delivery/catalog')
+  return apiGetIO('/merchant/catalog')
 }
