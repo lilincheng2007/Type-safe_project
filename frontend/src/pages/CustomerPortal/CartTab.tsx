@@ -31,6 +31,13 @@ export function CartTab({ merchants, products, cartLines, onChangeQuantity, onCh
 
   return (
     <div className="space-y-4">
+      <Card className="border-orange-100 bg-white/95 py-0">
+        <CardHeader className="pb-2">
+          <CardDescription>购物车商品数</CardDescription>
+          <CardTitle>{cartLines.reduce((sum, line) => sum + line.quantity, 0)} 件</CardTitle>
+        </CardHeader>
+      </Card>
+
       <Card className="border-orange-100 bg-white/95">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

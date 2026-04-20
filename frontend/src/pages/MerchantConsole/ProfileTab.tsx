@@ -12,7 +12,9 @@ type ProfileTabProps = {
 export function ProfileTab({ selectedStore, onOpenStoreDialog }: ProfileTabProps) {
   const merchantPendingOrders = selectedStore?.pendingOrders ?? []
   const merchantHistoryOrders = selectedStore?.historyOrders ?? []
-  const merchantOrders = [...merchantPendingOrders, ...merchantHistoryOrders]
+  const activeCookingOrders = merchantPendingOrders.filter((order) => order.status === '制作中')
+  const historyOrders = [...merchantPendingOrders.filter((order) => order.status !== '制作中'), ...merchantHistoryOrders]
+  const totalTurnover = historyOrders.reduce((sum, item) => sum + item.totalAmount, 0)
 
   return (
     <div className="space-y-4">
@@ -32,15 +34,15 @@ export function ProfileTab({ selectedStore, onOpenStoreDialog }: ProfileTabProps
               </div>
               <div className="flex items-center justify-between rounded-xl border border-orange-100 p-3">
                 <span>待处理订单</span>
-                <span>{merchantPendingOrders.length}</span>
+                <span>{activeCookingOrders.length}</span>
               </div>
               <div className="flex items-center justify-between rounded-xl border border-orange-100 p-3">
                 <span>历史订单</span>
-                <span>{merchantHistoryOrders.length}</span>
+                <span>{historyOrders.length}</span>
               </div>
               <div className="flex items-center justify-between rounded-xl border border-orange-100 p-3">
-                <span>总成交额（模拟）</span>
-                <span>{merchantOrders.reduce((sum, item) => sum + item.totalAmount, 0)} 元</span>
+                <span>总成交额</span>
+                <span>{totalTurnover} 元</span>
               </div>
             </>
           ) : (

@@ -8,7 +8,7 @@ import { patchCustomerProfileIO } from '@/api/user/CustomerProfilePatchApi'
 import type { Merchant, Product } from '@/objects/merchant'
 import type { Order } from '@/objects/order'
 import type { MerchantId, ProductId } from '@/objects/shared'
-import type { CustomerAccountPublic } from '@/objects/user'
+import type { CustomerAccountPublic, CustomerProfilePatch } from '@/objects/user'
 
 export type CustomerTab = 'home' | 'cart' | 'profile'
 
@@ -31,19 +31,30 @@ type CustomerPortalStore = {
   pendingOrders: Order[]
   historyOrders: Order[]
   isRechargeOpen: boolean
+  isEditProfileOpen: boolean
   rechargeAmountInput: string
+  profileDraft: {
+    name: string
+    phone: string
+    defaultAddress: string
+  }
   selectedOrder: Order | null
   resetPage: () => void
+  refreshPortal: () => Promise<void>
   bootstrap: () => Promise<void>
   setActiveTab: (tab: CustomerTab) => void
   setSelectedMerchantId: (merchantId: MerchantId) => void
   addProductToCart: (merchantId: MerchantId, productId: ProductId) => void
   changeQuantity: (merchantId: MerchantId, productId: ProductId, nextQuantity: number) => void
   setIsRechargeOpen: (open: boolean) => void
+  openEditProfile: () => void
+  setIsEditProfileOpen: (open: boolean) => void
+  setProfileDraftField: (field: 'name' | 'phone' | 'defaultAddress', value: string) => void
   setRechargeAmountInput: (value: string) => void
   setSelectedOrder: (order: Order | null) => void
   checkout: () => Promise<{ ok: true; createdCount: number } | { ok: false; message: string }>
   recharge: () => Promise<{ ok: true; amount: number } | { ok: false; message: string }>
+  saveProfile: () => Promise<{ ok: true } | { ok: false; message: string }>
 }
 
 const initialState = {
@@ -59,27 +70,45 @@ const initialState = {
   pendingOrders: [] as Order[],
   historyOrders: [] as Order[],
   isRechargeOpen: false,
+  isEditProfileOpen: false,
   rechargeAmountInput: '',
+  profileDraft: {
+    name: '',
+    phone: '',
+    defaultAddress: '',
+  },
   selectedOrder: null as Order | null,
 }
 
 export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) => ({
   ...initialState,
   resetPage: () => set(initialState),
+  refreshPortal: async () => {
+    const me = await runTask(fetchCustomerMeIO())
+    const catalog = await runTask(fetchCatalogIO())
+    const visibleProductIds = new Set(catalog.products.map((product) => product.id))
+    const currentSelectedMerchantId = get().selectedMerchantId
+    const nextSelectedMerchantId =
+      currentSelectedMerchantId && catalog.merchants.some((merchant) => merchant.id === currentSelectedMerchantId)
+        ? currentSelectedMerchantId
+        : (catalog.merchants[0]?.id ?? '')
+    const nextCartLines = get().cartLines.filter((line) => visibleProductIds.has(line.productId))
+
+    set({
+      customerAccount: me.customerAccount,
+      walletBalance: me.customerAccount.profile.walletBalance,
+      pendingOrders: me.customerAccount.profile.pendingOrders,
+      historyOrders: me.customerAccount.profile.historyOrders,
+      merchants: catalog.merchants,
+      products: catalog.products,
+      selectedMerchantId: nextSelectedMerchantId,
+      cartLines: nextCartLines,
+    })
+  },
   bootstrap: async () => {
     set({ bootstrapDone: false, loadError: null })
     try {
-      const me = await runTask(fetchCustomerMeIO())
-      const catalog = await runTask(fetchCatalogIO())
-      set({
-        customerAccount: me.customerAccount,
-        walletBalance: me.customerAccount.profile.walletBalance,
-        pendingOrders: me.customerAccount.profile.pendingOrders,
-        historyOrders: me.customerAccount.profile.historyOrders,
-        merchants: catalog.merchants,
-        products: catalog.products,
-        selectedMerchantId: catalog.merchants[0]?.id ?? '',
-      })
+      await get().refreshPortal()
     } catch (error) {
       set({ loadError: error instanceof Error ? error.message : '加载失败' })
     } finally {
@@ -120,6 +149,25 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
       }
     }),
   setIsRechargeOpen: (isRechargeOpen) => set({ isRechargeOpen }),
+  openEditProfile: () => {
+    const profile = get().customerAccount?.profile
+    set({
+      isEditProfileOpen: true,
+      profileDraft: {
+        name: profile?.name ?? '',
+        phone: profile?.phone ?? '',
+        defaultAddress: profile?.defaultAddress ?? '',
+      },
+    })
+  },
+  setIsEditProfileOpen: (isEditProfileOpen) => set({ isEditProfileOpen }),
+  setProfileDraftField: (field, value) =>
+    set((state) => ({
+      profileDraft: {
+        ...state.profileDraft,
+        [field]: value,
+      },
+    })),
   setRechargeAmountInput: (rechargeAmountInput) => set({ rechargeAmountInput }),
   setSelectedOrder: (selectedOrder) => set({ selectedOrder }),
   checkout: async () => {
@@ -163,7 +211,7 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
     }
   },
   recharge: async () => {
-    const { rechargeAmountInput, walletBalance, customerAccount } = get()
+    const { rechargeAmountInput, walletBalance } = get()
     const amount = Number.parseFloat(rechargeAmountInput)
 
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -174,23 +222,42 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
 
     try {
       await runTask(patchCustomerProfileIO({ walletBalance: nextWalletBalance }))
+      await get().refreshPortal()
       set({
         walletBalance: nextWalletBalance,
-        customerAccount: customerAccount
-          ? {
-              ...customerAccount,
-              profile: {
-                ...customerAccount.profile,
-                walletBalance: nextWalletBalance,
-              },
-            }
-          : customerAccount,
         rechargeAmountInput: '',
         isRechargeOpen: false,
       })
       return { ok: true, amount }
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : '充值同步失败' }
+    }
+  },
+  saveProfile: async () => {
+    const { profileDraft } = get()
+    const patch: CustomerProfilePatch = {
+      name: profileDraft.name.trim(),
+      phone: profileDraft.phone.trim(),
+      defaultAddress: profileDraft.defaultAddress.trim(),
+    }
+
+    if (!patch.name) {
+      return { ok: false, message: '请输入姓名。' }
+    }
+    if (!patch.phone) {
+      return { ok: false, message: '请输入联系电话。' }
+    }
+    if (!patch.defaultAddress) {
+      return { ok: false, message: '请输入常用收货地址。' }
+    }
+
+    try {
+      await runTask(patchCustomerProfileIO(patch))
+      await get().refreshPortal()
+      set({ isEditProfileOpen: false })
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : '个人信息保存失败' }
     }
   },
 }))

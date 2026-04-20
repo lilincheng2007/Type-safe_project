@@ -9,7 +9,7 @@ const base = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api'
 
 async function parseErrorMessage(res: Response): Promise<string> {
   try {
-    const data: unknown = await res.json()
+    const data: unknown = await res.clone().json()
     if (data && typeof data === 'object' && 'error' in data) {
       const err = (data as { error?: unknown }).error
       if (typeof err === 'string') return err
@@ -17,8 +17,12 @@ async function parseErrorMessage(res: Response): Promise<string> {
   } catch {
     // ignore
   }
-  const text = await res.text()
-  return text || res.statusText || `HTTP ${res.status}`
+  try {
+    const text = await res.text()
+    return text || res.statusText || `HTTP ${res.status}`
+  } catch {
+    return res.statusText || `HTTP ${res.status}`
+  }
 }
 
 export class ApiError extends Error {
@@ -42,7 +46,13 @@ async function apiFetchPromise<T>(path: string, init?: RequestInit): Promise<T> 
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const res = await runTask(fetchIO(url, { ...init, headers }))
+  let res: Response
+  try {
+    res = await runTask(fetchIO(url, { ...init, headers }))
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '请求失败'
+    throw new Error(`无法连接后端服务：${message}`)
+  }
   if ((res.status === 401 || res.status === 403) && token) {
     await runTask(clearAuthSessionIO())
   }

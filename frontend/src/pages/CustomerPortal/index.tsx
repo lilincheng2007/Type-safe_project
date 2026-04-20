@@ -8,6 +8,7 @@ import type { MerchantId, ProductId } from '@/objects/shared'
 import { useCustomerPortalStore } from '@/stores/pages/use-customer-portal-store'
 
 import { CartTab } from './CartTab'
+import { EditProfileDialog } from './EditProfileDialog'
 import { HomeTab } from './HomeTab'
 import { OrderDetailDialog } from './OrderDetailDialog'
 import { ProfileTab } from './ProfileTab'
@@ -28,7 +29,9 @@ export default function CustomerPortal() {
   const pendingOrders = useCustomerPortalStore((state) => state.pendingOrders)
   const historyOrders = useCustomerPortalStore((state) => state.historyOrders)
   const isRechargeOpen = useCustomerPortalStore((state) => state.isRechargeOpen)
+  const isEditProfileOpen = useCustomerPortalStore((state) => state.isEditProfileOpen)
   const rechargeAmountInput = useCustomerPortalStore((state) => state.rechargeAmountInput)
+  const profileDraft = useCustomerPortalStore((state) => state.profileDraft)
   const selectedOrder = useCustomerPortalStore((state) => state.selectedOrder)
   const resetPage = useCustomerPortalStore((state) => state.resetPage)
   const bootstrap = useCustomerPortalStore((state) => state.bootstrap)
@@ -37,15 +40,30 @@ export default function CustomerPortal() {
   const addProductToCart = useCustomerPortalStore((state) => state.addProductToCart)
   const changeQuantity = useCustomerPortalStore((state) => state.changeQuantity)
   const setIsRechargeOpen = useCustomerPortalStore((state) => state.setIsRechargeOpen)
+  const openEditProfile = useCustomerPortalStore((state) => state.openEditProfile)
+  const setIsEditProfileOpen = useCustomerPortalStore((state) => state.setIsEditProfileOpen)
+  const setProfileDraftField = useCustomerPortalStore((state) => state.setProfileDraftField)
   const setRechargeAmountInput = useCustomerPortalStore((state) => state.setRechargeAmountInput)
   const setSelectedOrder = useCustomerPortalStore((state) => state.setSelectedOrder)
+  const refreshPortal = useCustomerPortalStore((state) => state.refreshPortal)
   const checkout = useCustomerPortalStore((state) => state.checkout)
   const recharge = useCustomerPortalStore((state) => state.recharge)
+  const saveProfile = useCustomerPortalStore((state) => state.saveProfile)
 
   useEffect(() => {
     resetPage()
     void bootstrap()
   }, [bootstrap, resetPage])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void refreshPortal().catch(() => {})
+    }, 5000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [refreshPortal])
 
   const handleAddProductToCart = (merchantId: MerchantId, productId: ProductId) => {
     addProductToCart(merchantId, productId)
@@ -66,6 +84,16 @@ export default function CustomerPortal() {
     const result = await recharge()
     if (result.ok) {
       showNotice(`充值成功，到账 ¥${result.amount.toFixed(2)}。`, 'success')
+      return
+    }
+
+    showNotice(result.message, 'error')
+  }
+
+  const handleSaveProfile = async () => {
+    const result = await saveProfile()
+    if (result.ok) {
+      showNotice('个人信息已保存。', 'success')
       return
     }
 
@@ -138,11 +166,9 @@ export default function CustomerPortal() {
 
         <TabsContent value="home">
           <HomeTab
-            customerAccount={customerAccount}
             merchants={merchants}
             products={products}
             selectedMerchantId={selectedMerchantId}
-            cartLines={cartLines}
             onSelectMerchant={setSelectedMerchantId}
             onAddProductToCart={handleAddProductToCart}
           />
@@ -160,10 +186,15 @@ export default function CustomerPortal() {
 
         <TabsContent value="profile">
           <ProfileTab
+            name={customerAccount.profile.name}
+            phone={customerAccount.profile.phone}
+            defaultAddress={customerAccount.profile.defaultAddress}
             walletBalance={walletBalance}
+            merchants={merchants}
             pendingOrders={pendingOrders}
             historyOrders={historyOrders}
             onOpenRecharge={() => setIsRechargeOpen(true)}
+            onOpenEditProfile={openEditProfile}
             onSelectOrder={setSelectedOrder}
           />
         </TabsContent>
@@ -175,6 +206,17 @@ export default function CustomerPortal() {
         onOpenChange={setIsRechargeOpen}
         onAmountChange={setRechargeAmountInput}
         onConfirm={handleRechargeConfirm}
+      />
+      <EditProfileDialog
+        open={isEditProfileOpen}
+        name={profileDraft.name}
+        phone={profileDraft.phone}
+        defaultAddress={profileDraft.defaultAddress}
+        onOpenChange={setIsEditProfileOpen}
+        onNameChange={(value) => setProfileDraftField('name', value)}
+        onPhoneChange={(value) => setProfileDraftField('phone', value)}
+        onDefaultAddressChange={(value) => setProfileDraftField('defaultAddress', value)}
+        onConfirm={handleSaveProfile}
       />
       <OrderDetailDialog
         selectedOrder={selectedOrder}

@@ -30,12 +30,26 @@ export default function MerchantConsole() {
   const setNewStoreName = useMerchantConsoleStore((state) => state.setNewStoreName)
   const setNewStoreAddress = useMerchantConsoleStore((state) => state.setNewStoreAddress)
   const bootstrap = useMerchantConsoleStore((state) => state.bootstrap)
+  const refreshMerchant = useMerchantConsoleStore((state) => state.refreshMerchant)
   const createStore = useMerchantConsoleStore((state) => state.createStore)
+  const createProduct = useMerchantConsoleStore((state) => state.createProduct)
+  const finishCooking = useMerchantConsoleStore((state) => state.finishCooking)
+  const updateProduct = useMerchantConsoleStore((state) => state.updateProduct)
 
   useEffect(() => {
     resetPage()
     void bootstrap()
   }, [bootstrap, resetPage])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void refreshMerchant().catch(() => {})
+    }, 5000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [refreshMerchant])
 
   const selectedStore = useMemo(
     () => stores.find((item) => item.merchant.id === selectedStoreId) ?? null,
@@ -87,7 +101,7 @@ export default function MerchantConsole() {
   return (
     <DeliveryPageShell
       title="商家端后台核心功能"
-      description="包含商家入驻申请、商品管理、订单处理（接单/出餐完成）和营业概况查看。"
+      description="包含商家入驻申请、商品管理、自动接单后的订单处理和营业概况查看。"
       roleBadge="商家后台"
     >
       <Tabs
@@ -105,7 +119,7 @@ export default function MerchantConsole() {
                 菜品
               </TabsTrigger>
               <TabsTrigger value="orders" className="rounded-lg">
-                接单与出餐处理
+                出餐处理
               </TabsTrigger>
               <TabsTrigger value="profile" className="rounded-lg">
                 我的
@@ -117,16 +131,33 @@ export default function MerchantConsole() {
         <TabsContent value="products">
           <ProductsTab
             selectedStore={selectedStore}
-            onEditProduct={() => showNotice('商品编辑由后端 API 提供后再接线。', 'info')}
-            onToggleProduct={() => showNotice('商品上下架由后端 API 提供后再接线。', 'info')}
+            onCreateProduct={(input) =>
+              createProduct(input)
+                .then(() => showNotice('新菜品已创建。', 'success'))
+                .catch((error) => {
+                  showNotice(error instanceof Error ? error.message : '创建菜品失败', 'error')
+                  throw error
+                })
+            }
+            onEditProduct={(productId, input) =>
+              updateProduct(productId, input)
+                .then(() => showNotice('菜品信息已更新。', 'success'))
+                .catch((error) => {
+                  showNotice(error instanceof Error ? error.message : '菜品更新失败', 'error')
+                  throw error
+                })
+            }
           />
         </TabsContent>
 
         <TabsContent value="orders">
           <OrdersTab
             selectedStore={selectedStore}
-            onAcceptOrder={() => showNotice('商家接单由后端 API 提供后再接线。', 'info')}
-            onFinishCooking={() => showNotice('出餐完成由后端 API 提供后再接线。', 'info')}
+            onFinishCooking={(orderId) => {
+              void finishCooking(orderId)
+                .then(() => showNotice('订单已进入待骑手抢单状态。', 'success'))
+                .catch((error) => showNotice(error instanceof Error ? error.message : '出餐完成失败', 'error'))
+            }}
           />
         </TabsContent>
 

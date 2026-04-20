@@ -27,5 +27,5 @@ enum ServiceChannel derives CanEqual:
 end ServiceChannel
 
 enum OrderStatus derives CanEqual:
-  case 待接单, 制作中, 配送中, 已完成, 已取消
+  case 待接单, 制作中, 配送中, 已送达, 已完成, 已取消
 end OrderStatus

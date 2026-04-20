@@ -4,6 +4,8 @@ import type { OrderItem } from './OrderItem'
 export interface Order {
   id: OrderId
   customerId: UserId
+  customerName: string
+  customerPhone: string
   merchantId: MerchantId
   riderId?: RiderId
   items: OrderItem[]

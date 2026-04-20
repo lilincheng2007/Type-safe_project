@@ -18,7 +18,7 @@ object DeliveryRoutes:
       "/api/admin" -> AdminRoutes.routes(ref),
       "/api/user" -> UserRoutes.routes(ref, persist),
       "/api/merchant" -> MerchantRoutes.routes(ref, persist),
-      "/api/rider" -> RiderRoutes.routes(ref),
+      "/api/rider" -> RiderRoutes.routes(ref, persist),
       "/api/order" -> OrderRoutes.routes(ref, persist)
     )
 

@@ -24,7 +24,21 @@ object OrderDomainOps:
           }
           if items.isEmpty then None
           else
-            Some(Order(s"o-$nowMillis-${idx + 1}", customerProfile.id, merchantId, None, items, items.map(i => i.unitPrice * i.quantity).sum, customerProfile.defaultAddress, "制作中", orderTimeText))
+            Some(
+              Order(
+                s"o-$nowMillis-${idx + 1}",
+                customerProfile.id,
+                customerProfile.name,
+                customerProfile.phone,
+                merchantId,
+                None,
+                items,
+                items.map(i => i.unitPrice * i.quantity).sum,
+                customerProfile.defaultAddress,
+                "制作中",
+                orderTimeText
+              )
+            )
         }
 
         if createdOrders.isEmpty then Left("无法解析购物车商品")
@@ -35,5 +49,16 @@ object OrderDomainOps:
 
   def appendOrders(state: OrderServiceState, newOnes: List[Order]): OrderServiceState =
     state.copy(orders = newOnes.reverse ::: state.orders)
+
+  def updateOrderStatus(state: OrderServiceState, orderId: String, nextStatus: String): Either[String, (OrderServiceState, Order)] =
+    state.orders.find(_.id == orderId).toRight("未找到订单").map { order =>
+      val updatedOrder = order.copy(status = nextStatus)
+      (state.copy(orders = state.orders.map(item => if item.id == orderId then updatedOrder else item)), updatedOrder)
+    }
+
+  def replaceOrder(state: OrderServiceState, updatedOrder: Order): Either[String, (OrderServiceState, Order)] =
+    state.orders.find(_.id == updatedOrder.id).toRight("未找到订单").map { _ =>
+      (state.copy(orders = state.orders.map(item => if item.id == updatedOrder.id then updatedOrder else item)), updatedOrder)
+    }
 
 end OrderDomainOps

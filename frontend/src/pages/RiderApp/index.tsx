@@ -15,16 +15,31 @@ export default function RiderApp() {
   const bootstrapDone = useRiderAppStore((state) => state.bootstrapDone)
   const loadError = useRiderAppStore((state) => state.loadError)
   const riderAccount = useRiderAppStore((state) => state.riderAccount)
+  const availableOrders = useRiderAppStore((state) => state.availableOrders)
   const resetPage = useRiderAppStore((state) => state.resetPage)
   const bootstrap = useRiderAppStore((state) => state.bootstrap)
+  const refreshRider = useRiderAppStore((state) => state.refreshRider)
+  const grabOrder = useRiderAppStore((state) => state.grabOrder)
+  const updateOrderStatus = useRiderAppStore((state) => state.updateOrderStatus)
 
   useEffect(() => {
     resetPage()
     void bootstrap()
   }, [bootstrap, resetPage])
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void refreshRider().catch(() => {})
+    }, 5000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [refreshRider])
+
   const rider = riderAccount?.profile.rider ?? null
   const assignedOrders = riderAccount ? riderAccount.profile.pendingOrders : []
+  const historyOrders = riderAccount ? riderAccount.profile.historyOrders : []
 
   if (!bootstrapDone) {
     return (
@@ -67,13 +82,24 @@ export default function RiderApp() {
       roleBadge="骑手 APP"
     >
       <RiderOverview rider={rider} />
-      <DispatchCard rider={rider} onGrabOrder={() => showNotice('抢单由后端 API 提供后再接线。', 'info')} />
+      <DispatchCard
+        availableOrders={availableOrders}
+        onGrabOrder={(orderId) => {
+          void grabOrder(orderId)
+            .then(() => showNotice('抢单成功，订单已进入你的配送任务。', 'success'))
+            .catch((error) => showNotice(error instanceof Error ? error.message : '抢单失败', 'error'))
+        }}
+      />
       <TaskListCard
         orders={assignedOrders}
-        onNavigate={() => showNotice('地图导航为端能力；与订单联动由后端 API 提供后再接线。', 'info')}
-        onUpdateStatus={() => showNotice('配送状态更新由后端 API 提供后再接线。', 'info')}
+        historyOrders={historyOrders}
+        onUpdateStatus={(orderId) => {
+          void updateOrderStatus(orderId)
+            .then(() => showNotice('订单已送达，已转入历史配送。', 'success'))
+            .catch((error) => showNotice(error instanceof Error ? error.message : '更新状态失败', 'error'))
+        }}
       />
-      <SalaryCard walletBalance={riderAccount.profile.walletBalance} salary={rider.salary} />
+      <SalaryCard salary={rider.salary} />
     </DeliveryPageShell>
   )
 }

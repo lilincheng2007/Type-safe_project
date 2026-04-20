@@ -8,6 +8,8 @@ final case class Product(
     description: String,
     imageUrl: String,
     monthlySales: Int,
+    remainingStock: Int,
+    listingStatus: String,
     inventoryStatus: String,
     discountText: Option[String] = None
 )

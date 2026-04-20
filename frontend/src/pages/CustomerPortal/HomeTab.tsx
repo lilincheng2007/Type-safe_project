@@ -1,64 +1,33 @@
-import { LocateFixed, Search, ShoppingCart, Store } from 'lucide-react'
+import { ShoppingCart, Store } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Merchant, Product } from '@/objects/merchant'
 import type { MerchantId, ProductId } from '@/objects/shared'
-import type { CustomerAccountPublic } from '@/objects/user'
-import type { CartLine } from '@/stores/pages/use-customer-portal-store'
 
 type HomeTabProps = {
-  customerAccount: CustomerAccountPublic
   merchants: Merchant[]
   products: Product[]
   selectedMerchantId: MerchantId
-  cartLines: CartLine[]
   onSelectMerchant: (merchantId: MerchantId) => void
   onAddProductToCart: (merchantId: MerchantId, productId: ProductId) => void
 }
 
 export function HomeTab({
-  customerAccount,
   merchants,
   products,
   selectedMerchantId,
-  cartLines,
   onSelectMerchant,
   onAddProductToCart,
 }: HomeTabProps) {
   const selectedMerchant = merchants.find((merchant) => merchant.id === selectedMerchantId) ?? null
-  const selectedMerchantProducts = products.filter((product) => product.merchantId === selectedMerchantId)
+  const selectedMerchantProducts = products.filter(
+    (product) => product.merchantId === selectedMerchantId && product.listingStatus === '上架',
+  )
 
   return (
     <div className="space-y-4">
-      <section className="grid gap-4 md:grid-cols-3">
-        <Card className="border-orange-100 bg-white/95 py-0">
-          <CardHeader className="pb-2">
-            <CardDescription>常用收货地址</CardDescription>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <LocateFixed className="size-4 text-orange-500" />
-              {customerAccount.profile.defaultAddress ?? '请完善默认收货地址'}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className="border-orange-100 bg-white/95 py-0">
-          <CardHeader className="pb-2">
-            <CardDescription>搜索提示</CardDescription>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Search className="size-4 text-orange-500" />
-              支持按商家/商品名搜索
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className="border-orange-100 bg-white/95 py-0">
-          <CardHeader className="pb-2">
-            <CardDescription>购物车商品数</CardDescription>
-            <CardTitle>{cartLines.reduce((sum, line) => sum + line.quantity, 0)} 件</CardTitle>
-          </CardHeader>
-        </Card>
-      </section>
-
       <Card className="border-orange-100 bg-white/95">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -83,9 +52,7 @@ export function HomeTab({
                 <p className="font-semibold text-slate-900">{merchant.storeName}</p>
                 <Badge variant="outline">{merchant.category}</Badge>
               </div>
-              <p className="mt-2 text-sm text-slate-600">
-                评分 {merchant.rating.toFixed(1)} · {merchant.address}
-              </p>
+              <p className="mt-2 text-sm text-slate-600">{merchant.address}</p>
             </button>
           ))}
         </CardContent>
@@ -99,10 +66,7 @@ export function HomeTab({
         <CardContent className="grid gap-3 md:grid-cols-2">
           {selectedMerchantProducts.map((product) => (
             <div key={product.id} className="space-y-2 rounded-xl border border-orange-100 p-4">
-              <div className="flex items-center justify-between">
-                <p className="font-medium text-slate-900">{product.name}</p>
-                <Badge variant="outline">{product.inventoryStatus}</Badge>
-              </div>
+              <p className="font-medium text-slate-900">{product.name}</p>
               <p className="text-sm text-slate-600">{product.description}</p>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-orange-600">{product.price} 元</span>

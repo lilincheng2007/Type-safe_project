@@ -42,6 +42,8 @@ object ApiJsonCodecs:
     val fields = List.newBuilder[(String, Json)]
     fields += "id" -> o.id.asJson
     fields += "customerId" -> o.customerId.asJson
+    fields += "customerName" -> o.customerName.asJson
+    fields += "customerPhone" -> o.customerPhone.asJson
     fields += "merchantId" -> o.merchantId.asJson
     o.riderId.foreach(r => fields += "riderId" -> r.asJson)
     fields += "items" -> o.items.asJson
@@ -71,8 +73,12 @@ object ApiJsonCodecs:
   given Codec[MerchantStoreProfile] = deriveCodec
   given Codec[MerchantProfile] = deriveCodec
   given Codec[MerchantProfileBody] = deriveCodec
+  given Codec[CreateProductRequest] = deriveCodec
+  given Codec[CreateProductResponse] = deriveCodec
   given Codec[CreateStoreRequest] = deriveCodec
   given Codec[CreateStoreResponse] = deriveCodec
+  given Codec[UpdateProductRequest] = deriveCodec
+  given Codec[UpdateProductResponse] = deriveCodec
   given Codec[CatalogResponse] = deriveCodec
   given Codec[MerchantAccountPublic] = deriveCodec
   given Codec[MerchantMeResponse] = deriveCodec
@@ -83,6 +89,7 @@ object ApiJsonCodecs:
   given Codec[RiderProfile] = deriveCodec
   given Codec[RiderAccountPublic] = deriveCodec
   given Codec[RiderMeResponse] = deriveCodec
+  given Codec[RiderUpdateOrderStatusResponse] = deriveCodec
 
   given Codec[AdminAccount] = deriveCodec
   given Codec[AdminServiceState] = deriveCodec

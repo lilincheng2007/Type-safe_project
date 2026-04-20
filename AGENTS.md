@@ -26,6 +26,19 @@
 - 契约类型：[frontend/src/delivery/model/](frontend/src/delivery/model/)。`lib/api/*` 为兼容重导出（deprecated）。
 - 会话仅保存 JWT 与角色：[frontend/src/lib/auth-session.ts](frontend/src/lib/auth-session.ts)。
 
+## 新增规则
+
+1. **一 API 一文件，一对象一文件，且前后端一一对应**：
+   `backend/src/*/api/` 与 `frontend/src/api/*/` 中，同一业务能力必须保持 **文件数量一致、文件名一致、职责一一对应**；
+   `backend/src/*/objects/` 与 `frontend/src/objects/*/` 中，同一契约对象必须保持 **文件数量一致、文件名一致、字段语义一一对应**。
+   若某端需要兼容层，也必须通过同名文件补齐，不能只在单端新增孤立文件。
+2. **保持现有结构与风格稳定**：
+   在保证功能实现的前提下，不随意重排现有模块结构、目录层级或大文件拆分方式；
+   新增文件时优先复用现有命名、分层、导入顺序、case class / interface / API 封装风格，保证新代码与同目录既有文件风格一致。
+3. **交互产生的数据必须以后端为准**：
+   用户在页面交互中产生的业务数据，必须通过 API 写入后端并可由后端再次查询得到；
+   不允许仅保存在浏览器缓存、`localStorage`、`sessionStorage`、内存状态或其他前端本地持久化中充当真实数据来源。前端本地缓存仅可作为展示优化，不能替代后端持久化与真实业务状态。
+
 ## 子代理分工
 
 | 子代理 | 规则文件 | 何时启用 |

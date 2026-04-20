@@ -36,4 +36,13 @@ object DeliveryStateOps:
   ): DeliveryState =
     state.copy(user = nextUser, order = nextOrder, merchant = nextMerchant)
 
+  def withOrderAndMerchantAndUserAndRiderState(
+      state: DeliveryState,
+      nextUser: UserServiceState,
+      nextOrder: OrderServiceState,
+      nextMerchant: MerchantServiceState,
+      nextRider: RiderServiceState
+  ): DeliveryState =
+    state.copy(user = nextUser, order = nextOrder, merchant = nextMerchant, rider = nextRider)
+
 end DeliveryStateOps

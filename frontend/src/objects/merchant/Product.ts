@@ -8,6 +8,8 @@ export interface Product {
   description: string
   imageUrl: string
   monthlySales: number
+  remainingStock: number
+  listingStatus: '上架' | '下架'
   inventoryStatus: '充足' | '紧张' | '售罄'
   discountText?: string
 }

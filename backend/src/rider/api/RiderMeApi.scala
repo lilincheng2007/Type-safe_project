@@ -18,7 +18,10 @@ object RiderMeApi extends ApiPlan[RiderMeApi.RiderMeQuery, Option[RiderMeRespons
   override def plan(input: RiderMeApi.RiderMeQuery): IO[Option[RiderMeResponse]] =
     for
       _ <- logger.info(s"$name started, username=${input.username}")
-      response = input.state.rider.riderAccounts.find(_.username == input.username).map(account => RiderApiSupport.riderMeResponse(input.username, account))
+      availableOrders = input.state.order.orders.filter(order => order.status == "待接单" && order.riderId.isEmpty)
+      response = input.state.rider.riderAccounts.find(_.username == input.username).map(account =>
+        RiderApiSupport.riderMeResponse(input.username, account, availableOrders)
+      )
       _ <- logger.info(s"$name finished, found=${response.isDefined}")
     yield response
 

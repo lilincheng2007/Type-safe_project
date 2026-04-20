@@ -14,8 +14,8 @@ import delivery.user.state.*
 object SeedBootstrap:
 
   private def splitOrdersByHistory(source: List[Order]): (List[Order], List[Order]) =
-    val pending = source.filter(o => o.status != "已完成" && o.status != "已取消")
-    val history = source.filter(o => o.status == "已完成" || o.status == "已取消")
+    val pending = source.filter(o => o.status != "已送达" && o.status != "已完成" && o.status != "已取消")
+    val history = source.filter(o => o.status == "已送达" || o.status == "已完成" || o.status == "已取消")
     (pending, history)
 
   lazy val userState: UserServiceState =
@@ -53,28 +53,30 @@ object SeedBootstrap:
     )
 
   lazy val merchantState: MerchantServiceState =
-    val merchantAccounts = SeedData.seedMerchants.zipWithIndex.map { case (merchant, index) =>
+    val demoStores = SeedData.seedMerchants.map { merchant =>
       val merchantOrders = SeedData.seedOrders.filter(_.merchantId == merchant.id)
       val (pending, history) = splitOrdersByHistory(merchantOrders)
-      MerchantAccount(
-        role = "merchant",
-        username = if index == 0 then "merchant_demo" else s"merchant_${index + 1}",
-        password = "123456",
-        profile = MerchantProfile(
-          id = s"merchant-profile-${merchant.id}",
-          ownerName = merchant.storeName,
-          phone = merchant.phone,
-          stores = List(
-            MerchantStoreProfile(
-              merchant = merchant,
-              products = SeedData.seedProducts.filter(_.merchantId == merchant.id),
-              pendingOrders = pending,
-              historyOrders = history
-            )
-          )
-        )
+      MerchantStoreProfile(
+        merchant = merchant,
+        products = SeedData.seedProducts.filter(_.merchantId == merchant.id),
+        pendingOrders = pending,
+        historyOrders = history
       )
     }
+
+    val merchantAccounts = List(
+      MerchantAccount(
+        role = "merchant",
+        username = "merchant_demo",
+        password = "123456",
+        profile = MerchantProfile(
+          id = "merchant-profile-demo",
+          ownerName = "演示商家",
+          phone = SeedData.seedMerchants.headOption.map(_.phone).getOrElse(""),
+          stores = demoStores
+        )
+      )
+    )
 
     MerchantServiceState(
       merchantAccounts = merchantAccounts,

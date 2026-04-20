@@ -12,7 +12,7 @@ export function StatusFlowCard() {
           <ArrowRightLeft className="size-5 text-orange-500" />
           订单状态流转
         </CardTitle>
-        <CardDescription>标准状态：待接单 → 制作中 → 配送中 → 已完成</CardDescription>
+        <CardDescription>标准状态：制作中 → 待接单 → 配送中 → 已送达（商家自动接单，骑手抢单）</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3 md:grid-cols-4">
         {statusFlow.map((status) => (

@@ -1,9 +1,13 @@
 package delivery.user.state
 
 import cats.effect.IO
+import delivery.order.objects.Order
 import delivery.user.objects.{CheckoutCompleteRequest, Customer, CustomerProfile, CustomerProfilePatch}
 
 object UserDomainOps:
+
+  private def isHistoryStatus(status: String): Boolean =
+    status == "已送达" || status == "已完成" || status == "已取消"
 
   def verifyLogin(state: UserServiceState, role: String, username: String, password: String): Either[String, Unit] =
     state.authCredentials.find(c => c.role == role && c.username == username).map(_.password) match
@@ -72,5 +76,20 @@ object UserDomainOps:
           )
         )
     }
+
+  def replaceOrderSnapshot(state: UserServiceState, updatedOrder: Order): UserServiceState =
+    state.copy(
+      customerAccounts = state.customerAccounts.map { account =>
+        if account.profile.id != updatedOrder.customerId then account
+        else
+          val nextPending = account.profile.pendingOrders.filterNot(_.id == updatedOrder.id)
+          val nextHistory = account.profile.historyOrders.filterNot(_.id == updatedOrder.id)
+          val nextProfile =
+            if isHistoryStatus(updatedOrder.status) then
+              account.profile.copy(historyOrders = updatedOrder :: nextHistory, pendingOrders = nextPending)
+            else account.profile.copy(pendingOrders = updatedOrder :: nextPending, historyOrders = nextHistory)
+          account.copy(profile = nextProfile)
+      }
+    )
 
 end UserDomainOps

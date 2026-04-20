@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 
+import { finishMerchantOrderCookingIO } from '@/api/merchant/MerchantOrderApi'
+import { createMerchantProductIO, updateMerchantProductIO } from '@/api/merchant/MerchantProductApi'
 import { fetchMerchantMeIO } from '@/api/merchant/MerchantMeApi'
 import { createMerchantStoreIO } from '@/api/merchant/MerchantStoreApi'
 import { runTask } from '@/api/shared/client'
-import type { MerchantAccountPublic, MerchantStoreProfile } from '@/objects/merchant'
+import type { CreateProductRequest, MerchantAccountPublic, MerchantStoreProfile, UpdateProductRequest } from '@/objects/merchant'
 
 export type MerchantTab = 'products' | 'orders' | 'profile'
 
@@ -26,6 +28,9 @@ type MerchantConsoleStore = {
   refreshMerchant: () => Promise<MerchantAccountPublic>
   bootstrap: () => Promise<void>
   createStore: () => Promise<string | null>
+  finishCooking: (orderId: string) => Promise<void>
+  createProduct: (input: CreateProductRequest) => Promise<void>
+  updateProduct: (productId: string, input: UpdateProductRequest) => Promise<void>
 }
 
 const initialState = {
@@ -93,5 +98,17 @@ export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get)
       activeTab: 'products',
     })
     return created.merchantId
+  },
+  finishCooking: async (orderId) => {
+    await runTask(finishMerchantOrderCookingIO(orderId))
+    await get().refreshMerchant()
+  },
+  createProduct: async (input) => {
+    await runTask(createMerchantProductIO(input))
+    await get().refreshMerchant()
+  },
+  updateProduct: async (productId, input) => {
+    await runTask(updateMerchantProductIO(productId, input))
+    await get().refreshMerchant()
   },
 }))
