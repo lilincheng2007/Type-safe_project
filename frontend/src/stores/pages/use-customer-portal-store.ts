@@ -1,14 +1,15 @@
 import { create } from 'zustand'
 
 import { fetchCatalogIO } from '@/api/merchant/CatalogApi'
-import { checkoutIO } from '@/api/order/CheckoutApi'
+import { checkoutIO, type CheckoutDeliverySnapshot } from '@/api/order/CheckoutApi'
 import { runTask } from '@/api/shared/client'
 import { fetchCustomerMeIO } from '@/api/user/CustomerMeApi'
 import { patchCustomerProfileIO } from '@/api/user/CustomerProfilePatchApi'
 import type { Merchant, Product } from '@/objects/merchant'
 import type { Order } from '@/objects/order'
 import type { MerchantId, ProductId } from '@/objects/shared'
-import type { CustomerAccountPublic, CustomerProfilePatch } from '@/objects/user'
+import { validateDeliveryContacts } from '@/lib/deliveryContacts'
+import type { CustomerAccountPublic, CustomerDeliveryContact } from '@/objects/user'
 
 export type CustomerTab = 'home' | 'cart' | 'profile'
 
@@ -31,13 +32,7 @@ type CustomerPortalStore = {
   pendingOrders: Order[]
   historyOrders: Order[]
   isRechargeOpen: boolean
-  isEditProfileOpen: boolean
   rechargeAmountInput: string
-  profileDraft: {
-    name: string
-    phone: string
-    defaultAddress: string
-  }
   selectedOrder: Order | null
   resetPage: () => void
   refreshPortal: () => Promise<void>
@@ -47,16 +42,16 @@ type CustomerPortalStore = {
   addProductToCart: (merchantId: MerchantId, productId: ProductId) => void
   changeQuantity: (merchantId: MerchantId, productId: ProductId, nextQuantity: number) => void
   setIsRechargeOpen: (open: boolean) => void
-  openEditProfile: () => void
-  setIsEditProfileOpen: (open: boolean) => void
-  setProfileDraftField: (field: 'name' | 'phone' | 'defaultAddress', value: string) => void
   setRechargeAmountInput: (value: string) => void
   setSelectedOrder: (order: Order | null) => void
-  checkout: (options?: { merchantId?: MerchantId }) => Promise<
-    { ok: true; createdCount: number } | { ok: false; message: string }
-  >
+  checkout: (options?: {
+    merchantId?: MerchantId
+    delivery?: CheckoutDeliverySnapshot
+  }) => Promise<{ ok: true; createdCount: number } | { ok: false; message: string }>
   recharge: () => Promise<{ ok: true; amount: number } | { ok: false; message: string }>
-  saveProfile: () => Promise<{ ok: true } | { ok: false; message: string }>
+  saveDeliveryContacts: (
+    contacts: CustomerDeliveryContact[],
+  ) => Promise<{ ok: true } | { ok: false; message: string }>
 }
 
 const initialState = {
@@ -72,13 +67,7 @@ const initialState = {
   pendingOrders: [] as Order[],
   historyOrders: [] as Order[],
   isRechargeOpen: false,
-  isEditProfileOpen: false,
   rechargeAmountInput: '',
-  profileDraft: {
-    name: '',
-    phone: '',
-    defaultAddress: '',
-  },
   selectedOrder: null as Order | null,
 }
 
@@ -151,28 +140,9 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
       }
     }),
   setIsRechargeOpen: (isRechargeOpen) => set({ isRechargeOpen }),
-  openEditProfile: () => {
-    const profile = get().customerAccount?.profile
-    set({
-      isEditProfileOpen: true,
-      profileDraft: {
-        name: profile?.name ?? '',
-        phone: profile?.phone ?? '',
-        defaultAddress: profile?.defaultAddress ?? '',
-      },
-    })
-  },
-  setIsEditProfileOpen: (isEditProfileOpen) => set({ isEditProfileOpen }),
-  setProfileDraftField: (field, value) =>
-    set((state) => ({
-      profileDraft: {
-        ...state.profileDraft,
-        [field]: value,
-      },
-    })),
   setRechargeAmountInput: (rechargeAmountInput) => set({ rechargeAmountInput }),
   setSelectedOrder: (selectedOrder) => set({ selectedOrder }),
-  checkout: async (options?: { merchantId?: MerchantId }) => {
+  checkout: async (options?: { merchantId?: MerchantId; delivery?: CheckoutDeliverySnapshot }) => {
     const merchantId = options?.merchantId
     const { cartLines, walletBalance, products, pendingOrders, customerAccount } = get()
     const lines = merchantId ? cartLines.filter((line) => line.merchantId === merchantId) : cartLines
@@ -194,7 +164,7 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
     }
 
     try {
-      const data = await runTask(checkoutIO(lines))
+      const data = await runTask(checkoutIO(lines, options?.delivery))
       const nextPendingOrders = [...data.orders, ...pendingOrders]
       const nextCartLines = merchantId
         ? cartLines.filter((line) => line.merchantId !== merchantId)
@@ -243,31 +213,17 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
       return { ok: false, message: error instanceof Error ? error.message : '充值同步失败' }
     }
   },
-  saveProfile: async () => {
-    const { profileDraft } = get()
-    const patch: CustomerProfilePatch = {
-      name: profileDraft.name.trim(),
-      phone: profileDraft.phone.trim(),
-      defaultAddress: profileDraft.defaultAddress.trim(),
+  saveDeliveryContacts: async (contacts) => {
+    const message = validateDeliveryContacts(contacts)
+    if (message) {
+      return { ok: false, message }
     }
-
-    if (!patch.name) {
-      return { ok: false, message: '请输入姓名。' }
-    }
-    if (!patch.phone) {
-      return { ok: false, message: '请输入联系电话。' }
-    }
-    if (!patch.defaultAddress) {
-      return { ok: false, message: '请输入常用收货地址。' }
-    }
-
     try {
-      await runTask(patchCustomerProfileIO(patch))
+      await runTask(patchCustomerProfileIO({ deliveryContacts: contacts }))
       await get().refreshPortal()
-      set({ isEditProfileOpen: false })
       return { ok: true }
     } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : '个人信息保存失败' }
+      return { ok: false, message: error instanceof Error ? error.message : '收货信息保存失败' }
     }
   },
 }))

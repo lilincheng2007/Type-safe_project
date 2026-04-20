@@ -62,7 +62,7 @@ export function CartTab({ merchants, products, cartLines, onChangeQuantity, onCh
               </span>
               购物车
             </CardTitle>
-            <CardDescription>按商家分组展示已选菜品；应付合计与结算固定在屏幕下方</CardDescription>
+            <CardDescription>按商家分组展示已选菜品；点击「去结算」将打开确认订单页后再扣款</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {Object.keys(cartGroupedByMerchant).length === 0 ? (

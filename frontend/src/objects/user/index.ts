@@ -1,3 +1,4 @@
+export type * from './CustomerDeliveryContact'
 export type * from './CustomerAccountPublic'
 export type * from './CheckoutCompleteRequest'
 export type * from './Customer'

@@ -25,7 +25,6 @@ export default function CustomerMerchantOrderPage() {
   const cartLines = useCustomerPortalStore((s) => s.cartLines)
   const addProductToCart = useCustomerPortalStore((s) => s.addProductToCart)
   const changeQuantity = useCustomerPortalStore((s) => s.changeQuantity)
-  const checkout = useCustomerPortalStore((s) => s.checkout)
   const setActiveTab = useCustomerPortalStore((s) => s.setActiveTab)
   const [cartExpanded, setCartExpanded] = useState(false)
 
@@ -61,18 +60,6 @@ export default function CustomerMerchantOrderPage() {
   const handleAdd = (mId: MerchantId, productId: ProductId) => {
     addProductToCart(mId, productId)
     showNotice('已加入本店购物车。', 'success')
-  }
-
-  const handleCheckout = async () => {
-    if (!merchantId) return
-    const result = await checkout({ merchantId })
-    if (result.ok) {
-      showNotice(`结算成功，已创建 ${result.createdCount} 笔待收货订单。`, 'success')
-      setActiveTab('profile')
-      navigate('/delivery/customer')
-      return
-    }
-    showNotice(result.message, 'error')
   }
 
   if (!bootstrapDone) {
@@ -272,7 +259,10 @@ export default function CustomerMerchantOrderPage() {
               <Button
                 className="h-11 min-w-[8.5rem] cursor-pointer bg-gradient-to-r from-primary to-[oklch(0.62_0.18_45)] text-base font-semibold text-primary-foreground shadow-[0_16px_40px_rgba(225,29,72,0.35)] transition-[filter,box-shadow] duration-200 hover:brightness-110 hover:shadow-[0_20px_50px_rgba(225,29,72,0.42)] disabled:cursor-not-allowed disabled:opacity-50 dark:to-[oklch(0.68_0.14_45)]"
                 disabled={linesForMerchant.length === 0}
-                onClick={() => void handleCheckout()}
+                onClick={() => {
+                  if (!merchantId || linesForMerchant.length === 0) return
+                  navigate(`/delivery/customer/checkout?merchantId=${encodeURIComponent(merchantId)}`)
+                }}
               >
                 结算本店
               </Button>

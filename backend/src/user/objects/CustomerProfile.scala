@@ -11,5 +11,6 @@ final case class CustomerProfile(
     vouchers: List[Voucher],
     walletBalance: Double,
     pendingOrders: List[Order],
-    historyOrders: List[Order]
+    historyOrders: List[Order],
+    deliveryContacts: List[CustomerDeliveryContact] = Nil
 )

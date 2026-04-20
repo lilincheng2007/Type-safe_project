@@ -2,7 +2,13 @@ package delivery.user.state
 
 import cats.effect.IO
 import delivery.order.objects.Order
-import delivery.user.objects.{CheckoutCompleteRequest, Customer, CustomerProfile, CustomerProfilePatch}
+import delivery.user.objects.{
+  CheckoutCompleteRequest,
+  Customer,
+  CustomerDeliveryContact,
+  CustomerProfile,
+  CustomerProfilePatch
+}
 
 object UserDomainOps:
 
@@ -29,11 +35,20 @@ object UserDomainOps:
           orderHistoryIds = Nil,
           vouchers = Nil
         )
+        val dc = List(
+          CustomerDeliveryContact(
+            id = s"${newCustomer.id}-dc-1",
+            name = newCustomer.name,
+            phone = newCustomer.phone,
+            address = newCustomer.defaultAddress,
+            isDefault = true
+          )
+        )
         val acc = CustomerAccount(
           "customer",
           username,
           password,
-          CustomerProfile(newCustomer.id, newCustomer.name, newCustomer.phone, newCustomer.defaultAddress, Nil, 0, Nil, Nil)
+          CustomerProfile(newCustomer.id, newCustomer.name, newCustomer.phone, newCustomer.defaultAddress, Nil, 0, Nil, Nil, dc)
         )
         val cred = AuthCredential("customer", username, password)
         Right(state.copy(customers = state.customers :+ newCustomer, customerAccounts = state.customerAccounts :+ acc, authCredentials = state.authCredentials :+ cred))
@@ -47,18 +62,68 @@ object UserDomainOps:
     if state.authCredentials.exists(c => c.role == "rider" && c.username == username) then Left("该角色下账号已存在。")
     else Right(state.copy(authCredentials = state.authCredentials :+ AuthCredential("rider", username, password)))
 
+  private def trimContact(c: CustomerDeliveryContact): CustomerDeliveryContact =
+    c.copy(name = c.name.trim, phone = c.phone.trim, address = c.address.trim)
+
+  def validateDeliveryContacts(list: List[CustomerDeliveryContact]): Either[String, List[CustomerDeliveryContact]] =
+    val trimmed = list.map(trimContact)
+    if trimmed.exists(c => c.name.isEmpty || c.phone.isEmpty || c.address.isEmpty) then
+      Left("收货联系人、电话与地址均不能为空")
+    else if trimmed.isEmpty then Left("至少需要一组收货联系人信息")
+    else
+      val defaults = trimmed.count(_.isDefault)
+      if defaults != 1 then Left("收货信息中必须且只能指定一组为默认")
+      else Right(trimmed)
+
+  private def defaultContactsFromProfile(p: CustomerProfile): List[CustomerDeliveryContact] =
+    List(
+      CustomerDeliveryContact(
+        id = s"${p.id}-dc-1",
+        name = p.name.trim,
+        phone = p.phone.trim,
+        address = p.defaultAddress.trim,
+        isDefault = true
+      )
+    )
+
+  private def syncDefaultContactWithProfile(p: CustomerProfile): List[CustomerDeliveryContact] =
+    if p.deliveryContacts.isEmpty then defaultContactsFromProfile(p)
+    else
+      p.deliveryContacts.map(c =>
+        if c.isDefault then c.copy(name = p.name.trim, phone = p.phone.trim, address = p.defaultAddress.trim)
+        else trimContact(c)
+      )
+
   def patchCustomer(state: UserServiceState, username: String, patch: CustomerProfilePatch): Either[String, UserServiceState] =
     state.customerAccounts.find(_.username == username) match
       case None => Left("Not found")
       case Some(acc) =>
         val p = acc.profile
-        val np = p.copy(
-          walletBalance = patch.walletBalance.getOrElse(p.walletBalance),
-          defaultAddress = patch.defaultAddress.getOrElse(p.defaultAddress),
-          name = patch.name.getOrElse(p.name),
-          phone = patch.phone.getOrElse(p.phone)
-        )
-        Right(state.copy(customerAccounts = state.customerAccounts.map(ca => if ca.username == username then ca.copy(profile = np) else ca)))
+        patch.deliveryContacts match
+          case Some(rawList) =>
+            validateDeliveryContacts(rawList) match
+              case Left(msg) => Left(msg)
+              case Right(contacts) =>
+                val np = p.copy(
+                  walletBalance = patch.walletBalance.getOrElse(p.walletBalance),
+                  defaultAddress = patch.defaultAddress.getOrElse(p.defaultAddress),
+                  name = patch.name.getOrElse(p.name),
+                  phone = patch.phone.getOrElse(p.phone),
+                  deliveryContacts = contacts
+                )
+                Right(state.copy(customerAccounts = state.customerAccounts.map(ca => if ca.username == username then ca.copy(profile = np) else ca)))
+          case None =>
+            val np0 = p.copy(
+              walletBalance = patch.walletBalance.getOrElse(p.walletBalance),
+              defaultAddress = patch.defaultAddress.getOrElse(p.defaultAddress),
+              name = patch.name.getOrElse(p.name),
+              phone = patch.phone.getOrElse(p.phone)
+            )
+            val contacts =
+              if np0.deliveryContacts.isEmpty then defaultContactsFromProfile(np0)
+              else syncDefaultContactWithProfile(np0)
+            val np = np0.copy(deliveryContacts = contacts)
+            Right(state.copy(customerAccounts = state.customerAccounts.map(ca => if ca.username == username then ca.copy(profile = np) else ca)))
 
   def checkoutComplete(state: UserServiceState, req: CheckoutCompleteRequest): Either[String, UserServiceState] =
     state.customerAccounts.find(_.username == req.username).toRight("未找到顾客账号").flatMap { account =>

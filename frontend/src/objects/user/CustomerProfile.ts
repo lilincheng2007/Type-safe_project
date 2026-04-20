@@ -1,6 +1,8 @@
 import type { Order } from '@/objects/order/Order'
 import type { Voucher } from '@/objects/shared/Voucher'
 
+import type { CustomerDeliveryContact } from './CustomerDeliveryContact'
+
 export interface CustomerProfile {
   id: string
   name: string
@@ -10,4 +12,6 @@ export interface CustomerProfile {
   walletBalance: number
   pendingOrders: Order[]
   historyOrders: Order[]
+  /** 收货用联系人组；旧数据可能缺省，前端按 name/phone/defaultAddress 兜底 */
+  deliveryContacts?: CustomerDeliveryContact[] | null
 }

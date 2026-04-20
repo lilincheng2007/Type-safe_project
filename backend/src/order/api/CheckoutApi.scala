@@ -34,9 +34,15 @@ object CheckoutApi extends ApiPlan[CheckoutApi.CheckoutCommand, Either[CheckoutA
       response <- input.state.user.customerAccounts.find(_.username == input.username) match
         case None => IO.pure(Left(CheckoutFailure.CustomerMissing))
         case Some(account) =>
+          val profileForOrders =
+            (input.body.customerName, input.body.customerPhone, input.body.deliveryAddress) match
+              case (Some(n), Some(ph), Some(ad))
+                  if n.trim.nonEmpty && ph.trim.nonEmpty && ad.trim.nonEmpty =>
+                account.profile.copy(name = n.trim, phone = ph.trim, defaultAddress = ad.trim)
+              case _ => account.profile
           OrderDomainOps.buildOrdersForCheckout(
             input.state.merchant.catalogProducts,
-            account.profile,
+            profileForOrders,
             input.body.lines.map(OrderApiSupport.normalizeLine)
           ).flatMap {
             case Left(msg) => IO.pure(Left(CheckoutFailure.Invalid(msg)))

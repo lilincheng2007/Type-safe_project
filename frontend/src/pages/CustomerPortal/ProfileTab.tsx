@@ -1,6 +1,8 @@
-import { Clock3, MapPinHouse, Phone, UserRound, Wallet } from 'lucide-react'
+import { Clock3, UserCircle, UserRound, Wallet } from 'lucide-react'
 
 import { DeliveryLogoutBar } from '@/components/DeliveryLogoutBar'
+
+import { DeliveryContactsSection } from './DeliveryContactsSection'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,28 +10,22 @@ import type { Merchant } from '@/objects/merchant'
 import type { Order } from '@/objects/order'
 
 type ProfileTabProps = {
-  name: string
-  phone: string
-  defaultAddress: string
+  username: string
   walletBalance: number
   merchants: Merchant[]
   pendingOrders: Order[]
   historyOrders: Order[]
   onOpenRecharge: () => void
-  onOpenEditProfile: () => void
   onSelectOrder: (order: Order) => void
 }
 
 export function ProfileTab({
-  name,
-  phone,
-  defaultAddress,
+  username,
   walletBalance,
   merchants,
   pendingOrders,
   historyOrders,
   onOpenRecharge,
-  onOpenEditProfile,
   onSelectOrder,
 }: ProfileTabProps) {
   const getMerchantName = (merchantId: string) =>
@@ -37,8 +33,8 @@ export function ProfileTab({
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 lg:grid-cols-4">
-        <Card className="relative overflow-hidden border-border/70 bg-gradient-to-br from-primary/15 via-card/95 to-[var(--delivery-brand-blue)]/12 py-0 shadow-[0_20px_55px_rgba(15,23,42,0.08)] backdrop-blur-md dark:shadow-[0_20px_55px_rgba(0,0,0,0.4)] lg:col-span-2">
+      <section className="grid gap-4 md:grid-cols-2">
+        <Card className="relative overflow-hidden border-border/70 bg-gradient-to-br from-primary/15 via-card/95 to-[var(--delivery-brand-blue)]/12 py-0 shadow-[0_20px_55px_rgba(15,23,42,0.08)] backdrop-blur-md dark:shadow-[0_20px_55px_rgba(0,0,0,0.4)]">
           <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-[radial-gradient(circle,oklch(0.88_0.14_264/0.35),transparent_65%)]" />
           <CardHeader className="relative flex flex-row items-center justify-between gap-3 pb-4">
             <div className="space-y-2">
@@ -58,43 +54,18 @@ export function ProfileTab({
           </CardHeader>
         </Card>
         <Card className="border-border/70 bg-card/90 py-0 shadow-sm backdrop-blur-sm">
-          <CardHeader className="pb-3">
-            <CardDescription>姓名</CardDescription>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <UserRound className="size-4 text-primary" aria-hidden />
-              {name || '请完善姓名'}
+          <CardHeader className="pb-4">
+            <CardDescription>用户名</CardDescription>
+            <CardTitle className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+              <UserCircle className="size-5 shrink-0 text-primary" aria-hidden />
+              <span className="truncate">{username || '—'}</span>
             </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className="border-border/70 bg-card/90 py-0 shadow-sm backdrop-blur-sm">
-          <CardHeader className="pb-3">
-            <CardDescription>联系电话</CardDescription>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <Phone className="size-4 text-primary" aria-hidden />
-              {phone || '请完善联系电话'}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className="border-border/70 bg-card/90 py-0 shadow-sm backdrop-blur-sm lg:col-span-4">
-          <CardHeader className="pb-3">
-            <CardDescription>常用收货地址</CardDescription>
-            <CardTitle className="flex items-start gap-2 text-base font-semibold leading-relaxed">
-              <MapPinHouse className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-              <span>{defaultAddress || '请完善默认收货地址'}</span>
-            </CardTitle>
+            <p className="text-xs text-muted-foreground">登录账号，用于识别您的顾客身份</p>
           </CardHeader>
         </Card>
       </section>
 
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          className="cursor-pointer border-border/80 transition-colors hover:border-primary/40 hover:bg-primary/5"
-          onClick={onOpenEditProfile}
-        >
-          修改资料
-        </Button>
-      </div>
+      <DeliveryContactsSection />
 
       <section className="grid gap-4 md:grid-cols-2">
         <Card className="border-border/70 bg-card/90 py-0 shadow-sm backdrop-blur-sm">

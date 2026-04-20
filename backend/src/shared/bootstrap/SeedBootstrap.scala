@@ -8,7 +8,7 @@ import delivery.order.objects.*
 import delivery.order.state.*
 import delivery.rider.objects.*
 import delivery.rider.state.*
-import delivery.user.objects.{Customer, CustomerProfile}
+import delivery.user.objects.{Customer, CustomerDeliveryContact, CustomerProfile}
 import delivery.user.state.*
 
 object SeedBootstrap:
@@ -35,7 +35,16 @@ object SeedBootstrap:
           vouchers = customer.vouchers,
           walletBalance = customer.walletBalance,
           pendingOrders = pending,
-          historyOrders = history
+          historyOrders = history,
+          deliveryContacts = List(
+            CustomerDeliveryContact(
+              id = s"${customer.id}-dc-1",
+              name = customer.name,
+              phone = customer.phone,
+              address = customer.defaultAddress,
+              isDefault = true
+            )
+          )
         )
       )
     }
