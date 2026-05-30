@@ -10,8 +10,8 @@ import delivery.rider.tables.RiderAccountRecord
 import delivery.rider.tables.rideraccount.RiderAccountTable
 import delivery.shared.api.{APIMessage, APIWithRoleMessage, HttpApiError}
 import delivery.shared.auth.JwtSupport
-import delivery.shared.objects.OkResponse
-import delivery.user.objects.{Customer, CustomerDeliveryContact, CustomerMeResponse, CustomerProfile, CustomerProfilePatch, LoginResponse}
+import delivery.shared.objects.{MerchantCategory, OkResponse, RiderStatus, UserRole}
+import delivery.user.objects.{Customer, CustomerDeliveryContact, CustomerMeResponse, CustomerProfile, CustomerProfilePatch, CustomerWalletTopUpResponse, LoginResponse}
 import delivery.user.tables.{AuthCredentialRecord, CustomerAccountRecord}
 import delivery.user.tables.authcredential.AuthCredentialTable
 import delivery.user.tables.customer.CustomerTable
@@ -58,7 +58,6 @@ private def patchCustomerAccount(account: CustomerAccountRecord, patch: Customer
     case Some(rawList) =>
       validateDeliveryContacts(rawList).map { contacts =>
         val nextProfile = profile.copy(
-          walletBalance = patch.walletBalance.getOrElse(profile.walletBalance),
           defaultAddress = patch.defaultAddress.getOrElse(profile.defaultAddress),
           name = patch.name.getOrElse(profile.name),
           phone = patch.phone.getOrElse(profile.phone),
@@ -68,40 +67,37 @@ private def patchCustomerAccount(account: CustomerAccountRecord, patch: Customer
       }
     case None =>
       val nextProfileBase = profile.copy(
-        walletBalance = patch.walletBalance.getOrElse(profile.walletBalance),
         defaultAddress = patch.defaultAddress.getOrElse(profile.defaultAddress),
         name = patch.name.getOrElse(profile.name),
         phone = patch.phone.getOrElse(profile.phone)
       )
       Right(account.copy(profile = nextProfileBase.copy(deliveryContacts = syncDefaultContactWithProfile(nextProfileBase))))
 
-final case class LoginAPIMessage(role: String, username: String, password: String) extends APIMessage[LoginResponse]:
+final case class LoginAPIMessage(role: UserRole, username: String, password: String) extends APIMessage[LoginResponse]:
   override def plan(connection: Connection): IO[LoginResponse] =
+    val roleValue = role.toString
     for
-      credential <- AuthCredentialTable.find(connection, role, username)
+      credential <- AuthCredentialTable.find(connection, roleValue, username)
       _ <- credential.map(_.password) match
         case None                     => IO.raiseError(HttpApiError.Unauthorized(s"未找到该角色下的账号：$username"))
         case Some(value) if value != password => IO.raiseError(HttpApiError.Unauthorized("密码错误，请重新输入。"))
         case Some(_)                  => IO.unit
-      token <- JwtSupport.signToken(username, role)
+      token <- JwtSupport.signToken(username, roleValue)
     yield LoginResponse(token, username, role)
 
-final case class RegisterAPIMessage(role: String, username: String, password: String) extends APIMessage[OkResponse]:
+final case class RegisterAPIMessage(role: UserRole, username: String, password: String) extends APIMessage[OkResponse]:
   override def plan(connection: Connection): IO[OkResponse] =
+    val roleValue = role.toString
     for
-      _ <-
-        if role == "customer" || role == "merchant" || role == "rider" then IO.unit
-        else IO.raiseError(HttpApiError.BadRequest(UserApiSupport.invalidRole.error))
-      existing <- AuthCredentialTable.find(connection, role, username)
+      existing <- AuthCredentialTable.find(connection, roleValue, username)
       _ <- existing match
         case Some(_) => IO.raiseError(HttpApiError.BadRequest("该角色下账号已存在。"))
         case None    => IO.unit
-      _ <- AuthCredentialTable.upsert(connection, AuthCredentialRecord(role, username, password))
+      _ <- AuthCredentialTable.upsert(connection, AuthCredentialRecord(roleValue, username, password))
       _ <- role match
-        case "customer" => registerCustomer(connection)
-        case "merchant" => registerMerchant(connection)
-        case "rider"    => registerRider(connection)
-        case _          => IO.unit
+        case UserRole.customer => registerCustomer(connection)
+        case UserRole.merchant => registerMerchant(connection)
+        case UserRole.rider    => registerRider(connection)
     yield OkResponse(ok = true)
 
   private def registerCustomer(connection: Connection): IO[Unit] =
@@ -125,7 +121,7 @@ final case class RegisterAPIMessage(role: String, username: String, password: St
         )
       )
       val account = CustomerAccountRecord(
-        role = "customer",
+        role = UserRole.customer.toString,
         username = username,
         password = password,
         profile = CustomerProfile(customer.id, customer.name, customer.phone, customer.defaultAddress, Nil, 0, Nil, Nil, deliveryContacts)
@@ -135,9 +131,9 @@ final case class RegisterAPIMessage(role: String, username: String, password: St
 
   private def registerMerchant(connection: Connection): IO[Unit] =
     IO.realTime.map(_.toMillis).flatMap { nowMillis =>
-      val merchant = Merchant(s"m-$nowMillis", s"${username}的店铺", "中餐", "请完善店铺地址", "", 5, Nil, Nil, None)
+      val merchant = Merchant(s"m-$nowMillis", s"${username}的店铺", MerchantCategory.中餐, "请完善店铺地址", "", 5, Nil, Nil, None)
       val account = MerchantAccountRecord(
-        role = "merchant",
+        role = UserRole.merchant.toString,
         username = username,
         password = password,
         profile = MerchantProfile(s"merchant-profile-${merchant.id}", username, "", List(MerchantStoreProfile(merchant, Nil, Nil, Nil)))
@@ -147,8 +143,8 @@ final case class RegisterAPIMessage(role: String, username: String, password: St
 
   private def registerRider(connection: Connection): IO[Unit] =
     IO.realTime.map(_.toMillis).flatMap { nowMillis =>
-      val rider = Rider(s"r-$nowMillis", username, "", "请更新当前位置", "空闲", 0, 5, "未分配站点", 0)
-      val account = RiderAccountRecord("rider", username, password, RiderProfile(rider, 0, Nil, Nil))
+      val rider = Rider(s"r-$nowMillis", username, "", "请更新当前位置", RiderStatus.空闲, 0, 5, "未分配站点", 0)
+      val account = RiderAccountRecord(UserRole.rider.toString, username, password, RiderProfile(rider, 0, Nil, Nil))
       RiderAccountTable.upsert(connection, account).void
     }
 
@@ -173,3 +169,17 @@ final case class CustomerProfilePatchAPIMessage(patch: CustomerProfilePatch) ext
         case Right(value) => IO.pure(value)
       _ <- CustomerProfileTable.upsert(connection, nextAccount)
     yield OkResponse(ok = true)
+
+final case class CustomerRechargeAPIMessage(amount: Double) extends APIWithRoleMessage[CustomerWalletTopUpResponse]:
+  override def plan(connection: Connection, username: String): IO[CustomerWalletTopUpResponse] =
+    if amount <= 0 || amount.isNaN || amount.isInfinity then IO.raiseError(HttpApiError.BadRequest("充值金额必须为正数"))
+    else
+      for
+        account <- CustomerProfileTable.findByUsername(connection, username).flatMap {
+          case Some(value) => IO.pure(value)
+          case None        => IO.raiseError(HttpApiError.NotFound(UserApiSupport.customerNotFound.error))
+        }
+        nextWalletBalance = BigDecimal(account.profile.walletBalance + amount).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+        nextAccount = account.copy(profile = account.profile.copy(walletBalance = nextWalletBalance))
+        _ <- CustomerProfileTable.upsert(connection, nextAccount)
+      yield CustomerWalletTopUpResponse(nextWalletBalance)

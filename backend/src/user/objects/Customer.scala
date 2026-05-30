@@ -1,13 +1,13 @@
 package delivery.user.objects
 
-import delivery.shared.objects.Voucher
+import delivery.shared.objects.{OrderId, UserId, Voucher}
 
 final case class Customer(
-    id: String,
+    id: UserId,
     name: String,
     phone: String,
     defaultAddress: String,
     walletBalance: Double,
-    orderHistoryIds: List[String],
+    orderHistoryIds: List[OrderId],
     vouchers: List[Voucher]
 )

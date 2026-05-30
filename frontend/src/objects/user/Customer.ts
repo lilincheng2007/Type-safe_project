@@ -1,11 +1,12 @@
+import type { OrderId, UserId } from '@/objects/shared/ids'
 import type { Voucher } from '../shared/Voucher'
 
 export interface Customer {
-  id: string
+  id: UserId
   name: string
   phone: string
   defaultAddress: string
   walletBalance: number
-  orderHistoryIds: string[]
+  orderHistoryIds: OrderId[]
   vouchers: Voucher[]
 }

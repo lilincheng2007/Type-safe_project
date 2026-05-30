@@ -1,4 +1,4 @@
-import type { MerchantId, ProductId } from '@/objects/shared/ids'
+import type { InventoryStatus, ListingStatus, MerchantId, ProductId } from '@/objects/shared/ids'
 
 export interface Product {
   id: ProductId
@@ -9,7 +9,7 @@ export interface Product {
   imageUrl: string
   monthlySales: number
   remainingStock: number
-  listingStatus: '上架' | '下架'
-  inventoryStatus: '充足' | '紧张' | '售罄'
+  listingStatus: ListingStatus
+  inventoryStatus: InventoryStatus
   discountText?: string
 }

@@ -10,25 +10,25 @@ import delivery.merchant.utils.MerchantApiSupport
 import delivery.merchant.utils.StoreImageUploads
 import delivery.order.tables.order.OrderTable
 import delivery.shared.api.{APIMessage, APIWithRoleMessage, HttpApiError}
-import delivery.shared.objects.OkResponse
+import delivery.shared.objects.{InventoryStatus, ListingStatus, MerchantCategory, MerchantId, OkResponse, OrderId, OrderStatus, ProductId}
 
 import java.nio.file.Files
 import java.util.Base64
 import java.util.UUID
 import java.sql.Connection
 
-private def isHistoryOrderStatus(status: String): Boolean =
-  status == "已送达" || status == "已完成" || status == "已取消"
+private def isHistoryOrderStatus(status: OrderStatus): Boolean =
+  OrderStatus.history.contains(status)
 
-private def canFinishCooking(status: String): Boolean =
-  status == "制作中" || status == "待接单"
+private def canFinishCooking(status: OrderStatus): Boolean =
+  status == OrderStatus.制作中 || status == OrderStatus.待接单
 
-private def inventoryStatus(remainingStock: Int, listingStatus: String): String =
-  if listingStatus == "下架" || remainingStock <= 0 then "售罄"
-  else if remainingStock <= 20 then "紧张"
-  else "充足"
+private def inventoryStatus(remainingStock: Int, listingStatus: ListingStatus): InventoryStatus =
+  if listingStatus == ListingStatus.下架 || remainingStock <= 0 then InventoryStatus.售罄
+  else if remainingStock <= 20 then InventoryStatus.紧张
+  else InventoryStatus.充足
 
-private def requireOwnedStore(connection: Connection, username: String, merchantId: String): IO[Merchant] =
+private def requireOwnedStore(connection: Connection, username: String, merchantId: MerchantId): IO[Merchant] =
   MerchantStoreTable.listByOwner(connection, username).flatMap { stores =>
     IO.fromOption(stores.find(_.id == merchantId))(HttpApiError.BadRequest("无权操作该店铺"))
   }
@@ -67,7 +67,7 @@ final case class CatalogAPIMessage() extends APIMessage[CatalogResponse]:
     for
       products <- CatalogProductTable.list(connection)
       merchants <- MerchantStoreTable.listCatalog(connection)
-      visibleProducts = products.filter(_.listingStatus == "上架")
+      visibleProducts = products.filter(_.listingStatus == ListingStatus.上架)
       visibleProductIds = visibleProducts.map(_.id).toSet
       visibleMerchants = merchants.map(merchant => merchant.copy(featuredProductIds = merchant.featuredProductIds.filter(visibleProductIds.contains)))
     yield CatalogResponse(visibleMerchants, visibleProducts)
@@ -119,11 +119,11 @@ final case class MerchantStoreAPIMessage(storeName: String, address: String) ext
         account <- MerchantAccountTable.findByUsername(connection, username)
         _ <- IO.fromOption(account)(HttpApiError.BadRequest("未找到商家账号"))
         nowMillis <- IO.realTime.map(_.toMillis)
-        merchant = Merchant(s"m-local-$nowMillis", storeName.trim, "中餐", address.trim, account.map(_.profile.phone).getOrElse(""), 5, List("新店"), Nil, None)
+        merchant = Merchant(s"m-local-$nowMillis", storeName.trim, MerchantCategory.中餐, address.trim, account.map(_.profile.phone).getOrElse(""), 5, List("新店"), Nil, None)
         _ <- MerchantStoreTable.upsert(connection, username, merchant)
       yield merchant.id
 
-final case class MerchantStoreImageAPIMessage(merchantId: String, imageUrl: String) extends APIWithRoleMessage[OkResponse]:
+final case class MerchantStoreImageAPIMessage(merchantId: MerchantId, imageUrl: String) extends APIWithRoleMessage[OkResponse]:
   override def plan(connection: Connection, username: String): IO[OkResponse] =
     for
       merchant <- requireOwnedStore(connection, username, merchantId)
@@ -132,7 +132,7 @@ final case class MerchantStoreImageAPIMessage(merchantId: String, imageUrl: Stri
     yield OkResponse(ok = true)
 
 final case class MerchantStoreImageFileAPIMessage(
-    merchantId: String,
+    merchantId: MerchantId,
     bytesBase64: String,
     contentTypeLower: String,
     filenameHint: Option[String]
@@ -151,16 +151,15 @@ final case class MerchantStoreImageFileAPIMessage(
     yield publicPath
 
 final case class MerchantCreateProductAPIMessage(
-    merchantId: String,
+    merchantId: MerchantId,
     name: String,
     description: String,
     price: Double,
     remainingStock: Int,
-    listingStatus: String
+    listingStatus: ListingStatus
 ) extends APIWithRoleMessage[Product]:
   override def plan(connection: Connection, username: String): IO[Product] =
-    if listingStatus != "上架" && listingStatus != "下架" then IO.raiseError(HttpApiError.BadRequest("上/下架状态不合法"))
-    else if name.trim.isEmpty || description.trim.isEmpty then IO.raiseError(HttpApiError.BadRequest("菜品名称和描述不能为空"))
+    if name.trim.isEmpty || description.trim.isEmpty then IO.raiseError(HttpApiError.BadRequest("菜品名称和描述不能为空"))
     else if price < 0 || remainingStock < 0 then IO.raiseError(HttpApiError.BadRequest("价格和库存不能为负数"))
     else
       for
@@ -184,16 +183,15 @@ final case class MerchantCreateProductAPIMessage(
       yield product
 
 final case class MerchantProductAPIMessage(
-    productId: String,
+    productId: ProductId,
     name: String,
     description: String,
     price: Double,
     remainingStock: Int,
-    listingStatus: String
+    listingStatus: ListingStatus
 ) extends APIWithRoleMessage[Product]:
   override def plan(connection: Connection, username: String): IO[Product] =
-    if listingStatus != "上架" && listingStatus != "下架" then IO.raiseError(HttpApiError.BadRequest("上/下架状态不合法"))
-    else if name.trim.isEmpty || description.trim.isEmpty then IO.raiseError(HttpApiError.BadRequest("菜品名称和描述不能为空"))
+    if name.trim.isEmpty || description.trim.isEmpty then IO.raiseError(HttpApiError.BadRequest("菜品名称和描述不能为空"))
     else if price < 0 || remainingStock < 0 then IO.raiseError(HttpApiError.BadRequest("价格和库存不能为负数"))
     else
       for
@@ -213,7 +211,7 @@ final case class MerchantProductAPIMessage(
         _ <- CatalogProductTable.upsert(connection, updated)
       yield updated
 
-final case class MerchantOrderReadyAPIMessage(orderId: String) extends APIWithRoleMessage[OkResponse]:
+final case class MerchantOrderReadyAPIMessage(orderId: OrderId) extends APIWithRoleMessage[OkResponse]:
   override def plan(connection: Connection, username: String): IO[OkResponse] =
     for
       order <- OrderTable.findById(connection, orderId).flatMap {
@@ -224,5 +222,5 @@ final case class MerchantOrderReadyAPIMessage(orderId: String) extends APIWithRo
       _ <-
         if canFinishCooking(order.status) then IO.unit
         else IO.raiseError(HttpApiError.BadRequest(s"当前状态不可执行出餐完成：${order.status}"))
-      _ <- OrderTable.upsert(connection, order.copy(status = "待接单"))
+      _ <- OrderTable.upsert(connection, order.copy(status = OrderStatus.待接单))
     yield OkResponse(ok = true)

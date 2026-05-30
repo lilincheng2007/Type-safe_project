@@ -2,6 +2,7 @@ import { create } from 'zustand'
 
 import { runTask } from '@/api/shared/client'
 import { registerIO } from '@/api/user/RegisterApi'
+import { UserRoles } from '@/objects/shared/ids'
 import type { UserRole } from '@/objects/shared/ids'
 
 export type RegisterRole = UserRole
@@ -22,7 +23,7 @@ type RegisterPageStore = {
 }
 
 const initialState = {
-  role: 'customer' as RegisterRole,
+  role: UserRoles.customer,
   account: '',
   password: '',
   confirmPassword: '',

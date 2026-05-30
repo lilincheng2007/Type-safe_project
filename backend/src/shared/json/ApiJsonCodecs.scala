@@ -18,6 +18,22 @@ import io.circe.syntax.*
 
 object ApiJsonCodecs:
 
+  private def enumCodec[A](typeName: String, values: Array[A]): Codec[A] =
+    Codec.from(
+      Decoder.decodeString.emap { raw =>
+        values.find(_.toString == raw).toRight(s"$typeName 不合法：$raw")
+      },
+      Encoder.encodeString.contramap[A](_.toString)
+    )
+
+  given Codec[UserRole] = enumCodec("用户角色", UserRole.values)
+  given Codec[MerchantCategory] = enumCodec("商户分类", MerchantCategory.values)
+  given Codec[RiderStatus] = enumCodec("骑手状态", RiderStatus.values)
+  given Codec[ServiceChannel] = enumCodec("服务渠道", ServiceChannel.values)
+  given Codec[OrderStatus] = enumCodec("订单状态", OrderStatus.values)
+  given Codec[ListingStatus] = enumCodec("上下架状态", ListingStatus.values)
+  given Codec[InventoryStatus] = enumCodec("库存状态", InventoryStatus.values)
+
   given Codec[HealthOk] = deriveCodec
   given Codec[OkResponse] = deriveCodec
   given Codec[ErrorBody] = deriveCodec
@@ -28,21 +44,19 @@ object ApiJsonCodecs:
   given Codec[LoginRequest] = deriveCodec
   given Codec[RegisterRequest] = deriveCodec
   given Codec[LoginResponse] = deriveCodec
-  /** 显式编解码：避免 deriveCodec 在 Scala 3 下对部分 PATCH 字段（如 deliveryContacts）解码不完整 */
+
   private val customerProfilePatchDecoder: Decoder[CustomerProfilePatch] = Decoder.instance { c =>
     for
-      walletBalance <- c.downField("walletBalance").as[Option[Double]]
       defaultAddress <- c.downField("defaultAddress").as[Option[String]]
       name <- c.downField("name").as[Option[String]]
       phone <- c.downField("phone").as[Option[String]]
       deliveryContacts <- c.downField("deliveryContacts").as[Option[List[CustomerDeliveryContact]]]
-    yield CustomerProfilePatch(walletBalance, defaultAddress, name, phone, deliveryContacts)
+    yield CustomerProfilePatch(defaultAddress, name, phone, deliveryContacts)
   }
 
   private val customerProfilePatchEncoder: Encoder[CustomerProfilePatch] = Encoder.instance { p =>
     Json
       .obj(
-        "walletBalance" -> p.walletBalance.asJson,
         "defaultAddress" -> p.defaultAddress.asJson,
         "name" -> p.name.asJson,
         "phone" -> p.phone.asJson,
@@ -52,7 +66,8 @@ object ApiJsonCodecs:
   }
 
   given Codec[CustomerProfilePatch] = Codec.from(customerProfilePatchDecoder, customerProfilePatchEncoder)
-  given Codec[CheckoutCompleteRequest] = deriveCodec
+  given Codec[CustomerWalletTopUp] = deriveCodec
+  given Codec[CustomerWalletTopUpResponse] = deriveCodec
   given Codec[Voucher] = deriveCodec
   given Codec[OrderItem] = deriveCodec
 
@@ -170,6 +185,7 @@ object ApiJsonCodecs:
   given Codec[RiderAccountRecord] = deriveCodec
   given Codec[RiderProfile] = deriveCodec
   given Codec[RiderAccountPublic] = deriveCodec
+  given Codec[RiderAvailableOrdersResponse] = deriveCodec
   given Codec[RiderMeResponse] = deriveCodec
 
 end ApiJsonCodecs

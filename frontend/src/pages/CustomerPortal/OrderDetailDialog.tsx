@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { Order } from '@/objects/order/Order'
+import { OrderStatuses } from '@/objects/shared/ids'
+import type { OrderStatus } from '@/objects/shared/ids'
 
 type OrderDetailDialogProps = {
   selectedOrder: Order | null
@@ -9,8 +11,15 @@ type OrderDetailDialogProps = {
   onCancelOrder: (order: Order) => void
 }
 
+const nonCancelableStatuses: OrderStatus[] = [
+  OrderStatuses.canceled,
+  OrderStatuses.delivered,
+  OrderStatuses.completed,
+  OrderStatuses.delivering,
+]
+
 function canCancel(order: Order): boolean {
-  return order.status !== '已取消' && order.status !== '已送达' && order.status !== '已完成' && order.status !== '配送中' && !order.riderId
+  return !nonCancelableStatuses.includes(order.status) && !order.riderId
 }
 
 export function OrderDetailDialog({ selectedOrder, onOpenChange, onClose, onCancelOrder }: OrderDetailDialogProps) {

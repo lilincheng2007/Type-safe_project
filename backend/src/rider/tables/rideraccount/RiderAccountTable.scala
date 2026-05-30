@@ -4,6 +4,7 @@ import cats.effect.IO
 import cats.syntax.all.*
 import delivery.rider.objects.RiderProfile
 import delivery.rider.tables.RiderAccountRecord
+import delivery.shared.objects.RiderStatus
 import delivery.rider.tables.riderprofile.RiderProfileTable
 
 import java.sql.{Connection, PreparedStatement, ResultSet}
@@ -61,7 +62,7 @@ object RiderAccountTable:
       name = resultSet.getString("name"),
       phone = resultSet.getString("phone"),
       realtimeLocation = resultSet.getString("realtime_location"),
-      status = resultSet.getString("status"),
+      status = RiderStatus.fromString(resultSet.getString("status")).getOrElse(RiderStatus.空闲),
       totalOrders = resultSet.getInt("total_orders"),
       rating = resultSet.getBigDecimal("rating").doubleValue(),
       station = resultSet.getString("station"),

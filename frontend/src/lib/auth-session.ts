@@ -1,3 +1,4 @@
+import { UserRoles } from '@/objects/shared/ids'
 import type { UserRole } from '@/objects/shared/ids'
 import type { TaskIO } from '@/api/shared/TaskIO'
 import { localStorageGetItemIO, localStorageRemoveItemIO, localStorageSetItemIO, nowIO } from '@/api/shared/browser'
@@ -16,13 +17,13 @@ export const AUTH_SESSION_UPDATED_EVENT = 'delivery-auth-session-updated'
 type RoleHomeRoute = '/delivery/customer' | '/delivery/merchant' | '/delivery/rider'
 
 const roleHomeRouteMap: Record<UserRole, RoleHomeRoute> = {
-  customer: '/delivery/customer',
-  merchant: '/delivery/merchant',
-  rider: '/delivery/rider',
+  [UserRoles.customer]: '/delivery/customer',
+  [UserRoles.merchant]: '/delivery/merchant',
+  [UserRoles.rider]: '/delivery/rider',
 }
 
 export function isUserRole(value: unknown): value is UserRole {
-  return value === 'customer' || value === 'merchant' || value === 'rider'
+  return typeof value === 'string' && Object.values(UserRoles).includes(value as UserRole)
 }
 
 function isAuthSession(value: unknown): value is AuthSession {

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
 import type { MerchantStoreProfile } from '@/objects/merchant/MerchantStoreProfile'
+import { OrderStatuses } from '@/objects/shared/ids'
 import { useMerchantConsoleStore } from '@/stores/pages/use-merchant-console-store'
 
 type ProfileTabProps = {
@@ -33,8 +34,8 @@ export function ProfileTab({ selectedStore, onOpenStoreDialog }: ProfileTabProps
 
   const merchantPendingOrders = selectedStore?.pendingOrders ?? []
   const merchantHistoryOrders = selectedStore?.historyOrders ?? []
-  const activeCookingOrders = merchantPendingOrders.filter((order) => order.status === '制作中')
-  const historyOrders = [...merchantPendingOrders.filter((order) => order.status !== '制作中'), ...merchantHistoryOrders]
+  const activeCookingOrders = merchantPendingOrders.filter((order) => order.status === OrderStatuses.cooking)
+  const historyOrders = [...merchantPendingOrders.filter((order) => order.status !== OrderStatuses.cooking), ...merchantHistoryOrders]
   const totalTurnover = historyOrders.reduce((sum, item) => sum + item.totalAmount, 0)
 
   const handleSaveStoreImage = async () => {

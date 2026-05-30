@@ -5,6 +5,7 @@ import type { MerchantProfile } from '@/objects/merchant/MerchantProfile'
 import type { OkResponse } from '@/objects/shared/OkResponse'
 
 class MerchantProfileAPI extends APIMessage<OkResponse> {
+  readonly apiName = 'merchantprofileapi'
   readonly profile: MerchantProfile
 
   constructor(profile: MerchantProfile) {

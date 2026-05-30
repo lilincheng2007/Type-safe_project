@@ -1,3 +1,5 @@
 package delivery.user.objects
 
-final case class RegisterRequest(role: String, username: String, password: String)
+import delivery.shared.objects.UserRole
+
+final case class RegisterRequest(role: UserRole, username: String, password: String)

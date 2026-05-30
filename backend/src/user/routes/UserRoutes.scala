@@ -5,7 +5,7 @@ import delivery.shared.api.RegisteredAPIMessage.{api, apiWithRole}
 import delivery.shared.json.ApiJsonCodecs.given
 import delivery.shared.objects.OkResponse
 import delivery.user.api.*
-import delivery.user.objects.{CustomerMeResponse, LoginResponse}
+import delivery.user.objects.{CustomerMeResponse, CustomerWalletTopUpResponse, LoginResponse}
 import io.circe.generic.auto.*
 
 object UserRoutes:
@@ -14,7 +14,8 @@ object UserRoutes:
     api[LoginAPIMessage, LoginResponse],
     api[RegisterAPIMessage, OkResponse],
     apiWithRole[CustomerMeAPIMessage, CustomerMeResponse]("customer"),
-    apiWithRole[CustomerProfilePatchAPIMessage, OkResponse]("customer")
+    apiWithRole[CustomerProfilePatchAPIMessage, OkResponse]("customer"),
+    apiWithRole[CustomerRechargeAPIMessage, CustomerWalletTopUpResponse]("customer")
   )
 
 end UserRoutes

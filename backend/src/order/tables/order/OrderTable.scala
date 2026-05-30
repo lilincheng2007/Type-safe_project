@@ -4,6 +4,7 @@ import cats.effect.IO
 import cats.syntax.all.*
 import delivery.order.objects.Order
 import delivery.order.tables.orderitem.OrderItemTable
+import delivery.shared.objects.{OrderId, OrderStatus}
 
 import java.sql.{Connection, PreparedStatement, ResultSet}
 
@@ -58,7 +59,7 @@ object OrderTable:
       |WHERE id = ?
       |""".stripMargin
 
-  def findById(connection: Connection, id: String): IO[Option[Order]] =
+  def findById(connection: Connection, id: OrderId): IO[Option[Order]] =
     queryOne(connection.prepareStatement(findByIdSql))(_.setString(1, id))
 
   private val updateStatusSql: String =
@@ -68,11 +69,11 @@ object OrderTable:
       |WHERE id = ?
       |""".stripMargin
 
-  private[order] def updateStatus(connection: Connection, id: String, status: String): IO[Boolean] =
+  private[order] def updateStatus(connection: Connection, id: OrderId, status: OrderStatus): IO[Boolean] =
     IO.blocking {
       val statement = connection.prepareStatement(updateStatusSql)
       try
-        statement.setString(1, status)
+        statement.setString(1, status.toString)
         statement.setString(2, id)
         statement.executeUpdate() == 1
       finally statement.close()
@@ -81,7 +82,7 @@ object OrderTable:
   private val deleteSql: String =
     "DELETE FROM orders WHERE id = ?"
 
-  private[order] def delete(connection: Connection, id: String): IO[Boolean] =
+  private[order] def delete(connection: Connection, id: OrderId): IO[Boolean] =
     IO.blocking {
       val statement = connection.prepareStatement(deleteSql)
       try
@@ -101,7 +102,7 @@ object OrderTable:
       case None        => statement.setNull(6, java.sql.Types.VARCHAR)
     statement.setDouble(7, order.totalAmount)
     statement.setString(8, order.deliveryAddress)
-    statement.setString(9, order.status)
+    statement.setString(9, order.status.toString)
     statement.setString(10, order.placedAt)
 
   private def queryOne(statement: PreparedStatement)(bind: PreparedStatement => Unit): IO[Option[Order]] =
@@ -140,7 +141,7 @@ object OrderTable:
       items = OrderItemTable.listByOrderIdSync(connection, id),
       totalAmount = resultSet.getBigDecimal("total_amount").doubleValue(),
       deliveryAddress = resultSet.getString("delivery_address"),
-      status = resultSet.getString("status"),
+      status = OrderStatus.fromString(resultSet.getString("status")).getOrElse(OrderStatus.待接单),
       placedAt = resultSet.getString("placed_at")
     )
 

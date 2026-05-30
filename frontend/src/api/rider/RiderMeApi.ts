@@ -3,7 +3,9 @@ import type { TaskIO } from '@/api/shared/TaskIO'
 import { sendAPI } from '@/api/shared/sendAPI'
 import type { RiderMeResponse } from '@/objects/rider/RiderMeResponse'
 
-class RiderMeAPI extends APIMessage<RiderMeResponse> {}
+class RiderMeAPI extends APIMessage<RiderMeResponse> {
+  readonly apiName = 'ridermeapi'
+}
 
 export function fetchRiderMeIO(): TaskIO<RiderMeResponse> {
   return sendAPI(new RiderMeAPI())

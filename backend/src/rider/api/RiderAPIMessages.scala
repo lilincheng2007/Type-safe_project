@@ -1,18 +1,21 @@
 package delivery.rider.api
 
 import cats.effect.IO
-import delivery.rider.objects.RiderMeResponse
+import delivery.rider.objects.{RiderAvailableOrdersResponse, RiderMeResponse}
 import delivery.rider.tables.rideraccount.RiderAccountTable
 import delivery.rider.tables.riderassignment.RiderAssignmentTable
 import delivery.rider.utils.RiderApiSupport
 import delivery.order.tables.order.OrderTable
 import delivery.shared.api.{APIWithRoleMessage, HttpApiError}
-import delivery.shared.objects.OkResponse
+import delivery.shared.objects.{OkResponse, OrderId, OrderStatus, RiderStatus}
 
 import java.sql.Connection
 
-private def isHistoryOrderStatus(status: String): Boolean =
-  status == "已送达" || status == "已完成" || status == "已取消"
+private def isHistoryOrderStatus(status: OrderStatus): Boolean =
+  OrderStatus.history.contains(status)
+
+private def isAvailableOrder(orderStatus: OrderStatus): Boolean =
+  orderStatus == OrderStatus.待接单
 
 final case class RiderMeAPIMessage() extends APIWithRoleMessage[RiderMeResponse]:
   override def plan(connection: Connection, username: String): IO[RiderMeResponse] =
@@ -30,7 +33,7 @@ final case class RiderMeAPIMessage() extends APIWithRoleMessage[RiderMeResponse]
                 historyOrders = assignedOrders.filter(order => isHistoryOrderStatus(order.status))
               )
             )
-            val availableOrders = orders.filter(order => order.status == "待接单" && order.riderId.isEmpty)
+            val availableOrders = orders.filter(order => isAvailableOrder(order.status) && order.riderId.isEmpty)
             Some(RiderApiSupport.riderMeResponse(username, nextAccount, availableOrders))
           }
       output <- response match
@@ -38,7 +41,15 @@ final case class RiderMeAPIMessage() extends APIWithRoleMessage[RiderMeResponse]
         case Some(value) => IO.pure(value)
     yield output
 
-final case class RiderGrabOrderAPIMessage(orderId: String) extends APIWithRoleMessage[OkResponse]:
+final case class RiderAvailableOrdersAPIMessage() extends APIWithRoleMessage[RiderAvailableOrdersResponse]:
+  override def plan(connection: Connection, username: String): IO[RiderAvailableOrdersResponse] =
+    RiderAccountTable.findByUsername(connection, username).flatMap {
+      case None => IO.raiseError(HttpApiError.NotFound(RiderApiSupport.riderNotFound.error))
+      case Some(_) =>
+        OrderTable.list(connection).map(orders => RiderAvailableOrdersResponse(orders.filter(order => isAvailableOrder(order.status) && order.riderId.isEmpty)))
+    }
+
+final case class RiderGrabOrderAPIMessage(orderId: OrderId) extends APIWithRoleMessage[OkResponse]:
   override def plan(connection: Connection, username: String): IO[OkResponse] =
     for
       account <- RiderAccountTable.findByUsername(connection, username).flatMap {
@@ -55,16 +66,16 @@ final case class RiderGrabOrderAPIMessage(orderId: String) extends APIWithRoleMe
         case None        => IO.raiseError(HttpApiError.BadRequest("未找到订单"))
       }
       _ <-
-        if order.status != "待接单" || order.riderId.nonEmpty then IO.raiseError(HttpApiError.BadRequest("订单已被其他骑手抢走"))
+        if !isAvailableOrder(order.status) || order.riderId.nonEmpty then IO.raiseError(HttpApiError.BadRequest("订单已被其他骑手抢走"))
         else IO.unit
-      updatedOrder = order.copy(riderId = Some(account.profile.rider.id), status = "配送中")
-      updatedRider = account.profile.rider.copy(status = "配送中", totalOrders = account.profile.rider.totalOrders + 1)
+      updatedOrder = order.copy(riderId = Some(account.profile.rider.id), status = OrderStatus.配送中)
+      updatedRider = account.profile.rider.copy(status = RiderStatus.配送中, totalOrders = account.profile.rider.totalOrders + 1)
       _ <- OrderTable.upsert(connection, updatedOrder)
       _ <- RiderAccountTable.upsert(connection, account.copy(profile = account.profile.copy(rider = updatedRider)))
       _ <- RiderAssignmentTable.upsert(connection, updatedRider.id, updatedOrder.id, updatedOrder.status)
     yield OkResponse(ok = true)
 
-final case class RiderUpdateOrderStatusAPIMessage(orderId: String) extends APIWithRoleMessage[OkResponse]:
+final case class RiderUpdateOrderStatusAPIMessage(orderId: OrderId, targetStatus: OrderStatus) extends APIWithRoleMessage[OkResponse]:
   override def plan(connection: Connection, username: String): IO[OkResponse] =
     for
       account <- RiderAccountTable.findByUsername(connection, username).flatMap {
@@ -77,13 +88,14 @@ final case class RiderUpdateOrderStatusAPIMessage(orderId: String) extends APIWi
       }
       _ <-
         if order.riderId != Some(account.profile.rider.id) then IO.raiseError(HttpApiError.BadRequest("无权操作该订单"))
-        else if order.status != "配送中" then IO.raiseError(HttpApiError.BadRequest(s"当前状态不可执行更新状态：${order.status}"))
+        else if order.status != OrderStatus.配送中 then IO.raiseError(HttpApiError.BadRequest(s"当前状态不可执行更新状态：${order.status}"))
+        else if targetStatus != OrderStatus.已送达 then IO.raiseError(HttpApiError.BadRequest("骑手只能将配送中订单更新为已送达"))
         else IO.unit
-      updatedOrder = order.copy(status = "已送达")
+      updatedOrder = order.copy(status = targetStatus)
       remainingPending <- OrderTable.list(connection).map(_.count(existing =>
         existing.id != orderId && existing.riderId.contains(account.profile.rider.id) && !isHistoryOrderStatus(existing.status)
       ))
-      nextStatus = if remainingPending > 0 then "配送中" else "空闲"
+      nextStatus = if remainingPending > 0 then RiderStatus.配送中 else RiderStatus.空闲
       updatedRider = account.profile.rider.copy(status = nextStatus, salary = account.profile.rider.salary + 5)
       _ <- OrderTable.upsert(connection, updatedOrder)
       _ <- RiderAccountTable.upsert(connection, account.copy(profile = account.profile.copy(rider = updatedRider)))

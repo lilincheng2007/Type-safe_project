@@ -1,3 +1,5 @@
 package delivery.merchant.objects
 
-final case class MerchantAccountPublic(role: String, username: String, profile: MerchantProfile)
+import delivery.shared.objects.UserRole
+
+final case class MerchantAccountPublic(role: UserRole, username: String, profile: MerchantProfile)

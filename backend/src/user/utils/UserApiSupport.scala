@@ -1,6 +1,6 @@
 package delivery.user.utils
 
-import delivery.shared.objects.ErrorBody
+import delivery.shared.objects.{ErrorBody, UserRole}
 import delivery.user.objects.{CustomerAccountPublic, CustomerMeResponse}
 import delivery.user.tables.CustomerAccountRecord
 
@@ -13,8 +13,8 @@ object UserApiSupport:
   def customerMeResponse(username: String, account: CustomerAccountRecord): CustomerMeResponse =
     CustomerMeResponse(
       username = username,
-      role = "customer",
-      customerAccount = CustomerAccountPublic(account.role, account.username, account.profile)
+      role = UserRole.customer,
+      customerAccount = CustomerAccountPublic(UserRole.customer, account.username, account.profile)
     )
 
 end UserApiSupport

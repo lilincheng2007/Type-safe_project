@@ -1,10 +1,12 @@
 import { APIMessage } from '@/api/shared/APIMessage'
 import type { TaskIO } from '@/api/shared/TaskIO'
 import { sendAPI } from '@/api/shared/sendAPI'
-import type { LoginResponse } from '@/objects/user/LoginResponse'
 import type { UserRole } from '@/objects/shared/ids'
+import type { LoginRequest } from '@/objects/user/LoginRequest'
+import type { LoginResponse } from '@/objects/user/LoginResponse'
 
 class LoginAPI extends APIMessage<LoginResponse> {
+  readonly apiName = 'loginapi'
   readonly role: UserRole
   readonly username: string
   readonly password: string
@@ -17,6 +19,6 @@ class LoginAPI extends APIMessage<LoginResponse> {
   }
 }
 
-export function loginIO(input: { role: UserRole; username: string; password: string }): TaskIO<LoginResponse> {
+export function loginIO(input: LoginRequest): TaskIO<LoginResponse> {
   return sendAPI(new LoginAPI(input.role, input.username, input.password))
 }

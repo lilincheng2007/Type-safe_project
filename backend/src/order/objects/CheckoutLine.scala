@@ -1,3 +1,5 @@
 package delivery.order.objects
 
-final case class CheckoutLine(merchantId: String, productId: String, quantity: Int)
+import delivery.shared.objects.{MerchantId, ProductId}
+
+final case class CheckoutLine(merchantId: MerchantId, productId: ProductId, quantity: Int)

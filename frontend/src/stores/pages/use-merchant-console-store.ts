@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 
-import { finishMerchantOrderCookingIO } from '@/api/merchant/MerchantOrderApi'
-import { createMerchantProductIO, updateMerchantProductIO } from '@/api/merchant/MerchantProductApi'
+import { finishMerchantOrderCookingIO } from '@/api/merchant/MerchantOrderReadyApi'
+import { createMerchantProductIO } from '@/api/merchant/MerchantCreateProductApi'
+import { updateMerchantProductIO } from '@/api/merchant/MerchantProductApi'
 import { fetchMerchantMeIO } from '@/api/merchant/MerchantMeApi'
 import { uploadMerchantStoreImageFileIO } from '@/api/merchant/MerchantStoreImageFileApi'
 import { updateMerchantStoreImageIO } from '@/api/merchant/MerchantStoreImageApi'

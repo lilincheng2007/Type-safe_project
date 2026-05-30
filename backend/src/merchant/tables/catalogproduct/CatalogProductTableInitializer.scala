@@ -1,13 +1,17 @@
 package delivery.merchant.tables.catalogproduct
 
 import cats.effect.IO
+import delivery.shared.objects.{InventoryStatus, ListingStatus}
 
 import java.sql.Connection
 
 object CatalogProductTableInitializer:
 
+  private val listingStatusSql: String = ListingStatus.values.map(status => s"'${status.toString}'").mkString(", ")
+  private val inventoryStatusSql: String = InventoryStatus.values.map(status => s"'${status.toString}'").mkString(", ")
+
   private val initTableSql: String =
-    """
+    s"""
       |CREATE TABLE IF NOT EXISTS catalog_products (
       |  id VARCHAR(80) PRIMARY KEY,
       |  merchant_id VARCHAR(80) NOT NULL REFERENCES merchant_stores(id) ON DELETE CASCADE,
@@ -17,8 +21,8 @@ object CatalogProductTableInitializer:
       |  image_url TEXT NOT NULL,
       |  monthly_sales INTEGER NOT NULL CHECK (monthly_sales >= 0),
       |  remaining_stock INTEGER NOT NULL CHECK (remaining_stock >= 0),
-      |  listing_status VARCHAR(32) NOT NULL CHECK (listing_status IN ('上架', '下架')),
-      |  inventory_status VARCHAR(32) NOT NULL CHECK (inventory_status IN ('充足', '紧张', '售罄')),
+      |  listing_status VARCHAR(32) NOT NULL CHECK (listing_status IN ($listingStatusSql)),
+      |  inventory_status VARCHAR(32) NOT NULL CHECK (inventory_status IN ($inventoryStatusSql)),
       |  discount_text TEXT,
       |  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       |  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

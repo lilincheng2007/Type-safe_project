@@ -1,7 +1,6 @@
 export * from './CatalogApi'
 export * from './MerchantCreateProductApi'
 export * from './MerchantMeApi'
-export * from './MerchantOrderApi'
 export * from './MerchantOrderReadyApi'
 export * from './MerchantProductApi'
 export * from './MerchantProfileApi'

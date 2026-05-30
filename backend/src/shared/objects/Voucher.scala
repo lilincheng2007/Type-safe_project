@@ -1,7 +1,7 @@
 package delivery.shared.objects
 
 final case class Voucher(
-    id: String,
+    id: VoucherId,
     title: String,
     discountAmount: Double,
     minSpend: Double,

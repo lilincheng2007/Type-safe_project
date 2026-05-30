@@ -3,7 +3,7 @@ package delivery.rider.utils
 import delivery.order.objects.Order
 import delivery.rider.objects.{RiderAccountPublic, RiderMeResponse}
 import delivery.rider.tables.RiderAccountRecord
-import delivery.shared.objects.ErrorBody
+import delivery.shared.objects.{ErrorBody, UserRole}
 
 object RiderApiSupport:
 
@@ -12,8 +12,8 @@ object RiderApiSupport:
   def riderMeResponse(username: String, account: RiderAccountRecord, availableOrders: List[Order]): RiderMeResponse =
     RiderMeResponse(
       username = username,
-      role = "rider",
-      riderAccount = RiderAccountPublic(account.role, account.username, account.profile),
+      role = UserRole.rider,
+      riderAccount = RiderAccountPublic(UserRole.rider, account.username, account.profile),
       availableOrders = availableOrders
     )
 

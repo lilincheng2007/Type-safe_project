@@ -1,5 +1,7 @@
+import type { UserRole } from '@/objects/shared/ids'
+
 export interface RegisterRequest {
-  role: string
+  role: UserRole
   username: string
   password: string
 }

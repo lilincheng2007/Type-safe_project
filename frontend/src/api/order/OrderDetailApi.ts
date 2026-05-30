@@ -5,6 +5,7 @@ import type { Order } from '@/objects/order/Order'
 import type { OrderId } from '@/objects/shared/ids'
 
 class OrderDetailAPI extends APIMessage<Order> {
+  readonly apiName = 'orderdetailapi'
   readonly orderId: OrderId
 
   constructor(orderId: OrderId) {

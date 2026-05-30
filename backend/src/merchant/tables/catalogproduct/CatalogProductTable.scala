@@ -2,6 +2,7 @@ package delivery.merchant.tables.catalogproduct
 
 import cats.effect.IO
 import delivery.merchant.objects.Product
+import delivery.shared.objects.{InventoryStatus, ListingStatus, ProductId}
 
 import java.sql.{Connection, PreparedStatement, ResultSet}
 
@@ -67,7 +68,7 @@ object CatalogProductTable:
       |WHERE id = ?
       |""".stripMargin
 
-  private[merchant] def findById(connection: Connection, id: String): IO[Option[Product]] =
+  private[merchant] def findById(connection: Connection, id: ProductId): IO[Option[Product]] =
     IO.blocking {
       val statement = connection.prepareStatement(findByIdSql)
       try
@@ -89,8 +90,8 @@ object CatalogProductTable:
     statement.setString(6, product.imageUrl)
     statement.setInt(7, product.monthlySales)
     statement.setInt(8, product.remainingStock)
-    statement.setString(9, product.listingStatus)
-    statement.setString(10, product.inventoryStatus)
+    statement.setString(9, product.listingStatus.toString)
+    statement.setString(10, product.inventoryStatus.toString)
     product.discountText match
       case Some(value) => statement.setString(11, value)
       case None        => statement.setNull(11, java.sql.Types.VARCHAR)
@@ -105,8 +106,8 @@ object CatalogProductTable:
       imageUrl = resultSet.getString("image_url"),
       monthlySales = resultSet.getInt("monthly_sales"),
       remainingStock = resultSet.getInt("remaining_stock"),
-      listingStatus = resultSet.getString("listing_status"),
-      inventoryStatus = resultSet.getString("inventory_status"),
+      listingStatus = ListingStatus.fromString(resultSet.getString("listing_status")).getOrElse(ListingStatus.下架),
+      inventoryStatus = InventoryStatus.fromString(resultSet.getString("inventory_status")).getOrElse(InventoryStatus.售罄),
       discountText = Option(resultSet.getString("discount_text"))
     )
 

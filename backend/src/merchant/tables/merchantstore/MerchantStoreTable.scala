@@ -3,6 +3,7 @@ package delivery.merchant.tables.merchantstore
 import cats.effect.IO
 import delivery.merchant.objects.Merchant
 import delivery.shared.json.ApiJsonCodecs.given
+import delivery.shared.objects.MerchantCategory
 import io.circe.parser.decode
 import io.circe.syntax.*
 import org.postgresql.util.PGobject
@@ -113,7 +114,7 @@ object MerchantStoreTable:
       case Some(username) =>
         statement.setString(2, username)
         statement.setString(3, merchant.storeName)
-        statement.setString(4, merchant.category)
+        statement.setString(4, merchant.category.toString)
         statement.setString(5, merchant.address)
         statement.setString(6, merchant.phone)
         statement.setDouble(7, merchant.rating)
@@ -124,7 +125,7 @@ object MerchantStoreTable:
           case None        => statement.setNull(10, java.sql.Types.VARCHAR)
       case None =>
         statement.setString(2, merchant.storeName)
-        statement.setString(3, merchant.category)
+        statement.setString(3, merchant.category.toString)
         statement.setString(4, merchant.address)
         statement.setString(5, merchant.phone)
         statement.setDouble(6, merchant.rating)
@@ -138,7 +139,7 @@ object MerchantStoreTable:
     Merchant(
       id = resultSet.getString("id"),
       storeName = resultSet.getString("store_name"),
-      category = resultSet.getString("category"),
+      category = MerchantCategory.fromString(resultSet.getString("category")).getOrElse(MerchantCategory.中餐),
       address = resultSet.getString("address"),
       phone = resultSet.getString("phone"),
       rating = resultSet.getBigDecimal("rating").doubleValue(),

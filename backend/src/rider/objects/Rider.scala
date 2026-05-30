@@ -1,11 +1,13 @@
 package delivery.rider.objects
 
+import delivery.shared.objects.{RiderId, RiderStatus}
+
 final case class Rider(
-    id: String,
+    id: RiderId,
     name: String,
     phone: String,
     realtimeLocation: String,
-    status: String,
+    status: RiderStatus,
     totalOrders: Int,
     rating: Double,
     station: String,

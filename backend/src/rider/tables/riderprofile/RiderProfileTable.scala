@@ -2,6 +2,7 @@ package delivery.rider.tables.riderprofile
 
 import cats.effect.IO
 import delivery.rider.objects.Rider
+import delivery.shared.objects.{RiderId, RiderStatus}
 
 import java.sql.{Connection, PreparedStatement, ResultSet}
 
@@ -44,7 +45,7 @@ object RiderProfileTable:
       |WHERE id = ?
       |""".stripMargin
 
-  private[rider] def findById(connection: Connection, id: String): IO[Option[Rider]] =
+  private[rider] def findById(connection: Connection, id: RiderId): IO[Option[Rider]] =
     queryOne(connection.prepareStatement(findSql))(_.setString(1, id))
 
   private def queryOne(statement: PreparedStatement)(bind: PreparedStatement => Unit): IO[Option[Rider]] =
@@ -64,7 +65,7 @@ object RiderProfileTable:
     statement.setString(2, rider.name)
     statement.setString(3, rider.phone)
     statement.setString(4, rider.realtimeLocation)
-    statement.setString(5, rider.status)
+    statement.setString(5, rider.status.toString)
     statement.setInt(6, rider.totalOrders)
     statement.setDouble(7, rider.rating)
     statement.setString(8, rider.station)
@@ -77,7 +78,7 @@ object RiderProfileTable:
       name = resultSet.getString("name"),
       phone = resultSet.getString("phone"),
       realtimeLocation = resultSet.getString("realtime_location"),
-      status = resultSet.getString("status"),
+      status = RiderStatus.fromString(resultSet.getString("status")).getOrElse(RiderStatus.空闲),
       totalOrders = resultSet.getInt("total_orders"),
       rating = resultSet.getBigDecimal("rating").doubleValue(),
       station = resultSet.getString("station"),

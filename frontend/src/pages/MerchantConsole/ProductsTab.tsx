@@ -20,14 +20,16 @@ import type { CreateProductRequest } from '@/objects/merchant/CreateProductReque
 import type { MerchantStoreProfile } from '@/objects/merchant/MerchantStoreProfile'
 import type { Product } from '@/objects/merchant/Product'
 import type { UpdateProductRequest } from '@/objects/merchant/UpdateProductRequest'
+import { ListingStatuses } from '@/objects/shared/ids'
+import type { ListingStatus, ProductId } from '@/objects/shared/ids'
 
 type ProductsTabProps = {
   selectedStore: MerchantStoreProfile | null
   onCreateProduct: (input: CreateProductRequest) => Promise<void>
-  onEditProduct: (productId: string, input: UpdateProductRequest) => Promise<void>
+  onEditProduct: (productId: ProductId, input: UpdateProductRequest) => Promise<void>
 }
 
-const listingStatuses = ['上架', '下架'] as const
+const listingStatuses = Object.values(ListingStatuses)
 
 type ProductFormState = UpdateProductRequest
 type CreateProductFormState = {
@@ -43,7 +45,7 @@ const initialCreateFormState: CreateProductFormState = {
   description: '',
   price: 0,
   remainingStock: 0,
-  listingStatus: '上架',
+  listingStatus: ListingStatuses.listed,
 }
 
 export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct }: ProductsTabProps) {
@@ -240,7 +242,7 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct }: P
               <Label>上/下架状态</Label>
               <Select
                 value={createFormState.listingStatus}
-                onValueChange={(value: '上架' | '下架') => setCreateFormState({ ...createFormState, listingStatus: value })}
+                onValueChange={(value: ListingStatus) => setCreateFormState({ ...createFormState, listingStatus: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="请选择状态" />
@@ -338,7 +340,7 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct }: P
                 <Label>上/下架状态</Label>
                 <Select
                   value={formState.listingStatus}
-                  onValueChange={(value: '上架' | '下架') => setFormState({ ...formState, listingStatus: value })}
+                  onValueChange={(value: ListingStatus) => setFormState({ ...formState, listingStatus: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="请选择状态" />

@@ -1,15 +1,17 @@
 package delivery.merchant.objects
 
+import delivery.shared.objects.{InventoryStatus, ListingStatus, MerchantId, ProductId}
+
 final case class Product(
-    id: String,
-    merchantId: String,
+    id: ProductId,
+    merchantId: MerchantId,
     name: String,
     price: Double,
     description: String,
     imageUrl: String,
     monthlySales: Int,
     remainingStock: Int,
-    listingStatus: String,
-    inventoryStatus: String,
+    listingStatus: ListingStatus,
+    inventoryStatus: InventoryStatus,
     discountText: Option[String] = None
 )

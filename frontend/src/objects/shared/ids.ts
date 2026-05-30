@@ -5,12 +5,54 @@ export type ProductId = string
 export type OrderId = string
 export type VoucherId = string
 
-export type UserRole = 'customer' | 'merchant' | 'rider'
+export const UserRoles = {
+  customer: 'customer',
+  merchant: 'merchant',
+  rider: 'rider',
+} as const
+export type UserRole = (typeof UserRoles)[keyof typeof UserRoles]
 
-export type MerchantCategory = '中餐' | '西餐' | '零售' | '饮品甜点' | '夜宵'
+export const MerchantCategories = {
+  chinese: '中餐',
+  western: '西餐',
+  retail: '零售',
+  dessert: '饮品甜点',
+  nightSnack: '夜宵',
+} as const
+export type MerchantCategory = (typeof MerchantCategories)[keyof typeof MerchantCategories]
 
-export type RiderStatus = '空闲' | '接单' | '配送中'
+export const RiderStatuses = {
+  idle: '空闲',
+  accepting: '接单',
+  delivering: '配送中',
+} as const
+export type RiderStatus = (typeof RiderStatuses)[keyof typeof RiderStatuses]
 
-export type ServiceChannel = '在线' | '电话'
+export const ServiceChannels = {
+  online: '在线',
+  phone: '电话',
+} as const
+export type ServiceChannel = (typeof ServiceChannels)[keyof typeof ServiceChannels]
 
-export type OrderStatus = '待接单' | '制作中' | '配送中' | '已送达' | '已完成' | '已取消'
+export const OrderStatuses = {
+  waitingForPickup: '待接单',
+  cooking: '制作中',
+  delivering: '配送中',
+  delivered: '已送达',
+  completed: '已完成',
+  canceled: '已取消',
+} as const
+export type OrderStatus = (typeof OrderStatuses)[keyof typeof OrderStatuses]
+
+export const ListingStatuses = {
+  listed: '上架',
+  unlisted: '下架',
+} as const
+export type ListingStatus = (typeof ListingStatuses)[keyof typeof ListingStatuses]
+
+export const InventoryStatuses = {
+  sufficient: '充足',
+  low: '紧张',
+  soldOut: '售罄',
+} as const
+export type InventoryStatus = (typeof InventoryStatuses)[keyof typeof InventoryStatuses]

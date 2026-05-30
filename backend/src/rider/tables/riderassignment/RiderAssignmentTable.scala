@@ -1,6 +1,7 @@
 package delivery.rider.tables.riderassignment
 
 import cats.effect.IO
+import delivery.shared.objects.{OrderId, OrderStatus, RiderId}
 
 import java.sql.{Connection, Timestamp}
 import java.time.Instant
@@ -16,14 +17,14 @@ object RiderAssignmentTable:
       |  completed_at = EXCLUDED.completed_at
       |""".stripMargin
 
-  def upsert(connection: Connection, riderId: String, orderId: String, status: String): IO[Unit] =
+  def upsert(connection: Connection, riderId: RiderId, orderId: OrderId, status: OrderStatus): IO[Unit] =
     IO.blocking {
       val statement = connection.prepareStatement(upsertSql)
       try
         statement.setString(1, riderId)
         statement.setString(2, orderId)
-        statement.setString(3, status)
-        if status == "已送达" || status == "已完成" || status == "已取消" then
+        statement.setString(3, status.toString)
+        if OrderStatus.history.contains(status) then
           statement.setTimestamp(4, Timestamp.from(Instant.now()))
         else statement.setNull(4, java.sql.Types.TIMESTAMP_WITH_TIMEZONE)
         val _ = statement.executeUpdate()

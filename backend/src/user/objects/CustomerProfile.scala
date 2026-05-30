@@ -1,10 +1,10 @@
 package delivery.user.objects
 
 import delivery.order.objects.Order
-import delivery.shared.objects.Voucher
+import delivery.shared.objects.{UserId, Voucher}
 
 final case class CustomerProfile(
-    id: String,
+    id: UserId,
     name: String,
     phone: String,
     defaultAddress: String,

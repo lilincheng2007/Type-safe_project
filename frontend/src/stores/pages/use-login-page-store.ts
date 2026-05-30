@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { runTask } from '@/api/shared/client'
 import { loginIO } from '@/api/user/LoginApi'
 import { getDefaultRouteForRole, setAuthSessionIO } from '@/lib/auth-session'
+import { UserRoles } from '@/objects/shared/ids'
 import type { UserRole } from '@/objects/shared/ids'
 
 type LoginPageStore = {
@@ -19,7 +20,7 @@ type LoginPageStore = {
 }
 
 const initialState = {
-  role: 'customer' as UserRole,
+  role: UserRoles.customer,
   account: '',
   password: '',
   errorMessage: '',

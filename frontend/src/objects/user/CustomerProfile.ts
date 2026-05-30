@@ -1,10 +1,11 @@
 import type { Order } from '@/objects/order/Order'
+import type { UserId } from '@/objects/shared/ids'
 import type { Voucher } from '@/objects/shared/Voucher'
 
 import type { CustomerDeliveryContact } from './CustomerDeliveryContact'
 
 export interface CustomerProfile {
-  id: string
+  id: UserId
   name: string
   phone: string
   defaultAddress: string

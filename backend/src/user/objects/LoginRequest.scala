@@ -1,3 +1,5 @@
 package delivery.user.objects
 
-final case class LoginRequest(role: String, username: String, password: String)
+import delivery.shared.objects.UserRole
+
+final case class LoginRequest(role: UserRole, username: String, password: String)

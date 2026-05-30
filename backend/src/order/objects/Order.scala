@@ -1,15 +1,17 @@
 package delivery.order.objects
 
+import delivery.shared.objects.{MerchantId, OrderId, OrderStatus, RiderId, UserId}
+
 final case class Order(
-    id: String,
-    customerId: String,
+    id: OrderId,
+    customerId: UserId,
     customerName: String,
     customerPhone: String,
-    merchantId: String,
-    riderId: Option[String],
+    merchantId: MerchantId,
+    riderId: Option[RiderId],
     items: List[OrderItem],
     totalAmount: Double,
     deliveryAddress: String,
-    status: String,
+    status: OrderStatus,
     placedAt: String
 )

@@ -7,6 +7,7 @@ import CustomerMerchantOrderPage from '@/pages/CustomerPortal/CustomerMerchantOr
 import Login from '@/pages/Login'
 import MerchantConsole from '@/pages/MerchantConsole'
 import Register from '@/pages/Register'
+import { UserRoles } from '@/objects/shared/ids'
 import RiderApp from '@/pages/RiderApp'
 
 const routes = [
@@ -33,7 +34,7 @@ const routes = [
   {
     path: '/delivery/customer/m/:merchantId',
     element: (
-      <RoleRouteGuard allowedRoles={['customer']}>
+      <RoleRouteGuard allowedRoles={[UserRoles.customer]}>
         <CustomerMerchantOrderPage />
       </RoleRouteGuard>
     ),
@@ -41,7 +42,7 @@ const routes = [
   {
     path: '/delivery/customer/checkout',
     element: (
-      <RoleRouteGuard allowedRoles={['customer']}>
+      <RoleRouteGuard allowedRoles={[UserRoles.customer]}>
         <CustomerCheckoutPage />
       </RoleRouteGuard>
     ),
@@ -49,7 +50,7 @@ const routes = [
   {
     path: '/delivery/customer',
     element: (
-      <RoleRouteGuard allowedRoles={['customer']}>
+      <RoleRouteGuard allowedRoles={[UserRoles.customer]}>
         <CustomerPortal />
       </RoleRouteGuard>
     ),
@@ -57,7 +58,7 @@ const routes = [
   {
     path: '/delivery/merchant',
     element: (
-      <RoleRouteGuard allowedRoles={['merchant']}>
+      <RoleRouteGuard allowedRoles={[UserRoles.merchant]}>
         <MerchantConsole />
       </RoleRouteGuard>
     ),
@@ -65,7 +66,7 @@ const routes = [
   {
     path: '/delivery/rider',
     element: (
-      <RoleRouteGuard allowedRoles={['rider']}>
+      <RoleRouteGuard allowedRoles={[UserRoles.rider]}>
         <RiderApp />
       </RoleRouteGuard>
     ),

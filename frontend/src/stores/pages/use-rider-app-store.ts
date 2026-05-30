@@ -1,9 +1,12 @@
 import { create } from 'zustand'
 
+import { grabRiderOrderIO } from '@/api/rider/RiderGrabOrderApi'
 import { fetchRiderMeIO } from '@/api/rider/RiderMeApi'
-import { grabRiderOrderIO, updateRiderOrderStatusIO } from '@/api/rider/RiderOrderApi'
+import { updateRiderOrderStatusIO } from '@/api/rider/RiderUpdateOrderStatusApi'
 import { runTask } from '@/api/shared/client'
 import type { Order } from '@/objects/order/Order'
+import type { OrderId } from '@/objects/shared/ids'
+import { OrderStatuses } from '@/objects/shared/ids'
 import type { RiderAccountPublic } from '@/objects/rider/RiderAccountPublic'
 
 type RiderAppStore = {
@@ -14,8 +17,8 @@ type RiderAppStore = {
   resetPage: () => void
   refreshRider: () => Promise<RiderAccountPublic>
   bootstrap: () => Promise<void>
-  grabOrder: (orderId: string) => Promise<void>
-  updateOrderStatus: (orderId: string) => Promise<void>
+  grabOrder: (orderId: OrderId) => Promise<void>
+  updateOrderStatus: (orderId: OrderId) => Promise<void>
 }
 
 const initialState = {
@@ -48,7 +51,7 @@ export const useRiderAppStore = create<RiderAppStore>()((set, get) => ({
     await get().refreshRider()
   },
   updateOrderStatus: async (orderId) => {
-    await runTask(updateRiderOrderStatusIO(orderId))
+    await runTask(updateRiderOrderStatusIO(orderId, OrderStatuses.delivered))
     await get().refreshRider()
   },
 }))

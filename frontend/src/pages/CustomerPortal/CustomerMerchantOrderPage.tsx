@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
 import { cn } from '@/lib/utils'
+import { ListingStatuses } from '@/objects/shared/ids'
 import type { MerchantId } from '@/objects/shared/ids'
 import type { ProductId } from '@/objects/shared/ids'
 import { useCustomerPortalStore } from '@/stores/pages/use-customer-portal-store'
@@ -41,7 +42,7 @@ export default function CustomerMerchantOrderPage() {
   const merchantId = merchantIdParam as MerchantId | undefined
   const merchant = merchantId ? merchants.find((m) => m.id === merchantId) ?? null : null
   const merchantProducts = merchantId
-    ? products.filter((p) => p.merchantId === merchantId && p.listingStatus === '上架')
+    ? products.filter((p) => p.merchantId === merchantId && p.listingStatus === ListingStatuses.listed)
     : []
   const linesForMerchant = merchantId ? cartLines.filter((l) => l.merchantId === merchantId) : []
 

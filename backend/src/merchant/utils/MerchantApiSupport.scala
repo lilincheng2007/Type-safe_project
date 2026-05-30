@@ -2,7 +2,7 @@ package delivery.merchant.utils
 
 import delivery.merchant.objects.{MerchantAccountPublic, MerchantMeResponse}
 import delivery.merchant.tables.MerchantAccountRecord
-import delivery.shared.objects.ErrorBody
+import delivery.shared.objects.{ErrorBody, UserRole}
 
 object MerchantApiSupport:
 
@@ -11,8 +11,8 @@ object MerchantApiSupport:
   def merchantMeResponse(username: String, account: MerchantAccountRecord): MerchantMeResponse =
     MerchantMeResponse(
       username = username,
-      role = "merchant",
-      merchantAccount = MerchantAccountPublic(account.role, account.username, account.profile)
+      role = UserRole.merchant,
+      merchantAccount = MerchantAccountPublic(UserRole.merchant, account.username, account.profile)
     )
 
 end MerchantApiSupport

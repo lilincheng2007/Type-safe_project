@@ -1,10 +1,12 @@
 package delivery.merchant.objects
 
+import delivery.shared.objects.{ListingStatus, MerchantId}
+
 final case class CreateProductRequest(
-    merchantId: String,
+    merchantId: MerchantId,
     name: String,
     description: String,
     price: Double,
     remainingStock: Int,
-    listingStatus: String
+    listingStatus: ListingStatus
 )

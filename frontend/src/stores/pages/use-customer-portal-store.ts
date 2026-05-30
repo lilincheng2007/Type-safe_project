@@ -8,6 +8,7 @@ import { fetchOrderDetailIO } from '@/api/order/OrderDetailApi'
 import { runTask } from '@/api/shared/client'
 import { fetchCustomerMeIO } from '@/api/user/CustomerMeApi'
 import { patchCustomerProfileIO } from '@/api/user/CustomerProfilePatchApi'
+import { rechargeCustomerWalletIO } from '@/api/user/CustomerRechargeApi'
 import type { Merchant } from '@/objects/merchant/Merchant'
 import type { Product } from '@/objects/merchant/Product'
 import type { Order } from '@/objects/order/Order'
@@ -223,20 +224,18 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
     }
   },
   recharge: async () => {
-    const { rechargeAmountInput, walletBalance } = get()
+    const { rechargeAmountInput } = get()
     const amount = Number.parseFloat(rechargeAmountInput)
 
     if (!Number.isFinite(amount) || amount <= 0) {
       return { ok: false, message: '请输入有效的充值金额。' }
     }
 
-    const nextWalletBalance = walletBalance + amount
-
     try {
-      await runTask(patchCustomerProfileIO({ walletBalance: nextWalletBalance }))
+      const data = await runTask(rechargeCustomerWalletIO({ amount }))
       await get().refreshPortal()
       set({
-        walletBalance: nextWalletBalance,
+        walletBalance: data.walletBalance,
         rechargeAmountInput: '',
         isRechargeOpen: false,
       })

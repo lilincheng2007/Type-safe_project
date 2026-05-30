@@ -1,15 +1,16 @@
 import { APIMessage } from '@/api/shared/APIMessage'
 import type { TaskIO } from '@/api/shared/TaskIO'
 import { sendAPI } from '@/api/shared/sendAPI'
-import { runTask } from '@/api/shared/TaskIO'
+import type { MerchantId } from '@/objects/shared/ids'
 
 class MerchantStoreImageFileAPI extends APIMessage<string> {
-  readonly merchantId: string
+  readonly apiName = 'merchantstoreimagefileapi'
+  readonly merchantId: MerchantId
   readonly bytesBase64: string
   readonly contentTypeLower: string
-  readonly filenameHint?: string
+  readonly filenameHint: string | null
 
-  constructor(merchantId: string, bytesBase64: string, contentTypeLower: string, filenameHint?: string) {
+  constructor(merchantId: MerchantId, bytesBase64: string, contentTypeLower: string, filenameHint: string | null) {
     super()
     this.merchantId = merchantId
     this.bytesBase64 = bytesBase64
@@ -18,28 +19,25 @@ class MerchantStoreImageFileAPI extends APIMessage<string> {
   }
 }
 
-export function uploadMerchantStoreImageFileIO(merchantId: string, file: File): TaskIO<string> {
-  return async () => {
-    const bytesBase64 = await fileToBase64(file)
-    return runTask(
-      sendAPI(
-        new MerchantStoreImageFileAPI(
-          merchantId,
-          bytesBase64,
-          file.type.toLowerCase(),
-          file.name || undefined,
-        ),
-      ),
-    )
-  }
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result !== 'string') {
+        reject(new Error('图片内容读取失败'))
+        return
+      }
+      resolve(result.split(',')[1] ?? '')
+    }
+    reader.onerror = () => reject(new Error('图片内容读取失败'))
+    reader.readAsDataURL(file)
+  })
 }
 
-async function fileToBase64(file: File): Promise<string> {
-  const bytes = new Uint8Array(await file.arrayBuffer())
-  let binary = ''
-  const chunkSize = 0x8000
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize))
+export function uploadMerchantStoreImageFileIO(merchantId: MerchantId, file: File): TaskIO<string> {
+  return async () => {
+    const bytesBase64 = await fileToBase64(file)
+    return sendAPI(new MerchantStoreImageFileAPI(merchantId, bytesBase64, file.type.toLowerCase(), file.name || null))()
   }
-  return window.btoa(binary)
 }

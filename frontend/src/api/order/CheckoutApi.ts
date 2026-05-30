@@ -11,20 +11,21 @@ export type CheckoutDeliverySnapshot = {
 }
 
 class CheckoutAPI extends APIMessage<CheckoutResponse> {
+  readonly apiName = 'checkoutapi'
   readonly lines: CheckoutLine[]
   readonly customerName?: string
   readonly customerPhone?: string
   readonly deliveryAddress?: string
 
-  constructor(lines: CheckoutLine[], delivery?: CheckoutDeliverySnapshot) {
+  constructor(lines: CheckoutLine[], customerName?: string, customerPhone?: string, deliveryAddress?: string) {
     super()
     this.lines = lines
-    this.customerName = delivery?.customerName
-    this.customerPhone = delivery?.customerPhone
-    this.deliveryAddress = delivery?.deliveryAddress
+    this.customerName = customerName
+    this.customerPhone = customerPhone
+    this.deliveryAddress = deliveryAddress
   }
 }
 
 export function checkoutIO(lines: CheckoutLine[], delivery?: CheckoutDeliverySnapshot): TaskIO<CheckoutResponse> {
-  return sendAPI(new CheckoutAPI(lines, delivery))
+  return sendAPI(new CheckoutAPI(lines, delivery?.customerName, delivery?.customerPhone, delivery?.deliveryAddress))
 }

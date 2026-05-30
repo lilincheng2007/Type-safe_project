@@ -5,6 +5,7 @@ import type { CustomerProfilePatch } from '@/objects/user/CustomerProfilePatch'
 import type { OkResponse } from '@/objects/shared/OkResponse'
 
 class CustomerProfilePatchAPI extends APIMessage<OkResponse> {
+  readonly apiName = 'customerprofilepatchapi'
   readonly patch: CustomerProfilePatch
 
   constructor(patch: CustomerProfilePatch) {

@@ -5,6 +5,7 @@ import type { OrderCancelResponse } from '@/objects/order/OrderCancelResponse'
 import type { OrderId } from '@/objects/shared/ids'
 
 class OrderCancelAPI extends APIMessage<OrderCancelResponse> {
+  readonly apiName = 'ordercancelapi'
   readonly orderId: OrderId
 
   constructor(orderId: OrderId) {

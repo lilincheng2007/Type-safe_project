@@ -4,6 +4,7 @@ import { sendAPI } from '@/api/shared/sendAPI'
 import type { CreateStoreRequest } from '@/objects/merchant/CreateStoreRequest'
 
 class MerchantStoreAPI extends APIMessage<string> {
+  readonly apiName = 'merchantstoreapi'
   readonly storeName: string
   readonly address: string
 

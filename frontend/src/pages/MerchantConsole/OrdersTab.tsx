@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import type { Order } from '@/objects/order/Order'
 import type { MerchantStoreProfile } from '@/objects/merchant/MerchantStoreProfile'
+import { OrderStatuses } from '@/objects/shared/ids'
 
 type OrdersTabProps = {
   selectedStore: MerchantStoreProfile | null
@@ -23,8 +24,8 @@ type OrdersTabProps = {
 export function OrdersTab({ selectedStore, onFinishCooking }: OrdersTabProps) {
   const merchantPendingOrders = selectedStore?.pendingOrders ?? []
   const merchantHistoryOrders = selectedStore?.historyOrders ?? []
-  const activeCookingOrders = merchantPendingOrders.filter((order) => order.status === '制作中')
-  const historyOrders = [...merchantPendingOrders.filter((order) => order.status !== '制作中'), ...merchantHistoryOrders]
+  const activeCookingOrders = merchantPendingOrders.filter((order) => order.status === OrderStatuses.cooking)
+  const historyOrders = [...merchantPendingOrders.filter((order) => order.status !== OrderStatuses.cooking), ...merchantHistoryOrders]
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
 
   if (!selectedStore) {
@@ -64,7 +65,7 @@ export function OrdersTab({ selectedStore, onFinishCooking }: OrdersTabProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={order.status !== '制作中'}
+                    disabled={order.status !== OrderStatuses.cooking}
                     onClick={(event) => {
                       event.stopPropagation()
                       onFinishCooking(order.id)

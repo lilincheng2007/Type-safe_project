@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 
+import { UserRoles } from '@/objects/shared/ids'
 import type { UserRole } from '@/objects/shared/ids'
 import { useAuthSession } from '@/hooks/useAuthSession'
 import { cn } from '@/lib/utils'
@@ -12,9 +13,9 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { to: '/delivery/customer', label: '顾客端', roles: ['customer'] },
-  { to: '/delivery/merchant', label: '商家端', roles: ['merchant'] },
-  { to: '/delivery/rider', label: '骑手端', roles: ['rider'] },
+  { to: '/delivery/customer', label: '顾客端', roles: [UserRoles.customer] },
+  { to: '/delivery/merchant', label: '商家端', roles: [UserRoles.merchant] },
+  { to: '/delivery/rider', label: '骑手端', roles: [UserRoles.rider] },
 ]
 
 interface DeliveryPageShellProps {

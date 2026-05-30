@@ -1,13 +1,16 @@
 package delivery.order.tables.order
 
 import cats.effect.IO
+import delivery.shared.objects.OrderStatus
 
 import java.sql.Connection
 
 object OrderTableInitializer:
 
+  private val orderStatusSql: String = OrderStatus.values.map(status => s"'${status.toString}'").mkString(", ")
+
   private val initTableSql: String =
-    """
+    s"""
       |CREATE TABLE IF NOT EXISTS orders (
       |  id VARCHAR(80) PRIMARY KEY,
       |  customer_id VARCHAR(80) NOT NULL,
@@ -17,7 +20,7 @@ object OrderTableInitializer:
       |  rider_id VARCHAR(80),
       |  total_amount NUMERIC(12, 2) NOT NULL CHECK (total_amount >= 0),
       |  delivery_address TEXT NOT NULL,
-      |  status VARCHAR(32) NOT NULL CHECK (status IN ('制作中', '待接单', '配送中', '已送达', '已完成', '已取消')),
+      |  status VARCHAR(32) NOT NULL CHECK (status IN ($orderStatusSql)),
       |  placed_at VARCHAR(40) NOT NULL,
       |  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       |  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

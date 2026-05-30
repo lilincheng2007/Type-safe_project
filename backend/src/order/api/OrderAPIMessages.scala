@@ -9,13 +9,14 @@ import delivery.order.tables.checkoutrequest.CheckoutRequestTable
 import delivery.order.tables.order.OrderTable
 import delivery.order.utils.OrderApiSupport
 import delivery.shared.api.{APIWithRoleMessage, HttpApiError}
+import delivery.shared.objects.{OrderId, OrderStatus}
 import delivery.user.objects.CustomerProfile
 import delivery.user.tables.customerprofile.CustomerProfileTable
 
 import java.sql.Connection
 
-private def isHistoryOrderStatus(status: String): Boolean =
-  status == "已送达" || status == "已完成" || status == "已取消"
+private def isHistoryOrderStatus(status: OrderStatus): Boolean =
+  OrderStatus.history.contains(status)
 
 private def buildOrdersForCheckout(products: List[Product], customerProfile: CustomerProfile, lines: List[CheckoutLine]): IO[Either[String, (List[Order], Double)]] =
   if lines.isEmpty then IO.pure(Left("购物车为空"))
@@ -45,7 +46,7 @@ private def buildOrdersForCheckout(products: List[Product], customerProfile: Cus
               items,
               items.map(i => i.unitPrice * i.quantity).sum,
               customerProfile.defaultAddress,
-              "制作中",
+              OrderStatus.制作中,
               orderTimeText
             )
           )
@@ -73,7 +74,7 @@ final case class CustomerOrdersAPIMessage() extends APIWithRoleMessage[CustomerO
           }
     yield output
 
-final case class OrderDetailAPIMessage(orderId: String) extends APIWithRoleMessage[Order]:
+final case class OrderDetailAPIMessage(orderId: OrderId) extends APIWithRoleMessage[Order]:
   override def plan(connection: Connection, username: String): IO[Order] =
     for
       account <- CustomerProfileTable.findByUsername(connection, username)
@@ -90,7 +91,7 @@ final case class OrderDetailAPIMessage(orderId: String) extends APIWithRoleMessa
         case (Some(_), Some(_)) => IO.raiseError(HttpApiError.NotFound("未找到订单"))
     yield output
 
-final case class OrderCancelAPIMessage(orderId: String) extends APIWithRoleMessage[OrderCancelResponse]:
+final case class OrderCancelAPIMessage(orderId: OrderId) extends APIWithRoleMessage[OrderCancelResponse]:
   override def plan(connection: Connection, username: String): IO[OrderCancelResponse] =
     for
       account <- CustomerProfileTable.findByUsername(connection, username).flatMap {
@@ -103,11 +104,11 @@ final case class OrderCancelAPIMessage(orderId: String) extends APIWithRoleMessa
       }
       _ <-
         if order.customerId != account.profile.id then IO.raiseError(HttpApiError.BadRequest("无权操作该订单"))
-        else if order.status == "已取消" then IO.raiseError(HttpApiError.BadRequest("订单已取消"))
-        else if order.status == "已送达" || order.status == "已完成" then IO.raiseError(HttpApiError.BadRequest("已完成订单不可取消"))
-        else if order.riderId.nonEmpty || order.status == "配送中" then IO.raiseError(HttpApiError.BadRequest("配送中订单不可取消"))
+        else if order.status == OrderStatus.已取消 then IO.raiseError(HttpApiError.BadRequest("订单已取消"))
+        else if order.status == OrderStatus.已送达 || order.status == OrderStatus.已完成 then IO.raiseError(HttpApiError.BadRequest("已完成订单不可取消"))
+        else if order.riderId.nonEmpty || order.status == OrderStatus.配送中 then IO.raiseError(HttpApiError.BadRequest("配送中订单不可取消"))
         else IO.unit
-      canceledOrder = order.copy(status = "已取消")
+      canceledOrder = order.copy(status = OrderStatus.已取消)
       nextAccount = account.copy(profile = account.profile.copy(walletBalance = account.profile.walletBalance + order.totalAmount))
       _ <- OrderTable.upsert(connection, canceledOrder)
       _ <- CustomerProfileTable.upsert(connection, nextAccount)

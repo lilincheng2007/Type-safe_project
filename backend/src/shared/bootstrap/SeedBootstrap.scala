@@ -5,6 +5,7 @@ import delivery.merchant.tables.MerchantAccountRecord
 import delivery.order.objects.Order
 import delivery.rider.objects.RiderProfile
 import delivery.rider.tables.RiderAccountRecord
+import delivery.shared.objects.{OrderStatus, UserRole}
 import delivery.user.objects.{CustomerDeliveryContact, CustomerProfile}
 import delivery.user.tables.{AuthCredentialRecord, CustomerAccountRecord}
 
@@ -15,15 +16,15 @@ object SeedBootstrap:
     val history = source.filter(order => isHistoryStatus(order.status))
     (pending, history)
 
-  private def isHistoryStatus(status: String): Boolean =
-    status == "已送达" || status == "已完成" || status == "已取消"
+  private def isHistoryStatus(status: OrderStatus): Boolean =
+    OrderStatus.history.contains(status)
 
   lazy val customerAccounts: List[CustomerAccountRecord] =
     SeedData.seedCustomers.zipWithIndex.map { case (customer, index) =>
       val related = SeedData.seedOrders.filter(_.customerId == customer.id)
       val (pending, history) = splitOrdersByHistory(related)
       CustomerAccountRecord(
-        role = "customer",
+        role = UserRole.customer.toString,
         username = if index == 0 then "customer_demo" else s"customer_${index + 1}",
         password = "123456",
         profile = CustomerProfile(
@@ -62,7 +63,7 @@ object SeedBootstrap:
 
     List(
       MerchantAccountRecord(
-        role = "merchant",
+        role = UserRole.merchant.toString,
         username = "merchant_demo",
         password = "123456",
         profile = MerchantProfile(
@@ -79,7 +80,7 @@ object SeedBootstrap:
       val related = SeedData.seedOrders.filter(_.riderId.contains(rider.id))
       val (pending, history) = splitOrdersByHistory(related)
       RiderAccountRecord(
-        role = "rider",
+        role = UserRole.rider.toString,
         username = if index == 0 then "rider_demo" else s"rider_${index + 1}",
         password = "123456",
         profile = RiderProfile(

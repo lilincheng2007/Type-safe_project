@@ -1,8 +1,10 @@
+import type { ListingStatus, MerchantId } from '@/objects/shared/ids'
+
 export interface CreateProductRequest {
-  merchantId: string
+  merchantId: MerchantId
   name: string
   description: string
   price: number
   remainingStock: number
-  listingStatus: '上架' | '下架'
+  listingStatus: ListingStatus
 }
