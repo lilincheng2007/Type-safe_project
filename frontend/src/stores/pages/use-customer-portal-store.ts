@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 
+import { aiDietWeeklyReportIO } from '@/api/ai/AIDietWeeklyReportApi'
 import { fetchCustomerOrdersIO } from '@/api/order/CustomerOrdersApi'
 import { fetchCatalogIO } from '@/api/merchant/CatalogApi'
 import { cancelOrderIO } from '@/api/order/OrderCancelApi'
@@ -15,6 +16,7 @@ import type { Order } from '@/objects/order/Order'
 import type { MerchantId } from '@/objects/shared/ids'
 import type { OrderId } from '@/objects/shared/ids'
 import type { ProductId } from '@/objects/shared/ids'
+import type { AIDietWeeklyReportResponse } from '@/objects/ai/AIDietWeeklyReportResponse'
 import { validateDeliveryContacts } from '@/lib/deliveryContacts'
 import type { CustomerAccountPublic } from '@/objects/user/CustomerAccountPublic'
 import type { CustomerDeliveryContact } from '@/objects/user/CustomerDeliveryContact'
@@ -42,6 +44,9 @@ type CustomerPortalStore = {
   isRechargeOpen: boolean
   rechargeAmountInput: string
   selectedOrder: Order | null
+  aiDietReport: AIDietWeeklyReportResponse | null
+  aiDietReportLoading: boolean
+  aiDietReportError: string | null
   resetPage: () => void
   refreshPortal: () => Promise<void>
   bootstrap: () => Promise<void>
@@ -62,6 +67,7 @@ type CustomerPortalStore = {
   saveDeliveryContacts: (
     contacts: CustomerDeliveryContact[],
   ) => Promise<{ ok: true } | { ok: false; message: string }>
+  generateAIDietReport: () => Promise<{ ok: true } | { ok: false; message: string }>
 }
 
 const initialState = {
@@ -79,6 +85,9 @@ const initialState = {
   isRechargeOpen: false,
   rechargeAmountInput: '',
   selectedOrder: null as Order | null,
+  aiDietReport: null as AIDietWeeklyReportResponse | null,
+  aiDietReportLoading: false,
+  aiDietReportError: null as string | null,
 }
 
 export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) => ({
@@ -255,6 +264,18 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
       return { ok: true }
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : '收货信息保存失败' }
+    }
+  },
+  generateAIDietReport: async () => {
+    set({ aiDietReportLoading: true, aiDietReportError: null })
+    try {
+      const result = await runTask(aiDietWeeklyReportIO({}))
+      set({ aiDietReport: result, aiDietReportLoading: false })
+      return { ok: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'AI 周报生成失败'
+      set({ aiDietReportError: errorMessage, aiDietReportLoading: false })
+      return { ok: false, message: errorMessage }
     }
   },
 }))

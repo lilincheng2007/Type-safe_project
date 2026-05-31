@@ -41,6 +41,10 @@ export default function CustomerPortal() {
   const cancelOrder = useCustomerPortalStore((state) => state.cancelOrder)
   const refreshPortal = useCustomerPortalStore((state) => state.refreshPortal)
   const recharge = useCustomerPortalStore((state) => state.recharge)
+  const aiDietReport = useCustomerPortalStore((state) => state.aiDietReport)
+  const aiDietReportLoading = useCustomerPortalStore((state) => state.aiDietReportLoading)
+  const aiDietReportError = useCustomerPortalStore((state) => state.aiDietReportError)
+  const generateAIDietReport = useCustomerPortalStore((state) => state.generateAIDietReport)
 
   useEffect(() => {
     void (async () => {
@@ -88,6 +92,13 @@ export default function CustomerPortal() {
     }
 
     showNotice(result.message, 'error')
+  }
+
+  const handleGenerateAIDietReport = async () => {
+    const result = await generateAIDietReport()
+    if (!result.ok) {
+      showNotice(result.message, 'error')
+    }
   }
 
   if (!bootstrapDone) {
@@ -179,8 +190,12 @@ export default function CustomerPortal() {
             merchants={merchants}
             pendingOrders={pendingOrders}
             historyOrders={historyOrders}
+            aiDietReport={aiDietReport}
+            aiDietReportLoading={aiDietReportLoading}
+            aiDietReportError={aiDietReportError}
             onOpenRecharge={() => setIsRechargeOpen(true)}
             onSelectOrder={(orderId) => void handleOpenOrderDetail(orderId)}
+            onGenerateAIDietReport={() => void handleGenerateAIDietReport()}
           />
         </TabsContent>
       </Tabs>
