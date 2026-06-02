@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 
 import { useLoginPageStore } from '@/stores/pages/use-login-page-store'
 
-import { getRoleLabel } from './constants'
-import { LoginForm } from './LoginForm'
-import { AuthPageShell } from '../shared/AuthPageShell'
+import { AuthPageShell } from '@/components/auth/AuthPageShell'
+
+import { LoginForm } from './components/LoginForm'
+import { getRoleLabel } from './objects/constants'
 
 export default function Login() {
   const navigate = useNavigate()

@@ -18,11 +18,12 @@ alwaysApply: true
 - **前端**：[frontend/](frontend/)（Vite + React）；**只调 API**，不写浏览器内「伪后端」持久化。
 - **后端（Scala）**：[backend/](backend/)（http4s + Circe + JWT + 内存种子）；开发端口默认 **8787**（`PORT` 可改），Vite 代理 `/api`。
 - **建议目录（前端新功能）**：
-  - `frontend/src/features/cart/`、`…/checkout/`：购物车与结算（**SliceCheckout**）
-  - `frontend/src/features/order-tracking/`：订单详情与时间轴（**SliceOrderTracking**）
-  - `frontend/src/features/merchant/`：商户接单与菜品运营（**SliceMerchantOps**）
-  - `backend/src/main/scala/delivery/`：路由、store、后续 worker/outbox（**EventReliability**）
-  - `frontend/src/domain-types/` 与 `backend/src/main/scala/delivery/model/`：契约对齐（**TypeSafetyShared**）
+  - `frontend/src/pages/{Page}/components/`：页面局部组件。
+  - `frontend/src/pages/{Page}/functions/`：页面局部纯函数、格式化、筛选。
+  - `frontend/src/pages/{Page}/objects/`：页面局部常量与类型。
+  - `frontend/src/apis/{module}/XxxAPI.ts`：前端一 API 一文件。
+  - `backend/src/{module}/api/XxxAPIMessage.scala`：后端一 API 一文件。
+  - `frontend/src/objects/**` 与 `backend/src/**/objects/**`：领域对象与 `apiTypes/` 契约对齐（**TypeSafetyShared**）。
 
 ## 如何用「子代理」
 

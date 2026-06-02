@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
-import type { AISearchResponse } from '@/objects/ai/AISearchResponse'
+import type { AISearchResponse } from '@/objects/ai/apiTypes/AISearchResponse'
 import type { Merchant } from '@/objects/merchant/Merchant'
 import type { Product } from '@/objects/merchant/Product'
 

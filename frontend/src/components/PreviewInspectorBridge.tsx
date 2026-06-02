@@ -7,8 +7,8 @@ import {
   postMessageIO,
   removeEventListenerIO,
   setBodyCursorIO,
-} from '@/api/shared/browser'
-import { runTask } from '@/api/shared/TaskIO'
+} from '@/apis/shared/browser'
+import { runTask } from '@/apis/shared/TaskIO'
 
 type InspectorSelectionPayload = {
   tagName: string

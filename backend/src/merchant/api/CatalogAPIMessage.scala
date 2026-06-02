@@ -1,0 +1,20 @@
+package delivery.merchant.api
+
+import cats.effect.IO
+import delivery.merchant.objects.apiTypes.CatalogResponse
+import delivery.merchant.tables.catalogproduct.CatalogProductTable
+import delivery.merchant.tables.merchantstore.MerchantStoreTable
+import delivery.shared.api.APIMessage
+import delivery.shared.objects.ListingStatus
+
+import java.sql.Connection
+
+final case class CatalogAPIMessage() extends APIMessage[CatalogResponse]:
+  override def plan(connection: Connection): IO[CatalogResponse] =
+    for
+      products <- CatalogProductTable.list(connection)
+      merchants <- MerchantStoreTable.listCatalog(connection)
+      visibleProducts = products.filter(_.listingStatus == ListingStatus.上架)
+      visibleProductIds = visibleProducts.map(_.id).toSet
+      visibleMerchants = merchants.map(merchant => merchant.copy(featuredProductIds = merchant.featuredProductIds.filter(visibleProductIds.contains)))
+    yield CatalogResponse(visibleMerchants, visibleProducts)

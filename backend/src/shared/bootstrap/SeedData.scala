@@ -1,7 +1,9 @@
 package delivery.shared.bootstrap
 
 import delivery.merchant.objects.*
+import delivery.merchant.objects.apiTypes.*
 import delivery.order.objects.*
+import delivery.order.objects.apiTypes.*
 import delivery.rider.objects.Rider
 import delivery.shared.objects.{InventoryStatus, ListingStatus, MerchantCategory, RiderStatus, Voucher}
 import delivery.user.objects.Customer

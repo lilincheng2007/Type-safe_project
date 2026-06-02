@@ -8,12 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { useCustomerPortalStore } from '@/stores/pages/use-customer-portal-store'
 
-import { CartTab } from './CartTab'
-import { HomeTab } from './HomeTab'
-import { OrderDetailDialog } from './OrderDetailDialog'
-import { ProfileTab } from './ProfileTab'
-import { RechargeDialog } from './RechargeDialog'
-import { isCustomerTab } from './helpers'
+import { CartTab } from './components/CartTab'
+import { HomeTab } from './components/HomeTab'
+import { OrderDetailDialog } from './components/OrderDetailDialog'
+import { ProfileTab } from './components/ProfileTab'
+import { RechargeDialog } from './components/RechargeDialog'
+import { isCustomerTab } from './functions/helpers'
 
 const CustomerPortalRefreshIntervalMs = 15_000
 

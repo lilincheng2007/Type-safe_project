@@ -72,11 +72,12 @@ backend/
 每个业务模块通常包含：
 
 ```text
-api/       # APIMessage 定义
-objects/   # 请求/响应/领域对象
-tables/    # 表初始化与数据库访问
-routes/    # API 注册或额外公开路由
-utils/     # 模块内工具
+api/                 # 一 API 一个 XxxAPIMessage.scala
+objects/             # 领域对象
+objects/apiTypes/    # API Request / Response 包装类型
+tables/              # 表初始化与数据库访问
+routes/              # API 注册或额外公开路由
+utils/               # 模块内工具
 ```
 
 ## 服务入口与路由
@@ -271,62 +272,33 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 
 - `ids.scala`：`UserId`、`MerchantId`、`RiderId`、`ProductId`、`OrderId`、`VoucherId` 以及角色/状态枚举。
 - `Voucher.scala`：优惠券。
-- `OkResponse.scala`、`ErrorBody.scala`：通用响应。
+- `ErrorBody.scala`：通用错误。
+- `apiTypes/OkResponse.scala`：通用成功响应。
 
 ### user objects
 
-- `Customer`
-- `CustomerProfile`
-- `CustomerDeliveryContact`
-- `CustomerProfilePatch`
-- `CustomerMeResponse`
-- `CustomerWalletTopUpResponse`
-- `LoginRequest` / `LoginResponse`
-- `RegisterRequest`
+- root：`Customer`、`CustomerProfile`、`CustomerDeliveryContact`、`CustomerProfilePatch`、`CustomerWalletTopUp`
+- `apiTypes/`：`CustomerMeResponse`、`CustomerWalletTopUpResponse`、`LoginRequest` / `LoginResponse`、`RegisterRequest`、`MeResponse`
 
 ### merchant objects
 
-- `Merchant`
-- `Product`
-- `MerchantProfile`
-- `MerchantStoreProfile`
-- `MerchantMeResponse`
-- `CatalogResponse`
-- `CreateStoreRequest`
-- `CreateProductRequest`
-- `UpdateProductRequest`
-- `ProductDescriptionPatch`
-- `UpdateStoreImageRequest`
+- root：`Merchant`、`Product`、`MerchantProfile`、`MerchantStoreProfile`、`MerchantAccountPublic`、`ProductDescriptionPatch`
+- `apiTypes/`：`MerchantMeResponse`、`CatalogResponse`、`CreateStoreRequest`、`CreateProductRequest`、`UpdateProductRequest`、`UpdateStoreImageRequest`
 
 ### order objects
 
-- `Order`
-- `OrderItem`
-- `CheckoutLine`
-- `CheckoutRequest`
-- `CheckoutResponse`
-- `CustomerOrdersResponse`
-- `OrderCancelResponse`
+- root：`Order`、`OrderItem`、`CheckoutLine`
+- `apiTypes/`：`CheckoutRequest`、`CheckoutResponse`、`CustomerOrdersResponse`、`OrderCancelResponse`
 
 ### rider objects
 
-- `Rider`
-- `RiderProfile`
-- `RiderMeResponse`
-- `RiderAvailableOrdersResponse`
-- `RiderDeliveryStatus`
-- `RiderDeliverySettlement`
-- `RiderTimeoutCardRedeemResponse`
-- `RiderUseTimeoutCardResponse`
+- root：`Rider`、`RiderProfile`、`RiderAccountPublic`、`RiderDeliveryStatus`、`RiderDeliverySettlement`
+- `apiTypes/`：`RiderMeResponse`、`RiderAvailableOrdersResponse`、`RiderTimeoutCardRedeemResponse`、`RiderUseTimeoutCardResponse`
 
 ### ai objects
 
-- `AISearchRequest` / `AISearchResponse`
-- `AIDietWeeklyReportRequest` / `AIDietWeeklyReportResponse`
-- `AIOrderProgressNarrativesRequest` / `AIOrderProgressNarrativesResponse`
-- `AIMerchantStoreDescriptionRequest` / `AIMerchantStoreDescriptionResponse`
-- `AIMerchantProductDescriptionsRequest` / `AIMerchantProductDescriptionsResponse`
-- `AIGeneratedProductDescription`
+- root：`AIGeneratedProductDescription`
+- `apiTypes/`：`AISearchRequest` / `AISearchResponse`、`AIDietWeeklyReportRequest` / `AIDietWeeklyReportResponse`、`AIOrderProgressNarrativesRequest` / `AIOrderProgressNarrativesResponse`、`AIMerchantStoreDescriptionRequest` / `AIMerchantStoreDescriptionResponse`、`AIMerchantProductDescriptionsRequest` / `AIMerchantProductDescriptionsResponse`
 
 ## 关键业务规则
 
@@ -456,7 +428,7 @@ export OPENAI_MODEL=gpt-4o-mini
 2. 在对应模块 `api/` 新增 `*APIMessage`。
 3. 在 `routes/` 中使用 `api` 或 `apiWithRole` 注册。
 4. 在 `src/shared/json/ApiJsonCodecs.scala` 注册 Codec。
-5. 同步前端 `frontend/src/api/*` 与 `frontend/src/objects/*` 的契约。
+5. 同步前端 `frontend/src/apis/*` 与 `frontend/src/objects/*` 的契约。
 6. 运行 `sbt compile` 验证。
 
 ## 代码约定

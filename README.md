@@ -59,7 +59,7 @@
 ├── frontend/
 │   ├── README.md
 │   └── src/
-│       ├── api/                 # 前端 APIMessage 封装
+│       ├── apis/                 # 前端 APIMessage 封装
 │       ├── objects/             # 与后端对象对应的 TS 契约
 │       ├── pages/               # 登录、注册、顾客、商家、骑手页面
 │       ├── stores/              # Zustand 页面状态
@@ -153,7 +153,7 @@ npm run dev
 POST /api/{apiName}
 ```
 
-前端通过 `frontend/src/api/shared/sendAPI.ts` 发送 `APIMessage`；后端通过 `backend/src/shared/api/APIMessage.scala` 注册、解码、鉴权并执行。需要鉴权的 API 使用 `Authorization: Bearer <token>`，网关根据注册角色校验权限。
+前端通过 `frontend/src/apis/shared/sendAPI.ts` 发送 `APIMessage`；后端通过 `backend/src/shared/api/APIMessage.scala` 注册、解码、鉴权并执行。需要鉴权的 API 使用 `Authorization: Bearer <token>`，网关根据注册角色校验权限。
 
 示例：
 
@@ -203,7 +203,7 @@ GET /api/merchant/store-images/{fileName}
 ## 开发约定
 
 - 前端只通过 HTTP API 获取和提交业务数据，不把浏览器本地状态作为真实数据源。
-- 新增业务 API 时，前后端 `api/` 文件、`objects/` 契约应保持语义一致。
+- 新增业务 API 时，后端 `XxxAPIMessage.scala` 与前端 `src/apis/**/XxxAPI.ts` 必须一一对应；领域对象放 `objects/`，请求/响应对象放 `objects/apiTypes/`。
 - 后端 Scala 代码使用不可变绑定 `val`，避免新增 `var`。
 - 新增业务路由优先使用 `APIMessage` / `APIWithRoleMessage`，不要新增零散字符串路由。
 - AI 能力优先复用 `backend/src/ai/utils/OpenAIClient.scala`。

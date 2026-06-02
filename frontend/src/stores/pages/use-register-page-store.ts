@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
-import { runTask } from '@/api/shared/client'
-import { registerIO } from '@/api/user/RegisterApi'
+import { runTask } from '@/apis/shared/client'
+import { registerIO } from '@/apis/user/RegisterAPI'
 import { UserRoles } from '@/objects/shared/ids'
 import type { UserRole } from '@/objects/shared/ids'
 

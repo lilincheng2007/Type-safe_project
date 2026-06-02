@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
-import { runTask } from '@/api/shared/client'
-import { loginIO } from '@/api/user/LoginApi'
+import { runTask } from '@/apis/shared/client'
+import { loginIO } from '@/apis/user/LoginAPI'
 import { getDefaultRouteForRole, setAuthSessionIO } from '@/lib/auth-session'
 import { UserRoles } from '@/objects/shared/ids'
 import type { UserRole } from '@/objects/shared/ids'

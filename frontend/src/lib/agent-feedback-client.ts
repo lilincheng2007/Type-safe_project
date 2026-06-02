@@ -1,5 +1,5 @@
-import type { TaskIO } from '@/api/shared/TaskIO'
-import { fetchIO } from '@/api/shared/browser'
+import type { TaskIO } from '@/apis/shared/TaskIO'
+import { fetchIO } from '@/apis/shared/browser'
 
 export interface AgentFeedbackInput {
   pageName: string

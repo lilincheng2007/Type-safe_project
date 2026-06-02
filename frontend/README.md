@@ -57,7 +57,7 @@ VITE_BACKEND_URL=http://localhost:8787 npm run dev
 
 ```text
 src/
-├── api/                    # APIMessage 封装
+├── apis/                    # APIMessage 封装
 │   ├── ai/                 # AI 搜索、AI 周报、AI 文案 API
 │   ├── merchant/           # 商家、目录、店铺、商品、图片、订单 API
 │   ├── order/              # 顾客订单、结算、取消、确认完成 API
@@ -161,14 +161,14 @@ APIMessage class -> sendAPI -> POST /api/{apiName}
 
 关键文件：
 
-- `src/api/shared/APIMessage.ts`：前端 APIMessage 基类。
-- `src/api/shared/sendAPI.ts`：根据 `apiName` 发起请求。
-- `src/api/shared/client.ts`：注入 `Authorization: Bearer <token>`，统一处理错误。
-- `src/api/shared/TaskIO.ts`：任务式异步封装。
+- `src/apis/shared/APIMessage.ts`：前端 APIMessage 基类。
+- `src/apis/shared/sendAPI.ts`：根据 `apiName` 发起请求。
+- `src/apis/shared/client.ts`：注入 `Authorization: Bearer <token>`，统一处理错误。
+- `src/apis/shared/TaskIO.ts`：任务式异步封装。
 
 ### API 模块
 
-#### `src/api/user/`
+#### `src/apis/user/`
 
 | apiName | 用途 |
 |---|---|
@@ -179,7 +179,7 @@ APIMessage class -> sendAPI -> POST /api/{apiName}
 | `customerrechargeapi` | 顾客钱包充值 |
 | `customervoucherdiscardapi` | 舍弃过期优惠券 |
 
-#### `src/api/merchant/`
+#### `src/apis/merchant/`
 
 | apiName | 用途 |
 |---|---|
@@ -195,7 +195,7 @@ APIMessage class -> sendAPI -> POST /api/{apiName}
 | `merchantproductdescriptionsapi` | 保存 AI 菜品描述 |
 | `merchantorderreadyapi` | 商家完成出餐 |
 
-#### `src/api/order/`
+#### `src/apis/order/`
 
 | apiName | 用途 |
 |---|---|
@@ -205,7 +205,7 @@ APIMessage class -> sendAPI -> POST /api/{apiName}
 | `ordercompleteapi` | 确认完成订单 |
 | `checkoutapi` | 提交结算 |
 
-#### `src/api/rider/`
+#### `src/apis/rider/`
 
 | apiName | 用途 |
 |---|---|
@@ -216,7 +216,7 @@ APIMessage class -> sendAPI -> POST /api/{apiName}
 | `riderredeemtimeoutcardapi` | 兑换超时免责卡 |
 | `riderusetimeoutcardapi` | 使用超时免责卡 |
 
-#### `src/api/ai/`
+#### `src/apis/ai/`
 
 | apiName | 用途 |
 |---|---|
@@ -281,8 +281,8 @@ npm run ui:add -- card dialog sheet
 
 ## 开发约定
 
-- 新增业务接口时，在 `src/api/<module>/` 增加一个对应 API 文件。
-- 新增契约对象时，在 `src/objects/<module>/` 增加同名对象文件，并同步后端 `objects/`。
+- 新增业务接口时，在 `src/apis/<module>/` 增加一个对应 API 文件。
+- 新增领域对象时，在 `src/objects/<module>/` 增加同名对象文件；新增请求/响应包装类型时放入 `src/objects/<module>/apiTypes/`，并同步后端 `objects` / `objects/apiTypes`。
 - 不在前端伪造真实业务结果；涉及下单、取消、充值、保存资料、抢单、出餐等操作必须调用后端 API。
 - 会话本地只保存 JWT、账号、角色和登录时间，业务数据通过 API 刷新。
 

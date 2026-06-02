@@ -6,40 +6,40 @@
 
 | 路径 | 说明 |
 |------|------|
-| [frontend/](frontend/) | Vite + React，**仅通过 HTTP 调用** `backend` API；业务状态不在浏览器内伪造持久化。 |
-| [backend/](backend/) | **Scala 3 + http4s + Circe** 微服务：`user` / `order` / `merchant` / `rider` + **网关**；**对外 API 经网关 `8787`**（`npm run dev:backend` 用 `stack/run` 单进程起全栈）。每服务独立 PostgreSQL 库（`delivery_user` 等），JSONB 快照 + JWT。 |
-| [模版/](模版/) | 迁移后仅余占位文件时可忽略或清理。 |
+| [frontend/](frontend/) | Vite + React，仅通过 `frontend/src/apis/**` 调用后端 API；业务状态不在浏览器内伪造持久化。 |
+| [backend/](backend/) | Scala 3 + http4s + Circe 单进程后端：`ai` / `user` / `order` / `merchant` / `rider` + 网关；对外 API 经网关 `8787`。 |
+| [sample/](sample/) | 结构参照样例；当前项目按 sample 的一 API 一文件、页面子目录拆分、`apiTypes/` 分层执行。 |
 
 ## 本地启动
 
 1. 安装根目录脚本依赖（可选）：在仓库根执行 `npm install`。
-2. PostgreSQL：可用 `docker compose -f backend/docker-compose.yml up -d`（默认用户/密码 `postgres`/`postgres`，与代码默认一致）；首次初始化会建库 `delivery_user`、`delivery_order` 等（见 [backend/docker/init-databases.sql](backend/docker/init-databases.sql)）。**若用本机已装的 Postgres**，请保证存在上述五个库，或通过环境变量覆盖连接：`DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`（默认 `postgres`/`postgres`）。若仍见 `role "db" does not exist`，说明曾用旧默认；请不要再使用用户 `db`，或显式 `export DB_USER=…` 指向你实例中的角色。
-3. 终端一：`cd backend && sbt run` 或 `sbt stack/run`（或根目录 `npm run dev:backend`）；单 JVM 起全栈并监听网关 **8787**。也可分别 `sbt userService/run` 等（端口 8782–8786 + 网关 8787）。
-4. 终端二：`cd frontend && npm install && npm run dev`（Vite 将 `/api` 代理到 `http://localhost:8787`）。
-5. 或根目录：`npm run dev`（需已 `npm install`）。
+2. PostgreSQL：可用 `docker compose -f backend/docker-compose.yml up -d`（默认用户/密码 `postgres`/`postgres`）。
+3. 终端一：`cd backend && sbt run` 或根目录 `npm run dev:backend`，后端监听 **8787**。
+4. 终端二：`cd frontend && npm install && npm run dev`，Vite 将 `/api` 代理到 `http://localhost:8787`。
+5. 或根目录：`npm run dev`。
 
-演示账号（与种子数据一致）：`customer_demo` / `merchant_demo` / `rider_demo`，密码均为 `123456`。
+演示账号：`customer_demo` / `merchant_demo` / `rider_demo`，密码均为 `123456`。
 
 ## 前端 API 层
 
-- [frontend/src/api/client.ts](frontend/src/api/client.ts)：带 `Authorization: Bearer` 的 `fetch` 与 **`TaskIO`**；[frontend/src/api/services/](frontend/src/api/services/) 按 **user / order / merchant / rider** 微服务拆分调用（路径常量 [gateway-paths.ts](frontend/src/api/gateway-paths.ts)）；入口 [frontend/src/api/index.ts](frontend/src/api/index.ts)。
-- 契约类型：[frontend/src/delivery/model/](frontend/src/delivery/model/)。`lib/api/*` 为兼容重导出（deprecated）。
-- 会话仅保存 JWT 与角色：[frontend/src/lib/auth-session.ts](frontend/src/lib/auth-session.ts)。
+- API 基础设施：`frontend/src/apis/shared/`，包含 `APIMessage.ts`、`sendAPI.ts`、`client.ts`、`TaskIO.ts`。
+- 业务 API：`frontend/src/apis/{ai,user,merchant,order,rider}/XxxAPI.ts`。
+- 后端对应：`backend/src/{ai,user,merchant,order,rider}/api/XxxAPIMessage.scala`。
+- 命名规则：前端 `XxxAPI.ts` 与后端 `XxxAPIMessage.scala` 一一对应。
+- 契约对象：领域对象放 `objects/{module}/`；请求/响应 wrapper 放 `objects/{module}/apiTypes/`。
+- 会话仅保存 JWT 与角色：`frontend/src/lib/auth-session.ts`。
 
-## 新增规则
+## 当前结构规则
 
-1. **一 API 一文件，一对象一文件，且前后端一一对应**：
-   `backend/src/*/api/` 与 `frontend/src/api/*/` 中，同一业务能力必须保持 **文件数量一致、文件名一致、职责一一对应**；
-   `backend/src/*/objects/` 与 `frontend/src/objects/*/` 中，同一契约对象必须保持 **文件数量一致、文件名一致、字段语义一一对应**。
-   若某端需要兼容层，也必须通过同名文件补齐，不能只在单端新增孤立文件。
-2. **保持现有结构与风格稳定**：
-   在保证功能实现的前提下，不随意重排现有模块结构、目录层级或大文件拆分方式；
-   新增文件时优先复用现有命名、分层、导入顺序、case class / interface / API 封装风格，保证新代码与同目录既有文件风格一致。
-3. **交互产生的数据必须以后端为准**：
-   用户在页面交互中产生的业务数据，必须通过 API 写入后端并可由后端再次查询得到；
-   不允许仅保存在浏览器缓存、`localStorage`、`sessionStorage`、内存状态或其他前端本地持久化中充当真实数据来源。前端本地缓存仅可作为展示优化，不能替代后端持久化与真实业务状态。
-4. **代码中只能使用 `val`，不能使用 `var`**：
-   后端 Scala 代码必须使用不可变绑定 `val`，禁止新增 `var`；若需要状态变化，应通过不可变数据拷贝、函数返回值或明确的持久化/API 状态表达。
+1. **一 API 一文件，前后端文件名对应**：
+   `backend/src/*/api/XxxAPIMessage.scala` 与 `frontend/src/apis/*/XxxAPI.ts` 必须保持文件数量一致、职责一致。
+2. **请求/响应对象与领域对象分层**：
+   `*Request` / `*Response` 放入 `objects/*/apiTypes/`；真正系统对象保留在 `objects/*/` 根目录。
+3. **页面按 sample 拆分**：
+   `frontend/src/pages/{Page}/index.tsx` 只做页面装配，局部 UI 放 `components/`，函数放 `functions/`，局部常量/类型放 `objects/`，复杂数据协调优先进入 `hooks/`。
+4. **交互产生的数据必须以后端为准**：
+   用户在页面交互中产生的业务数据，必须通过 API 写入后端并可由后端再次查询得到。
+5. **后端 Scala 只使用 `val`，不新增 `var`**。
 
 ## 子代理分工
 
@@ -48,15 +48,9 @@
 | **SliceCheckout** | `agent-slice-checkout.mdc` + `agent-slice-checkout-settlement.mdc` | 购物车、结算、优惠券入口、对齐下单 API |
 | **SliceOrderTracking** | `agent-slice-order-tracking.mdc` | 订单详情、时间轴、配送状态、实时更新策略 |
 | **SliceMerchantOps** | `agent-slice-merchant-ops.mdc` | 商户接单、备餐时间、营业状态、菜品上下架 |
-| **EventReliability** | `agent-event-reliability.mdc` | Outbox、消费者幂等、重试、死信（**代码在 `backend/`**） |
-| **TypeSafetyShared** | `agent-type-safety-shared.mdc` | 共享枚举/DTO、前后端契约对齐（含 [frontend/src/delivery/model/](frontend/src/delivery/model/) 与 `backend/src/main/scala/delivery/model/`；`domain-types/` 为重导出） |
-
-## 推荐对话起手式
-
-1. 说明当前切片（例如：「只改结算页，对接 POST /delivery/me/customer/checkout」）。
-2. @ 对应规则 + @ 相关文件。
-3. 明确要求：不修改其他切片目录（除非同步类型定义）。
+| **EventReliability** | `agent-event-reliability.mdc` | Outbox、消费者幂等、重试、死信（代码在 `backend/`） |
+| **TypeSafetyShared** | `agent-type-safety-shared.mdc` | `frontend/src/objects/**` 与 `backend/src/**/objects/**` 契约对齐 |
 
 ## 规则文件位置
 
-全部 **8** 个 `.mdc` 在 [.cursor/rules/](.cursor/rules/)（含默认启用的 [agent-type-safety-fe-be-correspondence.mdc](.cursor/rules/agent-type-safety-fe-be-correspondence.mdc)：类型安全 + 前后端目录/文件名对应）；若需修订，可对照 [PLAN_AGENTS_RULES.md](PLAN_AGENTS_RULES.md) 中的原文块同步更新。
+全部 `.mdc` 在 [.cursor/rules/](.cursor/rules/)；类型安全审计 skill 在 [.codebuddy/skills/type-safety-audit/](.codebuddy/skills/type-safety-audit/)。

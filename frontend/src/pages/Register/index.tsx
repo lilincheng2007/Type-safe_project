@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { useRegisterPageStore } from '@/stores/pages/use-register-page-store'
 
-import { RegisterForm } from './RegisterForm'
-import { AuthPageShell } from '../shared/AuthPageShell'
+import { AuthPageShell } from '@/components/auth/AuthPageShell'
+
+import { RegisterForm } from './components/RegisterForm'
 
 export default function Register() {
   const navigate = useNavigate()

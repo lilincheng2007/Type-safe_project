@@ -1,7 +1,8 @@
 package delivery.rider.utils
 
 import delivery.order.objects.Order
-import delivery.rider.objects.{RiderAccountPublic, RiderDeliveryStatus, RiderMeResponse}
+import delivery.rider.objects.{RiderAccountPublic, RiderDeliveryStatus}
+import delivery.rider.objects.apiTypes.{RiderMeResponse}
 import delivery.rider.tables.RiderAccountRecord
 import delivery.shared.objects.{ErrorBody, UserRole}
 

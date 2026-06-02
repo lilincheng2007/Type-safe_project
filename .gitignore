@@ -37,3 +37,6 @@ Thumbs.db
 # Scala / JVM (backend-scala-sample)
 target/
 *.class
+
+# Sample
+sample/

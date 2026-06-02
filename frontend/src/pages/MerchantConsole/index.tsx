@@ -7,11 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { useMerchantConsoleStore } from '@/stores/pages/use-merchant-console-store'
 
-import { OrdersTab } from './OrdersTab'
-import { ProductsTab } from './ProductsTab'
-import { ProfileTab } from './ProfileTab'
-import { StoreSelectorDialog } from './StoreSelectorDialog'
-import { isMerchantTab } from './helpers'
+import { OrdersTab } from './components/OrdersTab'
+import { ProductsTab } from './components/ProductsTab'
+import { ProfileTab } from './components/ProfileTab'
+import { StoreSelectorDialog } from './components/StoreSelectorDialog'
+import { isMerchantTab } from './functions/helpers'
 
 export default function MerchantConsole() {
   const { showNotice } = useAppChrome()

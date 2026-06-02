@@ -1,47 +1,57 @@
 # API Inventory
 
-当前项目已移除管理员功能，后端逻辑目录按 `merchant / order / rider / user` 拆分。
+当前项目通过统一网关暴露业务能力：
+
+```text
+POST /api/{apiName}
+```
+
+后端业务 API 文件位于 `backend/src/{module}/api/XxxAPIMessage.scala`；前端对应文件位于 `frontend/src/apis/{module}/XxxAPI.ts`。前端文件名等于后端文件名去掉 `Message`。
 
 ## API 列表
 
-| HTTP | 路径 | 后端 API 文件 | 请求类型 | 响应类型 |
-|------|------|---------------|----------|----------|
-| `POST` | `/api/user/login` | `backend/src/user/api/LoginApi.scala` | `LoginRequest` | `LoginResponse` |
-| `POST` | `/api/user/register` | `backend/src/user/api/RegisterApi.scala` | `RegisterRequest` | `OkResponse` |
-| `GET` | `/api/user/me` | `backend/src/user/api/CustomerMeApi.scala` | 无请求体 | `CustomerMeResponse` |
-| `PATCH` | `/api/user/me/profile` | `backend/src/user/api/CustomerProfilePatchApi.scala` | `CustomerProfilePatch` | `OkResponse` |
-| `GET` | `/api/merchant/catalog` | `backend/src/merchant/api/CatalogApi.scala` | 无请求体 | `CatalogResponse` |
-| `GET` | `/api/merchant/me` | `backend/src/merchant/api/MerchantMeApi.scala` | 无请求体 | `MerchantMeResponse` |
-| `PUT` | `/api/merchant/me/profile` | `backend/src/merchant/api/MerchantProfileApi.scala` | `MerchantProfileBody` | `OkResponse` |
-| `POST` | `/api/merchant/me/stores` | `backend/src/merchant/api/MerchantStoreApi.scala` | `CreateStoreRequest` | `CreateStoreResponse` |
-| `PUT` | `/api/merchant/me/stores/:merchantId/image` | `backend/src/merchant/api/MerchantStoreImageApi.scala` | `UpdateStoreImageRequest` | `OkResponse` |
-| `POST` | `/api/merchant/me/stores/:merchantId/image-file` | `backend/src/merchant/api/MerchantStoreImageFileApi.scala` | `multipart/form-data` 字段 `file` | `StoreImageUploadResponse` |
-| `GET` | `/api/merchant/store-images/:fileName` | `backend/src/merchant/routes/MerchantRoutes.scala` | 无 | 图片字节流 |
-| `GET` | `/api/merchant/me/orders` | `backend/src/merchant/api/MerchantOrderApi.scala` | 无请求体 | `List[Order]` |
-| `POST` | `/api/merchant/me/orders/:orderId/ready` | `backend/src/merchant/api/MerchantOrderReadyApi.scala` | 无请求体 | `OkResponse` |
-| `GET` | `/api/order/customer/orders` | `backend/src/order/api/CustomerOrdersApi.scala` | 无请求体 | `CustomerOrdersResponse` |
-| `GET` | `/api/order/customer/orders/:orderId` | `backend/src/order/api/OrderDetailApi.scala` | 无请求体 | `OrderDetailResponse` |
-| `POST` | `/api/order/customer/orders/:orderId/cancel` | `backend/src/order/api/OrderCancelApi.scala` | 无请求体 | `OrderCancelResponse` |
-| `POST` | `/api/order/checkout` | `backend/src/order/api/CheckoutApi.scala` | `CheckoutRequest` | `CheckoutResponse` |
-| `GET` | `/api/rider/me` | `backend/src/rider/api/RiderMeApi.scala` | 无请求体 | `RiderMeResponse` |
-| `POST` | `/api/rider/orders/:orderId/grab` | `backend/src/rider/api/RiderGrabOrderApi.scala` | 无请求体 | `OkResponse` |
-| `POST` | `/api/rider/orders/:orderId/status` | `backend/src/rider/api/RiderUpdateOrderStatusApi.scala` | 状态更新请求 | `RiderUpdateOrderStatusResponse` |
+| 模块 | apiName | 后端 API 文件 | 前端 API 文件 | 响应 |
+|---|---|---|---|---|
+| ai | `aisearchapi` | `backend/src/ai/api/AISearchAPIMessage.scala` | `frontend/src/apis/ai/AISearchAPI.ts` | `AISearchResponse` |
+| ai | `aidietweeklyreportapi` | `backend/src/ai/api/AIDietWeeklyReportAPIMessage.scala` | `frontend/src/apis/ai/AIDietWeeklyReportAPI.ts` | `AIDietWeeklyReportResponse` |
+| ai | `aiorderprogressnarrativesapi` | `backend/src/ai/api/AIOrderProgressNarrativesAPIMessage.scala` | `frontend/src/apis/ai/AIOrderProgressNarrativesAPI.ts` | `AIOrderProgressNarrativesResponse` |
+| ai | `aimerchantstoredescriptionapi` | `backend/src/ai/api/AIMerchantStoreDescriptionAPIMessage.scala` | `frontend/src/apis/ai/AIMerchantStoreDescriptionAPI.ts` | `AIMerchantStoreDescriptionResponse` |
+| ai | `aimerchantproductdescriptionsapi` | `backend/src/ai/api/AIMerchantProductDescriptionsAPIMessage.scala` | `frontend/src/apis/ai/AIMerchantProductDescriptionsAPI.ts` | `AIMerchantProductDescriptionsResponse` |
+| user | `loginapi` | `backend/src/user/api/LoginAPIMessage.scala` | `frontend/src/apis/user/LoginAPI.ts` | `LoginResponse` |
+| user | `registerapi` | `backend/src/user/api/RegisterAPIMessage.scala` | `frontend/src/apis/user/RegisterAPI.ts` | `OkResponse` |
+| user | `customermeapi` | `backend/src/user/api/CustomerMeAPIMessage.scala` | `frontend/src/apis/user/CustomerMeAPI.ts` | `CustomerMeResponse` |
+| user | `customerprofilepatchapi` | `backend/src/user/api/CustomerProfilePatchAPIMessage.scala` | `frontend/src/apis/user/CustomerProfilePatchAPI.ts` | `OkResponse` |
+| user | `customerrechargeapi` | `backend/src/user/api/CustomerRechargeAPIMessage.scala` | `frontend/src/apis/user/CustomerRechargeAPI.ts` | `CustomerWalletTopUpResponse` |
+| user | `customervoucherdiscardapi` | `backend/src/user/api/CustomerVoucherDiscardAPIMessage.scala` | `frontend/src/apis/user/CustomerVoucherDiscardAPI.ts` | `OkResponse` |
+| merchant | `catalogapi` | `backend/src/merchant/api/CatalogAPIMessage.scala` | `frontend/src/apis/merchant/CatalogAPI.ts` | `CatalogResponse` |
+| merchant | `merchantmeapi` | `backend/src/merchant/api/MerchantMeAPIMessage.scala` | `frontend/src/apis/merchant/MerchantMeAPI.ts` | `MerchantMeResponse` |
+| merchant | `merchantprofileapi` | `backend/src/merchant/api/MerchantProfileAPIMessage.scala` | `frontend/src/apis/merchant/MerchantProfileAPI.ts` | `OkResponse` |
+| merchant | `merchantstoreapi` | `backend/src/merchant/api/MerchantStoreAPIMessage.scala` | `frontend/src/apis/merchant/MerchantStoreAPI.ts` | `String` |
+| merchant | `merchantstoredescriptionapi` | `backend/src/merchant/api/MerchantStoreDescriptionAPIMessage.scala` | `frontend/src/apis/merchant/MerchantStoreDescriptionAPI.ts` | `OkResponse` |
+| merchant | `merchantstoreimageapi` | `backend/src/merchant/api/MerchantStoreImageAPIMessage.scala` | `frontend/src/apis/merchant/MerchantStoreImageAPI.ts` | `OkResponse` |
+| merchant | `merchantstoreimagefileapi` | `backend/src/merchant/api/MerchantStoreImageFileAPIMessage.scala` | `frontend/src/apis/merchant/MerchantStoreImageFileAPI.ts` | `String` |
+| merchant | `merchantcreateproductapi` | `backend/src/merchant/api/MerchantCreateProductAPIMessage.scala` | `frontend/src/apis/merchant/MerchantCreateProductAPI.ts` | `Product` |
+| merchant | `merchantproductapi` | `backend/src/merchant/api/MerchantProductAPIMessage.scala` | `frontend/src/apis/merchant/MerchantProductAPI.ts` | `Product` |
+| merchant | `merchantproductdescriptionsapi` | `backend/src/merchant/api/MerchantProductDescriptionsAPIMessage.scala` | `frontend/src/apis/merchant/MerchantProductDescriptionsAPI.ts` | `OkResponse` |
+| merchant | `merchantorderreadyapi` | `backend/src/merchant/api/MerchantOrderReadyAPIMessage.scala` | `frontend/src/apis/merchant/MerchantOrderReadyAPI.ts` | `OkResponse` |
+| order | `checkoutapi` | `backend/src/order/api/CheckoutAPIMessage.scala` | `frontend/src/apis/order/CheckoutAPI.ts` | `CheckoutResponse` |
+| order | `customerordersapi` | `backend/src/order/api/CustomerOrdersAPIMessage.scala` | `frontend/src/apis/order/CustomerOrdersAPI.ts` | `CustomerOrdersResponse` |
+| order | `orderdetailapi` | `backend/src/order/api/OrderDetailAPIMessage.scala` | `frontend/src/apis/order/OrderDetailAPI.ts` | `Order` |
+| order | `ordercancelapi` | `backend/src/order/api/OrderCancelAPIMessage.scala` | `frontend/src/apis/order/OrderCancelAPI.ts` | `OrderCancelResponse` |
+| order | `ordercompleteapi` | `backend/src/order/api/OrderCompleteAPIMessage.scala` | `frontend/src/apis/order/OrderCompleteAPI.ts` | `Order` |
+| rider | `ridermeapi` | `backend/src/rider/api/RiderMeAPIMessage.scala` | `frontend/src/apis/rider/RiderMeAPI.ts` | `RiderMeResponse` |
+| rider | `rideravailableordersapi` | `backend/src/rider/api/RiderAvailableOrdersAPIMessage.scala` | `frontend/src/apis/rider/RiderAvailableOrdersAPI.ts` | `RiderAvailableOrdersResponse` |
+| rider | `ridergraborderapi` | `backend/src/rider/api/RiderGrabOrderAPIMessage.scala` | `frontend/src/apis/rider/RiderGrabOrderAPI.ts` | `OkResponse` |
+| rider | `riderupdateorderstatusapi` | `backend/src/rider/api/RiderUpdateOrderStatusAPIMessage.scala` | `frontend/src/apis/rider/RiderUpdateOrderStatusAPI.ts` | `RiderDeliverySettlement` |
+| rider | `riderredeemtimeoutcardapi` | `backend/src/rider/api/RiderRedeemTimeoutCardAPIMessage.scala` | `frontend/src/apis/rider/RiderRedeemTimeoutCardAPI.ts` | `RiderTimeoutCardRedeemResponse` |
+| rider | `riderusetimeoutcardapi` | `backend/src/rider/api/RiderUseTimeoutCardAPIMessage.scala` | `frontend/src/apis/rider/RiderUseTimeoutCardAPI.ts` | `RiderUseTimeoutCardResponse` |
 
 ## Contract 目录
 
-| 领域 | 后端 | 前端 |
-|------|------|------|
-| User | `backend/src/user/objects/` | `frontend/src/objects/user/` |
-| Order | `backend/src/order/objects/` | `frontend/src/objects/order/` |
-| Merchant | `backend/src/merchant/objects/` | `frontend/src/objects/merchant/` |
-| Rider | `backend/src/rider/objects/` | `frontend/src/objects/rider/` |
-| Shared | `backend/src/shared/objects/` | `frontend/src/objects/shared/` |
+| 类型 | 后端 | 前端 |
+|---|---|---|
+| 领域对象 | `backend/src/{module}/objects/` | `frontend/src/objects/{module}/` |
+| 请求/响应对象 | `backend/src/{module}/objects/apiTypes/` | `frontend/src/objects/{module}/apiTypes/` |
+| API 基础设施 | `backend/src/shared/api/` | `frontend/src/apis/shared/` |
 
-## 前端 API 目录
-
-| 领域 | 目录 |
-|------|------|
-| User | `frontend/src/api/user/` |
-| Order | `frontend/src/api/order/` |
-| Merchant | `frontend/src/api/merchant/` |
-| Rider | `frontend/src/api/rider/` |
+除业务 APIMessage 网关外，商家店铺图片通过 `GET /api/merchant/store-images/{fileName}` 公开访问。该路由仅服务静态图片，不作为业务 API 计入对齐表。

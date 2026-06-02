@@ -1,135 +1,100 @@
 # 前后端契约对照表
 
-> 快照日期：2026-05-31 | 基于项目当前代码生成
+> 快照日期：2026-06-02。当前项目已按 `sample/` 风格迁移：后端 `XxxAPIMessage.scala`，前端 `src/apis/**/XxxAPI.ts`，请求/响应对象进入 `objects/**/apiTypes/`。
 
-## 一、API 消息对照
+## API 消息对照
 
-### User 模块（4 个 API）
+| 模块 | 后端目录 | 前端目录 | API 数量 |
+|---|---|---|---:|
+| ai | `backend/src/ai/api/*APIMessage.scala` | `frontend/src/apis/ai/*API.ts` | 5 |
+| user | `backend/src/user/api/*APIMessage.scala` | `frontend/src/apis/user/*API.ts` | 6 |
+| merchant | `backend/src/merchant/api/*APIMessage.scala` | `frontend/src/apis/merchant/*API.ts` | 11 |
+| order | `backend/src/order/api/*APIMessage.scala` | `frontend/src/apis/order/*API.ts` | 5 |
+| rider | `backend/src/rider/api/*APIMessage.scala` | `frontend/src/apis/rider/*API.ts` | 6 |
+| 合计 | - | - | 33 |
 
-| 后端 case class | 后端文件 | 前端 class | 前端文件 | 路径 | 状态 |
-|---|---|---|---|---|---|
-| `LoginAPIMessage` | `user/api/UserAPIMessages.scala` | `LoginAPI` | `user/LoginApi.ts` | `/loginapi` | ✅ 对齐 |
-| `RegisterAPIMessage` | 同上 | `RegisterAPI` | `user/RegisterApi.ts` | `/registerapi` | ✅ 对齐 |
-| `CustomerMeAPIMessage` | 同上 | `CustomerMeAPI` | `user/CustomerMeApi.ts` | `/customermeapi` | ✅ 对齐 |
-| `CustomerProfilePatchAPIMessage` | 同上 | `CustomerProfilePatchAPI` | `user/CustomerProfilePatchApi.ts` | `/customerprofilepatchapi` | ✅ 对齐 |
+### ai
 
-### Merchant 模块（9 个 API）
+- `AISearchAPIMessage.scala` ↔ `AISearchAPI.ts` (`aisearchapi`)
+- `AIDietWeeklyReportAPIMessage.scala` ↔ `AIDietWeeklyReportAPI.ts` (`aidietweeklyreportapi`)
+- `AIOrderProgressNarrativesAPIMessage.scala` ↔ `AIOrderProgressNarrativesAPI.ts` (`aiorderprogressnarrativesapi`)
+- `AIMerchantStoreDescriptionAPIMessage.scala` ↔ `AIMerchantStoreDescriptionAPI.ts` (`aimerchantstoredescriptionapi`)
+- `AIMerchantProductDescriptionsAPIMessage.scala` ↔ `AIMerchantProductDescriptionsAPI.ts` (`aimerchantproductdescriptionsapi`)
 
-| 后端 case class | 后端文件 | 前端 class | 前端文件 | 路径 | 状态 |
-|---|---|---|---|---|---|
-| `CatalogAPIMessage` | `merchant/api/MerchantAPIMessages.scala` | `CatalogAPI` | `merchant/CatalogApi.ts` | `/catalogapi` | ✅ 对齐 |
-| `MerchantMeAPIMessage` | 同上 | `MerchantMeAPI` | `merchant/MerchantMeApi.ts` | `/merchantmeapi` | ✅ 对齐 |
-| `MerchantProfileAPIMessage` | 同上 | `MerchantProfileAPI` | `merchant/MerchantProfileApi.ts` | `/merchantprofileapi` | ✅ 对齐 |
-| `MerchantStoreAPIMessage` | 同上 | `MerchantStoreAPI` | `merchant/MerchantStoreApi.ts` | `/merchantstoreapi` | ✅ 对齐 |
-| `MerchantStoreImageAPIMessage` | 同上 | `MerchantStoreImageAPI` | `merchant/MerchantStoreImageApi.ts` | `/merchantstoreimageapi` | ✅ 对齐 |
-| `MerchantStoreImageFileAPIMessage` | 同上 | `MerchantStoreImageFileAPI` | `merchant/MerchantStoreImageFileApi.ts` | `/merchantstoreimagefileapi` | ✅ 对齐 |
-| `MerchantCreateProductAPIMessage` | 同上 | `MerchantCreateProductAPI` | `merchant/MerchantProductApi.ts` | `/merchantcreateproductapi` | ⚠️ 文件名不一致 |
-| `MerchantProductAPIMessage` | 同上 | `MerchantProductAPI` | `merchant/MerchantProductApi.ts` | `/merchantproductapi` | ⚠️ 两个 class 在同一文件 |
-| `MerchantOrderReadyAPIMessage` | 同上 | `MerchantOrderReadyAPI` | `merchant/MerchantProductApi.ts` 旁的重导出文件 | `/merchantorderreadyapi` | ⚠️ 重导出桶文件 |
+### user
 
-**问题**：
-- `MerchantCreateProductApi.ts` 只有一行重导出 `export { createMerchantProductIO } from './MerchantProductApi'`
-- `MerchantProductApi.ts` 包含两个 APIMessage 子类（`MerchantCreateProductAPI` + `MerchantProductAPI`），违反"一 API 一文件"
-- `MerchantOrderReadyApi.ts` 只有重导出
+- `LoginAPIMessage.scala` ↔ `LoginAPI.ts` (`loginapi`)
+- `RegisterAPIMessage.scala` ↔ `RegisterAPI.ts` (`registerapi`)
+- `CustomerMeAPIMessage.scala` ↔ `CustomerMeAPI.ts` (`customermeapi`)
+- `CustomerProfilePatchAPIMessage.scala` ↔ `CustomerProfilePatchAPI.ts` (`customerprofilepatchapi`)
+- `CustomerVoucherDiscardAPIMessage.scala` ↔ `CustomerVoucherDiscardAPI.ts` (`customervoucherdiscardapi`)
+- `CustomerRechargeAPIMessage.scala` ↔ `CustomerRechargeAPI.ts` (`customerrechargeapi`)
 
-### Order 模块（4 个 API）
+### merchant
 
-| 后端 case class | 后端文件 | 前端 class | 前端文件 | 路径 | 状态 |
-|---|---|---|---|---|---|
-| `CheckoutAPIMessage` | `order/api/OrderAPIMessages.scala` | `CheckoutAPI` | `order/CheckoutApi.ts` | `/checkoutapi` | ✅ 对齐 |
-| `CustomerOrdersAPIMessage` | 同上 | `CustomerOrdersAPI` | `order/CustomerOrdersApi.ts` | `/customerordersapi` | ✅ 对齐 |
-| `OrderDetailAPIMessage` | 同上 | `OrderDetailAPI` | `order/OrderDetailApi.ts` | `/orderdetailapi` | ✅ 对齐 |
-| `OrderCancelAPIMessage` | 同上 | `OrderCancelAPI` | `order/OrderCancelApi.ts` | `/ordercancelapi` | ✅ 对齐 |
+- `CatalogAPIMessage.scala` ↔ `CatalogAPI.ts` (`catalogapi`)
+- `MerchantMeAPIMessage.scala` ↔ `MerchantMeAPI.ts` (`merchantmeapi`)
+- `MerchantProfileAPIMessage.scala` ↔ `MerchantProfileAPI.ts` (`merchantprofileapi`)
+- `MerchantStoreAPIMessage.scala` ↔ `MerchantStoreAPI.ts` (`merchantstoreapi`)
+- `MerchantStoreDescriptionAPIMessage.scala` ↔ `MerchantStoreDescriptionAPI.ts` (`merchantstoredescriptionapi`)
+- `MerchantStoreImageAPIMessage.scala` ↔ `MerchantStoreImageAPI.ts` (`merchantstoreimageapi`)
+- `MerchantStoreImageFileAPIMessage.scala` ↔ `MerchantStoreImageFileAPI.ts` (`merchantstoreimagefileapi`)
+- `MerchantCreateProductAPIMessage.scala` ↔ `MerchantCreateProductAPI.ts` (`merchantcreateproductapi`)
+- `MerchantProductAPIMessage.scala` ↔ `MerchantProductAPI.ts` (`merchantproductapi`)
+- `MerchantProductDescriptionsAPIMessage.scala` ↔ `MerchantProductDescriptionsAPI.ts` (`merchantproductdescriptionsapi`)
+- `MerchantOrderReadyAPIMessage.scala` ↔ `MerchantOrderReadyAPI.ts` (`merchantorderreadyapi`)
 
-**问题**：
-- Checkout 只有 1 个 API，缺少结算详情查询、结算确认等
+### order
 
-### Rider 模块（3 个 API）
+- `CheckoutAPIMessage.scala` ↔ `CheckoutAPI.ts` (`checkoutapi`)
+- `CustomerOrdersAPIMessage.scala` ↔ `CustomerOrdersAPI.ts` (`customerordersapi`)
+- `OrderDetailAPIMessage.scala` ↔ `OrderDetailAPI.ts` (`orderdetailapi`)
+- `OrderCancelAPIMessage.scala` ↔ `OrderCancelAPI.ts` (`ordercancelapi`)
+- `OrderCompleteAPIMessage.scala` ↔ `OrderCompleteAPI.ts` (`ordercompleteapi`)
 
-| 后端 case class | 后端文件 | 前端 class | 前端文件 | 路径 | 状态 |
-|---|---|---|---|---|---|
-| `RiderMeAPIMessage` | `rider/api/RiderAPIMessages.scala` | `RiderMeAPI` | `rider/RiderMeApi.ts` | `/ridermeapi` | ✅ 对齐 |
-| `RiderGrabOrderAPIMessage` | 同上 | `RiderGrabOrderAPI` | `rider/RiderOrderApi.ts` | `/ridergraborderapi` | ⚠️ 两个 class 在同一文件 |
-| `RiderUpdateOrderStatusAPIMessage` | 同上 | `RiderUpdateOrderStatusAPI` | `rider/RiderOrderApi.ts` | `/riderupdateorderstatusapi` | ⚠️ 同上 |
+### rider
 
-**问题**：
-- `RiderGrabOrderApi.ts` 和 `RiderUpdateOrderStatusApi.ts` 都是只有一行的重导出文件，实际定义在 `RiderOrderApi.ts`
-- `RiderOrderApi.ts` 包含两个 APIMessage 子类，违反"一 API 一文件"
-- `RiderUpdateOrderStatusAPIMessage` 缺少目标状态参数（仅传 orderId，后端自己决定状态流转）
+- `RiderMeAPIMessage.scala` ↔ `RiderMeAPI.ts` (`ridermeapi`)
+- `RiderAvailableOrdersAPIMessage.scala` ↔ `RiderAvailableOrdersAPI.ts` (`rideravailableordersapi`)
+- `RiderGrabOrderAPIMessage.scala` ↔ `RiderGrabOrderAPI.ts` (`ridergraborderapi`)
+- `RiderUpdateOrderStatusAPIMessage.scala` ↔ `RiderUpdateOrderStatusAPI.ts` (`riderupdateorderstatusapi`)
+- `RiderRedeemTimeoutCardAPIMessage.scala` ↔ `RiderRedeemTimeoutCardAPI.ts` (`riderredeemtimeoutcardapi`)
+- `RiderUseTimeoutCardAPIMessage.scala` ↔ `RiderUseTimeoutCardAPI.ts` (`riderusetimeoutcardapi`)
 
-## 二、Objects 契约对照
+## Objects 分层对照
 
-### shared/objects
+### 领域对象根目录
 
-| 后端文件 | 前端文件 | 字段对齐 | 状态 |
+| 模块 | 后端 root objects | 前端 root objects | 说明 |
 |---|---|---|---|
-| `ids.scala` | `ids.ts` | ✅ 类型别名 + 枚举均对应 | ⚠️ 枚举未真正使用 |
-| `ErrorBody.scala` | `ErrorBody.ts` | ✅ | ✅ |
-| `HealthOk.scala` | `HealthOk.ts` | ✅ | ✅ |
-| `OkResponse.scala` | `OkResponse.ts` | ✅ | ✅ |
-| `Voucher.scala` | `Voucher.ts` | ✅ | ✅ |
-| — | `DeliveryState.ts` | 前端独有 | ❓ 是否需要？ |
+| ai | `AIGeneratedProductDescription` | `AIGeneratedProductDescription` | AI 生成结果实体，非 API wrapper |
+| user | `Customer`、`CustomerAccountPublic`、`CustomerDeliveryContact`、`CustomerProfile`、`CustomerProfilePatch`、`CustomerWalletTopUp` | 同名 | 顾客资料、联系人、充值输入等系统对象 |
+| merchant | `Merchant`、`MerchantAccountPublic`、`MerchantProfile`、`MerchantProfileBody`、`MerchantStoreProfile`、`Product`、`ProductDescriptionPatch` | 同名 | 商家、店铺、商品系统对象 |
+| order | `CheckoutLine`、`Order`、`OrderItem` | 同名 | 订单领域对象 |
+| rider | `Rider`、`RiderAccountPublic`、`RiderDeliverySettlement`、`RiderDeliveryStatus`、`RiderProfile` | 同名 | 骑手领域对象与配送状态实体 |
+| shared | `ErrorBody`、`HealthOk`、`ids`、`Voucher` | 同名 | 共享错误、健康检查、枚举/ID、优惠券 |
 
-### user/objects（11 后端 vs 11 前端）
+### `apiTypes` 请求/响应目录
 
-| 后端文件 | 前端文件 | 字段对齐 | 状态 |
-|---|---|---|---|
-| `Customer.scala` | `Customer.ts` | ✅ | ✅ |
-| `CustomerAccountPublic.scala` | `CustomerAccountPublic.ts` | ✅ | ✅ |
-| `CustomerMeResponse.scala` | `CustomerMeResponse.ts` | ✅ | ✅ |
-| `CustomerProfile.scala` | `CustomerProfile.ts` | ✅ | ✅ |
-| `CustomerProfilePatch.scala` | `CustomerProfilePatch.ts` | ✅ | ⚠️ 含 walletBalance |
-| `CustomerDeliveryContact.scala` | `CustomerDeliveryContact.ts` | ✅ | ✅ |
-| `LoginRequest.scala` | `LoginRequest.ts` | ✅ | ✅ |
-| `LoginResponse.scala` | `LoginResponse.ts` | ✅ | ✅ |
-| `RegisterRequest.scala` | `RegisterRequest.ts` | ✅ | ✅ |
-| `MeResponse.scala` | `MeResponse.ts` | ✅ 联合类型 | ✅ |
-| `CheckoutCompleteRequest.scala` | `CheckoutCompleteRequest.ts` | ✅ | ✅ |
+| 模块 | apiTypes 文件 |
+|---|---|
+| ai | `AIDietWeeklyReportRequest/Response`、`AIMerchantProductDescriptionsRequest/Response`、`AIMerchantStoreDescriptionRequest/Response`、`AIOrderProgressNarrativesRequest/Response`、`AISearchRequest/Response` |
+| user | `CustomerMeResponse`、`CustomerWalletTopUpResponse`、`LoginRequest/Response`、`RegisterRequest`、`MeResponse` |
+| merchant | `CatalogResponse`、`CreateProductRequest`、`CreateStoreRequest`、`MerchantMeResponse`、`UpdateProductRequest`、`UpdateStoreImageRequest` |
+| order | `CheckoutRequest/Response`、`CustomerOrdersResponse`、`OrderCancelResponse` |
+| rider | `RiderAvailableOrdersResponse`、`RiderMeResponse`、`RiderTimeoutCardRedeemResponse`、`RiderUseTimeoutCardResponse` |
+| shared | `OkResponse` |
 
-### merchant/objects（12 后端 vs 12 前端）
+## 页面结构对照
 
-| 后端文件 | 前端文件 | 字段对齐 | 状态 |
-|---|---|---|---|
-| `Merchant.scala` | `Merchant.ts` | ✅ | ✅ |
-| `MerchantAccountPublic.scala` | `MerchantAccountPublic.ts` | ✅ | ✅ |
-| `MerchantMeResponse.scala` | `MerchantMeResponse.ts` | ✅ | ✅ |
-| `MerchantProfile.scala` | `MerchantProfile.ts` | ✅ | ✅ |
-| `MerchantProfileBody.scala` | `MerchantProfileBody.ts` | ✅ | ✅ |
-| `MerchantStoreProfile.scala` | `MerchantStoreProfile.ts` | ✅ | ✅ |
-| `Product.scala` | `Product.ts` | ✅ | ✅ |
-| `CatalogResponse.scala` | `CatalogResponse.ts` | ✅ | ✅ |
-| `CreateProductRequest.scala` | `CreateProductRequest.ts` | ✅ | ✅ |
-| `CreateStoreRequest.scala` | `CreateStoreRequest.ts` | ✅ | ✅ |
-| `UpdateProductRequest.scala` | `UpdateProductRequest.ts` | ✅ | ✅ |
-| `UpdateStoreImageRequest.scala` | `UpdateStoreImageRequest.ts` | ✅ | ✅ |
+- `frontend/src/pages/CustomerPortal/index.tsx` 装配顾客门户，局部组件在 `CustomerPortal/components/`，工具函数在 `CustomerPortal/functions/`。
+- `frontend/src/pages/MerchantConsole/index.tsx` 装配商家控制台，局部组件在 `MerchantConsole/components/`，工具函数在 `MerchantConsole/functions/`。
+- `frontend/src/pages/RiderApp/index.tsx` 装配骑手端，局部卡片在 `RiderApp/components/`。
+- `frontend/src/pages/Login` 与 `frontend/src/pages/Register` 使用 `components/` 和 `objects/` 分离表单组件与页面常量。
+- 登录/注册共用壳组件位于 `frontend/src/components/auth/AuthPageShell.tsx`。
 
-### order/objects（7 后端 vs 7 前端）
+## 当前已知合理例外
 
-| 后端文件 | 前端文件 | 字段对齐 | 状态 |
-|---|---|---|---|
-| `Order.scala` | `Order.ts` | ✅ | ✅ |
-| `OrderItem.scala` | `OrderItem.ts` | ✅ | ✅ |
-| `CheckoutLine.scala` | `CheckoutLine.ts` | ✅ | ✅ |
-| `CheckoutRequest.scala` | `CheckoutRequest.ts` | ✅ | ✅ |
-| `CheckoutResponse.scala` | `CheckoutResponse.ts` | ✅ | ✅ |
-| `CustomerOrdersResponse.scala` | `CustomerOrdersResponse.ts` | ✅ | ✅ |
-| `OrderCancelResponse.scala` | `OrderCancelResponse.ts` | ✅ | ✅ |
-
-### rider/objects（4 后端 vs 4 前端）
-
-| 后端文件 | 前端文件 | 字段对齐 | 状态 |
-|---|---|---|---|
-| `Rider.scala` | `Rider.ts` | ✅ | ✅ |
-| `RiderAccountPublic.scala` | `RiderAccountPublic.ts` | ✅ | ✅ |
-| `RiderMeResponse.scala` | `RiderMeResponse.ts` | ✅ | ✅ |
-| `RiderProfile.scala` | `RiderProfile.ts` | ✅ | ✅ |
-
-## 三、API 总览
-
-| 模块 | API 数量 | 健康检查 | 备注 |
-|---|---|---|---|
-| User | 4 | ✅ | 基本完整 |
-| Merchant | 9 | ✅ | 静态文件路由未走 APIMessage |
-| Order | 4 | ✅ | Checkout 功能偏少 |
-| Rider | 3 | ✅ | 缺少独立的状态参数 |
-| **合计** | **20** | | + 1 静态文件 HTTP 路由 |
+- `backend/src/shared/api/APIMessage.scala` 包含 API 注册基础设施，不作为业务 API 拆分对象。
+- `frontend/src/apis/shared/sendAPI.ts` 文件名含 `API`，但属于前端 API 基础设施，不参与业务 API 数量对齐。
+- 商户图片静态访问路由不是业务 APIMessage，是上传图片后的公共资源访问例外。

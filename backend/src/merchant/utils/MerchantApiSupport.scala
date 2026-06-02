@@ -1,7 +1,8 @@
 package delivery.merchant.utils
 
 import cats.effect.IO
-import delivery.merchant.objects.{Merchant, MerchantAccountPublic, MerchantMeResponse, Product}
+import delivery.merchant.objects.{Merchant, MerchantAccountPublic, Product}
+import delivery.merchant.objects.apiTypes.{MerchantMeResponse}
 import delivery.merchant.tables.MerchantAccountRecord
 import delivery.merchant.tables.catalogproduct.CatalogProductTable
 import delivery.merchant.tables.merchantstore.MerchantStoreTable

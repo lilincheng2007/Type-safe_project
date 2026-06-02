@@ -1,7 +1,8 @@
 package delivery.order.routes
 
 import delivery.order.api.*
-import delivery.order.objects.{CheckoutResponse, CustomerOrdersResponse, Order, OrderCancelResponse}
+import delivery.order.objects.{Order}
+import delivery.order.objects.apiTypes.{CheckoutResponse, CustomerOrdersResponse, OrderCancelResponse}
 import delivery.shared.api.RegisteredAPIMessage
 import delivery.shared.api.RegisteredAPIMessage.apiWithRole
 import delivery.shared.json.ApiJsonCodecs.given

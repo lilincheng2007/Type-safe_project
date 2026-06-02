@@ -3,12 +3,13 @@ package delivery.merchant.routes
 import cats.effect.IO
 import delivery.merchant.api.*
 import delivery.merchant.objects.*
+import delivery.merchant.objects.apiTypes.*
 import delivery.merchant.utils.StoreImageUploads
 import delivery.shared.api.RegisteredAPIMessage
 import delivery.shared.api.RegisteredAPIMessage.{api, apiWithRole}
 import delivery.shared.json.ApiJsonCodecs.given
 import delivery.shared.objects.ErrorBody
-import delivery.shared.objects.OkResponse
+import delivery.shared.objects.apiTypes.OkResponse
 import io.circe.generic.auto.*
 import org.http4s.*
 import org.http4s.circe.CirceEntityCodec.given

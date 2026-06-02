@@ -6,11 +6,11 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { useRiderAppStore } from '@/stores/pages/use-rider-app-store'
 
-import { DispatchCard } from './DispatchCard'
-import { EnergyTimeoutCard } from './EnergyTimeoutCard'
-import { RiderOverview } from './RiderOverview'
-import { SalaryCard } from './SalaryCard'
-import { TaskListCard } from './TaskListCard'
+import { DispatchCard } from './components/DispatchCard'
+import { EnergyTimeoutCard } from './components/EnergyTimeoutCard'
+import { RiderOverview } from './components/RiderOverview'
+import { SalaryCard } from './components/SalaryCard'
+import { TaskListCard } from './components/TaskListCard'
 
 export default function RiderApp() {
   const { showNotice } = useAppChrome()

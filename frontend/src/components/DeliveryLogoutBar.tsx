@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
-import { runTask } from '@/api/shared/TaskIO'
+import { runTask } from '@/apis/shared/TaskIO'
 import { clearAuthSessionIO } from '@/lib/auth-session'
 import { useAuthSession } from '@/hooks/useAuthSession'
 
