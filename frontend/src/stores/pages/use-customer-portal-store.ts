@@ -12,6 +12,7 @@ import { runTask } from '@/api/shared/client'
 import { fetchCustomerMeIO } from '@/api/user/CustomerMeApi'
 import { patchCustomerProfileIO } from '@/api/user/CustomerProfilePatchApi'
 import { rechargeCustomerWalletIO } from '@/api/user/CustomerRechargeApi'
+import { discardCustomerVoucherIO } from '@/api/user/CustomerVoucherDiscardApi'
 import type { Merchant } from '@/objects/merchant/Merchant'
 import type { Product } from '@/objects/merchant/Product'
 import type { Order } from '@/objects/order/Order'
@@ -74,6 +75,7 @@ type CustomerPortalStore = {
     voucherId?: VoucherId
   }) => Promise<{ ok: true; createdCount: number } | { ok: false; message: string }>
   recharge: () => Promise<{ ok: true; amount: number } | { ok: false; message: string }>
+  discardExpiredVoucher: (voucherId: VoucherId) => Promise<{ ok: true } | { ok: false; message: string }>
   saveDeliveryContacts: (
     contacts: CustomerDeliveryContact[],
   ) => Promise<{ ok: true } | { ok: false; message: string }>
@@ -312,6 +314,15 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
       return { ok: true, amount }
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : '充值同步失败' }
+    }
+  },
+  discardExpiredVoucher: async (voucherId) => {
+    try {
+      await runTask(discardCustomerVoucherIO(voucherId))
+      await get().refreshPortal()
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : '优惠券舍弃失败' }
     }
   },
   saveDeliveryContacts: async (contacts) => {

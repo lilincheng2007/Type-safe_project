@@ -50,6 +50,7 @@ export default function CustomerPortal() {
   const aiOrderProgressNarratives = useCustomerPortalStore((state) => state.aiOrderProgressNarratives)
   const generateAIDietReport = useCustomerPortalStore((state) => state.generateAIDietReport)
   const ensureAIOrderProgressNarratives = useCustomerPortalStore((state) => state.ensureAIOrderProgressNarratives)
+  const discardExpiredVoucher = useCustomerPortalStore((state) => state.discardExpiredVoucher)
 
   useEffect(() => {
     void (async () => {
@@ -135,6 +136,16 @@ export default function CustomerPortal() {
     const result = await completeOrder(orderId)
     if (result.ok) {
       showNotice('订单已确认完成，吃货积分已到账。', 'success')
+      return
+    }
+
+    showNotice(result.message, 'error')
+  }
+
+  const handleDiscardExpiredVoucher = async (voucherId: string) => {
+    const result = await discardExpiredVoucher(voucherId)
+    if (result.ok) {
+      showNotice('这张过期券已含泪舍弃。', 'success')
       return
     }
 
@@ -248,6 +259,7 @@ export default function CustomerPortal() {
             onSelectOrder={(orderId) => void handleOpenOrderDetail(orderId)}
             onCompleteOrder={(orderId) => void handleCompleteOrder(orderId)}
             onGenerateAIDietReport={() => void handleGenerateAIDietReport()}
+            onDiscardExpiredVoucher={(voucherId) => void handleDiscardExpiredVoucher(voucherId)}
           />
         </TabsContent>
       </Tabs>

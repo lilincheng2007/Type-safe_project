@@ -15,6 +15,7 @@ object UserRoutes:
     api[RegisterAPIMessage, OkResponse],
     apiWithRole[CustomerMeAPIMessage, CustomerMeResponse]("customer"),
     apiWithRole[CustomerProfilePatchAPIMessage, OkResponse]("customer"),
+    apiWithRole[CustomerVoucherDiscardAPIMessage, OkResponse]("customer"),
     apiWithRole[CustomerRechargeAPIMessage, CustomerWalletTopUpResponse]("customer")
   )
 

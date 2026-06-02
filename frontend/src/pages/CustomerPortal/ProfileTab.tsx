@@ -11,8 +11,18 @@ import type { AIDietWeeklyReportResponse } from '@/objects/ai/AIDietWeeklyReport
 import type { AIOrderProgressNarrativesResponse } from '@/objects/ai/AIOrderProgressNarrativesResponse'
 import type { Merchant } from '@/objects/merchant/Merchant'
 import type { Order } from '@/objects/order/Order'
-import { OrderStatuses, type OrderId } from '@/objects/shared/ids'
+import { OrderStatuses, type OrderId, type VoucherId } from '@/objects/shared/ids'
 import type { Voucher } from '@/objects/shared/Voucher'
+
+const getTodayStart = () => {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+}
+
+const isVoucherExpired = (voucher: Voucher, todayStart: number) => {
+  const time = Date.parse(`${voucher.expiresAt}T00:00:00`)
+  return Number.isNaN(time) || time < todayStart
+}
 
 type ProfileTabProps = {
   username: string
@@ -31,6 +41,7 @@ type ProfileTabProps = {
   onSelectOrder: (orderId: OrderId) => void
   onCompleteOrder: (orderId: OrderId) => void
   onGenerateAIDietReport: () => void
+  onDiscardExpiredVoucher: (voucherId: VoucherId) => void
 }
 
 export function ProfileTab({
@@ -50,6 +61,7 @@ export function ProfileTab({
   onSelectOrder,
   onCompleteOrder,
   onGenerateAIDietReport,
+  onDiscardExpiredVoucher,
 }: ProfileTabProps) {
   const getMerchantName = (merchantId: string) =>
     merchants.find((merchant) => merchant.id === merchantId)?.storeName ?? '未知商家'
@@ -101,7 +113,10 @@ export function ProfileTab({
   const pointsInLevel = Math.max(0, safeFoodiePoints - levelBase)
   const pointsToNextLevel = Math.max(0, 200 - pointsInLevel)
   const progress = Math.min(100, (pointsInLevel / 200) * 100)
-  const availableVouchers = vouchers.filter((voucher) => voucher.remainingCount > 0)
+  const todayStart = getTodayStart()
+  const activeVouchers = vouchers.filter((voucher) => voucher.remainingCount > 0 && !isVoucherExpired(voucher, todayStart))
+  const expiredVouchers = vouchers.filter((voucher) => voucher.remainingCount > 0 && isVoucherExpired(voucher, todayStart))
+  const displayedVouchers = [...activeVouchers.slice(0, 3), ...expiredVouchers]
 
   return (
     <div className="space-y-6">
@@ -167,23 +182,51 @@ export function ProfileTab({
               </span>
               我的优惠券
             </CardTitle>
-            <CardDescription>当前可用 {availableVouchers.length} 张，结算时可选择抵扣</CardDescription>
+            <CardDescription>
+              当前可用 {activeVouchers.length} 张，已过期 {expiredVouchers.length} 张，结算时可选择抵扣
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 pb-5">
-            {availableVouchers.length === 0 ? (
+            {displayedVouchers.length === 0 ? (
               <p className="rounded-xl border border-dashed border-orange-200 bg-white/70 px-3 py-3 text-sm text-muted-foreground">
                 暂无可用券，完成订单升级后会自动发放满30减10券。
               </p>
             ) : (
-              availableVouchers.slice(0, 3).map((voucher) => (
-                <div key={voucher.id} className="flex items-center justify-between rounded-2xl border border-orange-200 bg-white/80 px-4 py-3 shadow-sm">
-                  <div>
-                    <p className="font-semibold text-orange-700">{voucher.title}</p>
-                    <p className="text-xs text-muted-foreground">满 ¥{voucher.minSpend.toFixed(0)} 可用 · 至 {voucher.expiresAt}</p>
+              displayedVouchers.map((voucher) => {
+                const expired = isVoucherExpired(voucher, todayStart)
+                return (
+                  <div
+                    key={voucher.id}
+                    className={`flex flex-col gap-3 rounded-2xl border px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between ${
+                      expired
+                        ? 'border-border/60 bg-muted/45 text-muted-foreground opacity-75 grayscale'
+                        : 'border-orange-200 bg-white/80'
+                    }`}
+                  >
+                    <div>
+                      <p className={`font-semibold ${expired ? 'text-muted-foreground' : 'text-orange-700'}`}>{voucher.title}</p>
+                      <p className="text-xs text-muted-foreground">满 ¥{voucher.minSpend.toFixed(0)} 可用 · 至 {voucher.expiresAt}</p>
+                      {expired ? <p className="mt-1 text-xs font-medium text-muted-foreground">已过期，不能再用于结算</p> : null}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 sm:justify-end">
+                      <Badge className={expired ? 'bg-muted text-muted-foreground' : 'bg-orange-500 text-white'}>
+                        {expired ? '已过期' : `×${voucher.remainingCount}`}
+                      </Badge>
+                      {expired ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="cursor-pointer border-border/80 bg-background/80 text-muted-foreground hover:bg-background"
+                          onClick={() => onDiscardExpiredVoucher(voucher.id)}
+                        >
+                          含泪舍弃
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
-                  <Badge className="bg-orange-500 text-white">×{voucher.remainingCount}</Badge>
-                </div>
-              ))
+                )
+              })
             )}
           </CardContent>
         </Card>

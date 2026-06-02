@@ -10,7 +10,7 @@ import delivery.rider.tables.RiderAccountRecord
 import delivery.rider.tables.rideraccount.RiderAccountTable
 import delivery.shared.api.{APIMessage, APIWithRoleMessage, HttpApiError}
 import delivery.shared.auth.JwtSupport
-import delivery.shared.objects.{MerchantCategory, OkResponse, RiderStatus, UserRole, Voucher}
+import delivery.shared.objects.{MerchantCategory, OkResponse, RiderStatus, UserRole, Voucher, VoucherId}
 import delivery.user.objects.{Customer, CustomerDeliveryContact, CustomerMeResponse, CustomerProfile, CustomerProfilePatch, CustomerWalletTopUpResponse, LoginResponse}
 import delivery.user.tables.{AuthCredentialRecord, CustomerAccountRecord}
 import delivery.user.tables.authcredential.AuthCredentialTable
@@ -19,6 +19,8 @@ import delivery.user.tables.customerprofile.CustomerProfileTable
 import delivery.user.utils.UserApiSupport
 
 import java.sql.Connection
+import java.time.LocalDate
+import scala.util.Try
 
 private def trimContact(contact: CustomerDeliveryContact): CustomerDeliveryContact =
   contact.copy(name = contact.name.trim, phone = contact.phone.trim, address = contact.address.trim)
@@ -35,6 +37,16 @@ private def validateDeliveryContacts(list: List[CustomerDeliveryContact]): Eithe
 
 private def welcomeVoucher(customerId: String, nowMillis: Long): Voucher =
   Voucher(s"v-welcome-$customerId-$nowMillis", "满30减10", 10, 30, "2026-12-31", 1)
+
+private def isVoucherExpired(voucher: Voucher): Boolean =
+  Try(LocalDate.parse(voucher.expiresAt)).toOption.forall(_.isBefore(LocalDate.now()))
+
+private def discardExpiredVoucher(account: CustomerAccountRecord, voucherId: VoucherId): Either[String, CustomerAccountRecord] =
+  val profile = account.profile
+  profile.vouchers.find(_.id == voucherId) match
+    case None => Left("未找到该优惠券")
+    case Some(voucher) if !isVoucherExpired(voucher) => Left("仅可舍弃已过期优惠券")
+    case Some(_) => Right(account.copy(profile = profile.copy(vouchers = profile.vouchers.filterNot(_.id == voucherId))))
 
 private def defaultContactsFromProfile(profile: CustomerProfile): List[CustomerDeliveryContact] =
   List(
@@ -172,6 +184,19 @@ final case class CustomerProfilePatchAPIMessage(patch: CustomerProfilePatch) ext
         case None        => IO.raiseError(HttpApiError.NotFound(UserApiSupport.customerNotFound.error))
       }
       nextAccount <- patchCustomerAccount(account, patch) match
+        case Left(msg) => IO.raiseError(HttpApiError.BadRequest(msg))
+        case Right(value) => IO.pure(value)
+      _ <- CustomerProfileTable.upsert(connection, nextAccount)
+    yield OkResponse(ok = true)
+
+final case class CustomerVoucherDiscardAPIMessage(voucherId: VoucherId) extends APIWithRoleMessage[OkResponse]:
+  override def plan(connection: Connection, username: String): IO[OkResponse] =
+    for
+      account <- CustomerProfileTable.findByUsername(connection, username).flatMap {
+        case Some(value) => IO.pure(value)
+        case None        => IO.raiseError(HttpApiError.NotFound(UserApiSupport.customerNotFound.error))
+      }
+      nextAccount <- discardExpiredVoucher(account, voucherId) match
         case Left(msg) => IO.raiseError(HttpApiError.BadRequest(msg))
         case Right(value) => IO.pure(value)
       _ <- CustomerProfileTable.upsert(connection, nextAccount)
