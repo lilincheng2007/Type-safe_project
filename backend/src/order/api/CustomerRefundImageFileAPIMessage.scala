@@ -1,0 +1,22 @@
+package delivery.order.api
+
+import cats.effect.IO
+import delivery.order.utils.RefundImageUploads
+import delivery.review.api.ReviewAPIMessageSupport
+import delivery.shared.api.{APIWithRoleMessage, HttpApiError}
+
+import java.nio.file.Files
+import java.sql.Connection
+import java.util.{Base64, UUID}
+
+final case class CustomerRefundImageFileAPIMessage(bytesBase64: String, contentTypeLower: String, filenameHint: Option[String]) extends APIWithRoleMessage[String]:
+  override def plan(connection: Connection, username: String): IO[String] =
+    for
+      bytes <- IO.blocking(Base64.getDecoder.decode(bytesBase64)).handleErrorWith(_ => IO.raiseError(HttpApiError.BadRequest("图片内容格式错误")))
+      _ <- if bytes.length > 2 * 1024 * 1024 then IO.raiseError(HttpApiError.BadRequest("图片不能超过 2MB")) else IO.unit
+      _ <- if bytes.isEmpty then IO.raiseError(HttpApiError.BadRequest("未收到文件内容")) else IO.unit
+      ext <- IO.fromEither(ReviewAPIMessageSupport.imageExtension(contentTypeLower, filenameHint).left.map(HttpApiError.BadRequest.apply))
+      storedName = s"${UUID.randomUUID()}$ext"
+      publicPath = s"/api/orders/refund-images/$storedName"
+      _ <- IO.blocking(Files.write(RefundImageUploads.directory.resolve(storedName), bytes))
+    yield publicPath

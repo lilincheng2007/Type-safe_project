@@ -41,7 +41,7 @@ object MerchantAccountTable:
       |WHERE username = ?
       |""".stripMargin
 
-  private[merchant] def findByUsername(connection: Connection, username: String): IO[Option[MerchantAccountRecord]] =
+  def findByUsername(connection: Connection, username: String): IO[Option[MerchantAccountRecord]] =
     queryOne(connection.prepareStatement(findSql))(_.setString(1, username))
 
   private def queryOne(statement: PreparedStatement)(bind: PreparedStatement => Unit): IO[Option[MerchantAccountRecord]] =

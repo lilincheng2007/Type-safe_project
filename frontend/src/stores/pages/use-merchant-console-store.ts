@@ -22,6 +22,7 @@ import type { MerchantStoreProfile } from '@/objects/merchant/MerchantStoreProfi
 import type { ProductDescriptionPatch } from '@/objects/merchant/ProductDescriptionPatch'
 import type { UpdateProductRequest } from '@/objects/merchant/apiTypes/UpdateProductRequest'
 import type { MerchantId, OrderId } from '@/objects/shared/ids'
+import type { StoreOnboardingRequest } from '@/objects/admin/StoreOnboardingRequest'
 
 export type MerchantTab = 'products' | 'orders' | 'profile'
 
@@ -34,13 +35,16 @@ type MerchantConsoleStore = {
   selectedStoreId: string | null
   newStoreName: string
   newStoreAddress: string
+  newStoreDescription: string
   stores: MerchantStoreProfile[]
+  storeOnboardingRequests: StoreOnboardingRequest[]
   resetPage: () => void
   setActiveTab: (tab: MerchantTab) => void
   setIsStoreDialogOpen: (open: boolean) => void
   setSelectedStoreId: (storeId: string | null) => void
   setNewStoreName: (name: string) => void
   setNewStoreAddress: (address: string) => void
+  setNewStoreDescription: (description: string) => void
   refreshMerchant: () => Promise<MerchantAccountPublic>
   bootstrap: () => Promise<void>
   createStore: () => Promise<string | null>
@@ -66,7 +70,9 @@ const initialState = {
   selectedStoreId: null as string | null,
   newStoreName: '',
   newStoreAddress: '',
+  newStoreDescription: '',
   stores: [] as MerchantStoreProfile[],
+  storeOnboardingRequests: [] as StoreOnboardingRequest[],
 }
 
 export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get) => ({
@@ -77,6 +83,7 @@ export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get)
   setSelectedStoreId: (selectedStoreId) => set({ selectedStoreId }),
   setNewStoreName: (newStoreName) => set({ newStoreName }),
   setNewStoreAddress: (newStoreAddress) => set({ newStoreAddress }),
+  setNewStoreDescription: (newStoreDescription) => set({ newStoreDescription }),
   refreshMerchant: async () => {
     const me = await runTask(fetchMerchantMeIO())
     const nextStores = me.merchantAccount.profile.stores
@@ -89,6 +96,7 @@ export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get)
     set({
       merchantAccount: me.merchantAccount,
       stores: nextStores,
+      storeOnboardingRequests: me.onboardingRequests ?? [],
       selectedStoreId: nextSelectedStoreId,
     })
     return me.merchantAccount
@@ -104,24 +112,29 @@ export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get)
     }
   },
   createStore: async () => {
-    const { newStoreName, newStoreAddress } = get()
+    const { newStoreName, newStoreAddress, newStoreDescription } = get()
     const trimmedName = newStoreName.trim()
     const trimmedAddress = newStoreAddress.trim()
+    const trimmedDescription = newStoreDescription.trim()
 
-    if (!trimmedName || !trimmedAddress) {
+    if (!trimmedName || !trimmedAddress || !trimmedDescription) {
       return null
     }
 
-    const merchantId = await runTask(createMerchantStoreIO({ storeName: trimmedName, address: trimmedAddress }))
+    const requestId = await runTask(
+      createMerchantStoreIO({
+        storeName: trimmedName,
+        address: trimmedAddress,
+        description: trimmedDescription,
+      }),
+    )
     await get().refreshMerchant()
     set({
-      selectedStoreId: merchantId,
       newStoreName: '',
       newStoreAddress: '',
-      isStoreDialogOpen: false,
-      activeTab: 'products',
+      newStoreDescription: '',
     })
-    return merchantId
+    return requestId
   },
   acceptOrder: async (orderId) => {
     await runTask(acceptMerchantOrderIO(orderId))

@@ -44,7 +44,6 @@ final case class RiderUpdateOrderStatusAPIMessage(orderId: OrderId, targetStatus
       currentRider = account.profile.rider
       updatedRider = currentRider.copy(
         status = nextStatus,
-        salary = currentRider.salary + 5,
         energyPoints = currentRider.energyPoints + earnedEnergy,
         timeoutCardCount = if autoUseCard then currentRider.timeoutCardCount - 1 else currentRider.timeoutCardCount,
         timeoutCount = if wasTimeout then currentRider.timeoutCount + 1 else currentRider.timeoutCount,

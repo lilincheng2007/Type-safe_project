@@ -162,6 +162,7 @@ export function HomeTab({ merchants, products }: HomeTabProps) {
                 <div className="space-y-1">
                   <p className="font-semibold text-foreground">{merchant.storeName}</p>
                   <p className="text-sm leading-relaxed text-muted-foreground">{merchant.address}</p>
+                  <p className="text-sm font-medium text-amber-600">★ {merchant.rating.toFixed(1)}</p>
                   {(merchant.description ?? '').trim() ? (
                     <p className="line-clamp-2 text-sm leading-relaxed text-foreground/75">{merchant.description}</p>
                   ) : null}
@@ -171,7 +172,7 @@ export function HomeTab({ merchants, products }: HomeTabProps) {
                 </Badge>
               </div>
               <p className="mt-3 text-xs font-medium text-primary opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                进入点餐
+                进入点餐 / 查看评价
               </p>
             </button>
           ))}

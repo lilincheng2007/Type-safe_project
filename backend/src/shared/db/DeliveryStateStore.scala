@@ -2,12 +2,14 @@ package delivery.shared.db
 
 import cats.effect.IO
 import cats.syntax.all.*
+import delivery.admin.tables.AdminTableRegistry
 import delivery.merchant.tables.MerchantTableRegistry
 import delivery.merchant.tables.catalogproduct.CatalogProductTable
 import delivery.merchant.tables.merchantaccount.MerchantAccountTable
 import delivery.merchant.tables.merchantstore.MerchantStoreTable
 import delivery.order.tables.OrderTableRegistry
 import delivery.order.tables.order.OrderTable
+import delivery.review.tables.ReviewTableRegistry
 import delivery.rider.tables.RiderTableRegistry
 import delivery.rider.tables.rideraccount.RiderAccountTable
 import delivery.rider.tables.riderassignment.RiderAssignmentTable
@@ -29,6 +31,7 @@ object DeliveryStateStore:
         _ <- initializeTables(connection)
         hasData <- normalizedHasData(connection)
         _ <- if hasData then IO.unit else seedNormalized(connection)
+        _ <- SeedBootstrap.adminCredentials.traverse_(AuthCredentialTable.upsert(connection, _))
       yield ()
     }.flatTap(_ => log.info("DB schema ready (normalized delivery tables)"))
 
@@ -36,8 +39,10 @@ object DeliveryStateStore:
     List(
       UserTableRegistry.initialize(connection),
       MerchantTableRegistry.initialize(connection),
+      AdminTableRegistry.initialize(connection),
       OrderTableRegistry.initialize(connection),
-      RiderTableRegistry.initialize(connection)
+      RiderTableRegistry.initialize(connection),
+      ReviewTableRegistry.initialize(connection)
     ).sequence_.void
 
   private def normalizedHasData(connection: Connection): IO[Boolean] =

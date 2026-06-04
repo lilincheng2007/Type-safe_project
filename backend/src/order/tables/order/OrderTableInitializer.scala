@@ -1,13 +1,14 @@
 package delivery.order.tables.order
 
 import cats.effect.IO
-import delivery.shared.objects.OrderStatus
+import delivery.shared.objects.{OrderStatus, RefundStatus}
 
 import java.sql.Connection
 
 object OrderTableInitializer:
 
   private val orderStatusSql: String = OrderStatus.values.map(status => s"'${status.toString}'").mkString(", ")
+  private val refundStatusSql: String = RefundStatus.values.map(status => s"'${status.toString}'").mkString(", ")
 
   private val initTableSql: String =
     s"""
@@ -24,6 +25,13 @@ object OrderTableInitializer:
       |  payable_amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (payable_amount >= 0),
       |  used_voucher JSONB,
       |  points_awarded INTEGER NOT NULL DEFAULT 0 CHECK (points_awarded >= 0),
+      |  refund_status VARCHAR(32) CHECK (refund_status IN ($refundStatusSql)),
+      |  refund_reason TEXT,
+      |  refund_image_url TEXT,
+      |  refund_admin_reason TEXT,
+      |  refunded_at VARCHAR(40),
+      |  customer_note_text TEXT,
+      |  customer_note_image_url TEXT,
       |  delivery_address TEXT NOT NULL,
       |  status VARCHAR(32) NOT NULL CHECK (status IN ($orderStatusSql)),
       |  placed_at VARCHAR(40) NOT NULL,
@@ -36,6 +44,15 @@ object OrderTableInitializer:
       |ALTER TABLE orders ADD COLUMN IF NOT EXISTS payable_amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (payable_amount >= 0);
       |ALTER TABLE orders ADD COLUMN IF NOT EXISTS used_voucher JSONB;
       |ALTER TABLE orders ADD COLUMN IF NOT EXISTS points_awarded INTEGER NOT NULL DEFAULT 0 CHECK (points_awarded >= 0);
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_status VARCHAR(32);
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_reason TEXT;
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_image_url TEXT;
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_admin_reason TEXT;
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS refunded_at VARCHAR(40);
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_note_text TEXT;
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_note_image_url TEXT;
+      |ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_refund_status_check;
+      |ALTER TABLE orders ADD CONSTRAINT orders_refund_status_check CHECK (refund_status IS NULL OR refund_status IN ($refundStatusSql));
       |ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check;
       |UPDATE orders SET status = '待骑手接单' WHERE status = '待接单';
       |ALTER TABLE orders ADD CONSTRAINT orders_status_check CHECK (status IN ($orderStatusSql));
@@ -46,6 +63,7 @@ object OrderTableInitializer:
       |CREATE INDEX IF NOT EXISTS orders_merchant_id_idx ON orders(merchant_id);
       |CREATE INDEX IF NOT EXISTS orders_rider_id_idx ON orders(rider_id);
       |CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(status);
+      |CREATE INDEX IF NOT EXISTS orders_refund_status_idx ON orders(refund_status);
       |CREATE INDEX IF NOT EXISTS orders_customer_created_idx ON orders(customer_id, created_at DESC);
       |CREATE INDEX IF NOT EXISTS orders_merchant_created_idx ON orders(merchant_id, created_at DESC);
       |CREATE INDEX IF NOT EXISTS orders_rider_created_idx ON orders(rider_id, created_at DESC);

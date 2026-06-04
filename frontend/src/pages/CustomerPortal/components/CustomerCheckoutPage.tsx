@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ClipboardList, MapPin, Phone, TicketPercent, User } from 'lucide-react'
+import { ArrowLeft, ClipboardList, ImagePlus, MapPin, Phone, TicketPercent, User } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { DeliveryPageShell } from '@/components/DeliveryPageShell'
@@ -7,9 +7,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Textarea } from '@/components/ui/textarea'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { appendContact, normalizedDeliveryContacts } from '@/lib/deliveryContacts'
+import { resolveApiMediaUrl } from '@/lib/api-media-url'
 import type { MerchantId } from '@/objects/shared/ids'
 import { useCustomerPortalStore } from '@/stores/pages/use-customer-portal-store'
 
@@ -23,6 +26,8 @@ export default function CustomerCheckoutPage() {
   const [addContactOpen, setAddContactOpen] = useState(false)
   const [selectedId, setSelectedId] = useState('')
   const [selectedVoucherId, setSelectedVoucherId] = useState('none')
+  const [merchantNoteTextById, setMerchantNoteTextById] = useState<Record<string, string>>({})
+  const [merchantNoteImageById, setMerchantNoteImageById] = useState<Record<string, string>>({})
 
   const bootstrapDone = useCustomerPortalStore((s) => s.bootstrapDone)
   const loadError = useCustomerPortalStore((s) => s.loadError)
@@ -32,6 +37,7 @@ export default function CustomerCheckoutPage() {
   const cartLines = useCustomerPortalStore((s) => s.cartLines)
   const walletBalance = useCustomerPortalStore((s) => s.walletBalance)
   const checkout = useCustomerPortalStore((s) => s.checkout)
+  const uploadOrderImage = useCustomerPortalStore((s) => s.uploadOrderImage)
   const setActiveTab = useCustomerPortalStore((s) => s.setActiveTab)
   const saveDeliveryContacts = useCustomerPortalStore((s) => s.saveDeliveryContacts)
 
@@ -75,6 +81,7 @@ export default function CustomerCheckoutPage() {
   const payable = Math.max(0, total - discount)
   const estimatedPoints = Math.floor(payable)
   const insufficient = walletBalance < payable
+  const merchantIdsInOrder = useMemo(() => [...new Set(lines.map((line) => line.merchantId))], [lines])
 
   useEffect(() => {
     if (!bootstrapDone || loadError) return
@@ -136,9 +143,16 @@ export default function CustomerCheckoutPage() {
     setSubmitting(true)
     try {
       const voucherId = selectedVoucherId === 'none' ? undefined : selectedVoucherId
+      const merchantNotes = merchantIdsInOrder
+        .map((merchantId) => ({
+          merchantId,
+          text: merchantNoteTextById[merchantId]?.trim() || null,
+          imageUrl: merchantNoteImageById[merchantId] || null,
+        }))
+        .filter((note) => note.text || note.imageUrl)
       const result = merchantIdParam
-        ? await checkout({ merchantId: merchantIdParam, delivery, voucherId })
-        : await checkout({ delivery, voucherId })
+        ? await checkout({ merchantId: merchantIdParam, delivery, voucherId, merchantNotes })
+        : await checkout({ delivery, voucherId, merchantNotes })
       if (result.ok) {
         showNotice(`结算成功，已提交 ${result.createdCount} 笔订单，等待商家接单。`, 'success')
         setActiveTab('profile')
@@ -149,6 +163,17 @@ export default function CustomerCheckoutPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleNoteImageUpload = async (merchantId: MerchantId, file: File | undefined) => {
+    if (!file) return
+    const result = await uploadOrderImage(file)
+    if (result.ok) {
+      setMerchantNoteImageById((current) => ({ ...current, [merchantId]: result.imageUrl }))
+      showNotice('备注图片已上传。', 'success')
+      return
+    }
+    showNotice(result.message, 'error')
   }
 
   const voucherUnavailableReason = (voucher: (typeof vouchers)[number]) => {
@@ -291,6 +316,48 @@ export default function CustomerCheckoutPage() {
                     <span>单价 ¥{product.price.toFixed(1)}</span>
                     <span className="font-semibold tabular-nums text-primary">小计 ¥{subtotal.toFixed(1)}</span>
                   </div>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-card/90 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">订单备注</CardTitle>
+            <CardDescription>可分别给每个商家填写备注，商家和骑手会在订单上看到。</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {merchantIdsInOrder.map((merchantId) => {
+              const merchant = merchants.find((item) => item.id === merchantId)
+              const imageUrl = merchantNoteImageById[merchantId]
+              return (
+                <div key={merchantId} className="space-y-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+                  <Label htmlFor={`merchant-note-${merchantId}`} className="font-semibold text-foreground">
+                    {merchant?.storeName ?? '商家'}备注
+                  </Label>
+                  <Textarea
+                    id={`merchant-note-${merchantId}`}
+                    value={merchantNoteTextById[merchantId] ?? ''}
+                    className="min-h-24 resize-y bg-background"
+                    placeholder="可填写口味、餐具、配送等备注"
+                    onChange={(event) => setMerchantNoteTextById((current) => ({ ...current, [merchantId]: event.target.value }))}
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      id={`merchant-note-image-${merchantId}`}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      className="hidden"
+                      onChange={(event) => void handleNoteImageUpload(merchantId, event.target.files?.[0])}
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById(`merchant-note-image-${merchantId}`)?.click()}>
+                      <ImagePlus className="size-4" />
+                      上传备注图片
+                    </Button>
+                    {imageUrl ? <span className="text-xs text-muted-foreground">已上传图片</span> : null}
+                  </div>
+                  {imageUrl ? <img src={resolveApiMediaUrl(imageUrl)} alt="备注图片" className="aspect-video w-full max-w-xs rounded-xl object-cover" /> : null}
                 </div>
               )
             })}

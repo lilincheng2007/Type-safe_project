@@ -1,9 +1,12 @@
 import { useState, type ReactNode } from 'react'
-import { Bike, CheckCircle2, ChefHat, Clock3, Workflow, XCircle } from 'lucide-react'
+import { Bike, CheckCircle2, ChefHat, ChevronDown, ChevronUp, Clock3, Workflow, XCircle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { OrderChatUnreadBadge } from '@/components/OrderChatUnreadBadge'
+import { OrderNoteDialog } from '@/components/OrderNoteDialog'
 import {
   Dialog,
   DialogContent,
@@ -15,6 +18,7 @@ import {
 import type { Order } from '@/objects/order/Order'
 import type { MerchantStoreProfile } from '@/objects/merchant/MerchantStoreProfile'
 import { OrderStatuses, type OrderId } from '@/objects/shared/ids'
+import { useOrderChatUnreadCounts } from '@/hooks/useOrderChatUnreadCounts'
 
 type OrdersTabProps = {
   selectedStore: MerchantStoreProfile | null
@@ -22,6 +26,8 @@ type OrdersTabProps = {
   onRejectOrder: (orderId: OrderId) => void
   onFinishCooking: (orderId: OrderId) => void
 }
+
+const CollapsedListLimit = 3
 
 function orderItemSummary(order: Order): string {
   return order.items.map((item) => `${item.name}×${item.quantity}`).join('、')
@@ -70,6 +76,8 @@ function OrderCard({ order, children, onOpen }: { order: Order; children?: React
 }
 
 export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinishCooking }: OrdersTabProps) {
+  const navigate = useNavigate()
+  const { unreadFor } = useOrderChatUnreadCounts()
   const merchantPendingOrders = selectedStore?.pendingOrders ?? []
   const merchantHistoryOrders = selectedStore?.historyOrders ?? []
   const awaitingMerchantOrders = merchantPendingOrders.filter(
@@ -80,6 +88,15 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
     (order) => order.status === OrderStatuses.waitingForRiderAcceptance || order.status === OrderStatuses.delivering,
   )
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [showAllAwaitingMerchantOrders, setShowAllAwaitingMerchantOrders] = useState(false)
+  const [showAllCookingOrders, setShowAllCookingOrders] = useState(false)
+  const [showAllFulfillmentOrders, setShowAllFulfillmentOrders] = useState(false)
+  const [showAllHistoryOrders, setShowAllHistoryOrders] = useState(false)
+  const [noteTargetOrder, setNoteTargetOrder] = useState<Order | null>(null)
+  const displayedAwaitingMerchantOrders = showAllAwaitingMerchantOrders ? awaitingMerchantOrders : awaitingMerchantOrders.slice(0, CollapsedListLimit)
+  const displayedCookingOrders = showAllCookingOrders ? activeCookingOrders : activeCookingOrders.slice(0, CollapsedListLimit)
+  const displayedFulfillmentOrders = showAllFulfillmentOrders ? fulfillmentOrders : fulfillmentOrders.slice(0, CollapsedListLimit)
+  const displayedHistoryOrders = showAllHistoryOrders ? merchantHistoryOrders : merchantHistoryOrders.slice(0, CollapsedListLimit)
 
   if (!selectedStore) {
     return (
@@ -88,6 +105,47 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
       </Card>
     )
   }
+
+  const renderContactActions = (order: Order) => (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        className="relative"
+        onClick={(event) => {
+          event.stopPropagation()
+          navigate(`/delivery/chat/${encodeURIComponent(order.id)}?peer=customer`)
+        }}
+      >
+        联系顾客
+        <OrderChatUnreadBadge count={unreadFor(order.id, 'customer')} />
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="relative"
+        onClick={(event) => {
+          event.stopPropagation()
+          navigate(`/delivery/chat/${encodeURIComponent(order.id)}?peer=rider`)
+        }}
+      >
+        联系骑手
+        <OrderChatUnreadBadge count={unreadFor(order.id, 'rider')} />
+      </Button>
+      {order.customerNoteText || order.customerNoteImageUrl ? (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={(event) => {
+            event.stopPropagation()
+            setNoteTargetOrder(order)
+          }}
+        >
+          查看客人备注
+        </Button>
+      ) : null}
+    </>
+  )
 
   return (
     <div className="space-y-4">
@@ -103,8 +161,9 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
           {awaitingMerchantOrders.length === 0 ? (
             <p className="text-sm text-slate-500">当前暂无待确认订单。</p>
           ) : (
-            awaitingMerchantOrders.map((order) => (
+            displayedAwaitingMerchantOrders.map((order) => (
               <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
+                {renderContactActions(order)}
                 <Button
                   size="sm"
                   className="bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-sm hover:from-orange-600 hover:to-rose-600"
@@ -131,6 +190,18 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
               </OrderCard>
             ))
           )}
+          {!showAllAwaitingMerchantOrders && awaitingMerchantOrders.length > CollapsedListLimit ? (
+            <Button type="button" variant="ghost" className="mx-auto flex cursor-pointer text-slate-500" onClick={() => setShowAllAwaitingMerchantOrders(true)}>
+              更多
+              <ChevronDown className="size-4" />
+            </Button>
+          ) : null}
+          {showAllAwaitingMerchantOrders && awaitingMerchantOrders.length > CollapsedListLimit ? (
+            <Button type="button" variant="ghost" className="mx-auto flex cursor-pointer text-slate-500" onClick={() => setShowAllAwaitingMerchantOrders(false)}>
+              收起
+              <ChevronUp className="size-4" />
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -146,8 +217,9 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
           {activeCookingOrders.length === 0 ? (
             <p className="text-sm text-slate-500">当前暂无待出餐订单。</p>
           ) : (
-            activeCookingOrders.map((order) => (
+            displayedCookingOrders.map((order) => (
               <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
+                {renderContactActions(order)}
                 <Button
                   size="sm"
                   variant="outline"
@@ -162,6 +234,18 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
               </OrderCard>
             ))
           )}
+          {!showAllCookingOrders && activeCookingOrders.length > CollapsedListLimit ? (
+            <Button type="button" variant="ghost" className="mx-auto flex cursor-pointer text-slate-500" onClick={() => setShowAllCookingOrders(true)}>
+              更多
+              <ChevronDown className="size-4" />
+            </Button>
+          ) : null}
+          {showAllCookingOrders && activeCookingOrders.length > CollapsedListLimit ? (
+            <Button type="button" variant="ghost" className="mx-auto flex cursor-pointer text-slate-500" onClick={() => setShowAllCookingOrders(false)}>
+              收起
+              <ChevronUp className="size-4" />
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -177,8 +261,24 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
           {fulfillmentOrders.length === 0 ? (
             <p className="text-sm text-slate-500">当前暂无履约中订单。</p>
           ) : (
-            fulfillmentOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)} />)
+            displayedFulfillmentOrders.map((order) => (
+              <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
+                {renderContactActions(order)}
+              </OrderCard>
+            ))
           )}
+          {!showAllFulfillmentOrders && fulfillmentOrders.length > CollapsedListLimit ? (
+            <Button type="button" variant="ghost" className="mx-auto flex cursor-pointer text-slate-500" onClick={() => setShowAllFulfillmentOrders(true)}>
+              更多
+              <ChevronDown className="size-4" />
+            </Button>
+          ) : null}
+          {showAllFulfillmentOrders && fulfillmentOrders.length > CollapsedListLimit ? (
+            <Button type="button" variant="ghost" className="mx-auto flex cursor-pointer text-slate-500" onClick={() => setShowAllFulfillmentOrders(false)}>
+              收起
+              <ChevronUp className="size-4" />
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -194,8 +294,24 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
           {merchantHistoryOrders.length === 0 ? (
             <p className="text-sm text-slate-500">当前暂无历史订单。</p>
           ) : (
-            merchantHistoryOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)} />)
+            displayedHistoryOrders.map((order) => (
+              <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
+                {renderContactActions(order)}
+              </OrderCard>
+            ))
           )}
+          {!showAllHistoryOrders && merchantHistoryOrders.length > CollapsedListLimit ? (
+            <Button type="button" variant="ghost" className="mx-auto flex cursor-pointer text-slate-500" onClick={() => setShowAllHistoryOrders(true)}>
+              更多
+              <ChevronDown className="size-4" />
+            </Button>
+          ) : null}
+          {showAllHistoryOrders && merchantHistoryOrders.length > CollapsedListLimit ? (
+            <Button type="button" variant="ghost" className="mx-auto flex cursor-pointer text-slate-500" onClick={() => setShowAllHistoryOrders(false)}>
+              收起
+              <ChevronUp className="size-4" />
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -236,6 +352,7 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <OrderNoteDialog order={noteTargetOrder} onOpenChange={(open) => !open && setNoteTargetOrder(null)} />
     </div>
   )
 }

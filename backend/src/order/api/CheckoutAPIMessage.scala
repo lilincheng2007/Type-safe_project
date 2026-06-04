@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.syntax.all.*
 import delivery.merchant.tables.catalogproduct.CatalogProductTable
 import delivery.order.objects.{CheckoutLine}
-import delivery.order.objects.apiTypes.{CheckoutRequest, CheckoutResponse}
+import delivery.order.objects.apiTypes.{CheckoutRequest, CheckoutResponse, OrderMerchantNote}
 import delivery.order.tables.checkoutrequest.CheckoutRequestTable
 import delivery.order.tables.order.OrderTable
 import delivery.order.utils.OrderApiSupport
@@ -19,10 +19,11 @@ final case class CheckoutAPIMessage(
     customerName: Option[String],
     customerPhone: Option[String],
     deliveryAddress: Option[String],
-    voucherId: Option[VoucherId]
+    voucherId: Option[VoucherId],
+    merchantNotes: List[OrderMerchantNote] = Nil
 ) extends APIWithRoleMessage[CheckoutResponse]:
   override def plan(connection: Connection, username: String): IO[CheckoutResponse] =
-    val body = CheckoutRequest(lines, customerName, customerPhone, deliveryAddress, voucherId)
+    val body = CheckoutRequest(lines, customerName, customerPhone, deliveryAddress, voucherId, merchantNotes)
     for
       account <- CustomerProfileTable.findByUsername(connection, username).flatMap {
         case Some(value) => IO.pure(value)
@@ -35,7 +36,7 @@ final case class CheckoutAPIMessage(
               if n.trim.nonEmpty && ph.trim.nonEmpty && ad.trim.nonEmpty =>
             account.profile.copy(name = n.trim, phone = ph.trim, defaultAddress = ad.trim)
           case _ => account.profile
-      built <- OrderAPIMessageSupport.buildOrdersForCheckout(products, profileForOrders, body.lines.map(OrderApiSupport.normalizeLine), body.voucherId)
+      built <- OrderAPIMessageSupport.buildOrdersForCheckout(products, profileForOrders, body.lines.map(OrderApiSupport.normalizeLine), body.voucherId, body.merchantNotes)
       result <- built match
         case Left(msg) => IO.raiseError(HttpApiError.BadRequest(msg))
         case Right(checkout) =>

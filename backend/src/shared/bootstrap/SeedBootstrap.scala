@@ -97,6 +97,10 @@ object SeedBootstrap:
   lazy val authCredentials: List[AuthCredentialRecord] =
     customerAccounts.map(account => AuthCredentialRecord(account.role, account.username, account.password)) ++
       merchantAccounts.map(account => AuthCredentialRecord(account.role, account.username, account.password)) ++
-      riderAccounts.map(account => AuthCredentialRecord(account.role, account.username, account.password))
+      riderAccounts.map(account => AuthCredentialRecord(account.role, account.username, account.password)) ++
+      adminCredentials
+
+  lazy val adminCredentials: List[AuthCredentialRecord] =
+    List(AuthCredentialRecord(UserRole.admin.toString, "admin", "123456"))
 
 end SeedBootstrap

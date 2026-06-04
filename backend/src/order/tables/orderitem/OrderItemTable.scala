@@ -59,7 +59,7 @@ object OrderItemTable:
       finally resultSet.close()
     finally statement.close()
 
-  private[order] def listByOrderIds(connection: Connection, orderIds: List[String]): IO[Map[String, List[OrderItem]]] =
+  def listByOrderIds(connection: Connection, orderIds: List[String]): IO[Map[String, List[OrderItem]]] =
     IO.blocking(listByOrderIdsSync(connection, orderIds))
 
   private[order] def listByOrderIdsSync(connection: Connection, orderIds: List[String]): Map[String, List[OrderItem]] =

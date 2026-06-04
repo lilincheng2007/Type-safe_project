@@ -10,6 +10,8 @@ type OrderDetailDialogProps = {
   onClose: () => void
   onCancelOrder: (order: Order) => void
   onCompleteOrder: (order: Order) => void
+  onReviewOrder: (order: Order) => void
+  onRefundOrder: (order: Order) => void
 }
 
 function canCancel(order: Order): boolean {
@@ -18,6 +20,10 @@ function canCancel(order: Order): boolean {
 
 function canComplete(order: Order): boolean {
   return order.status === OrderStatuses.delivered
+}
+
+function canRequestRefund(order: Order): boolean {
+  return order.status === OrderStatuses.completed && order.refundStatus !== '待审核' && order.refundStatus !== '已通过'
 }
 
 function orderStatusDescription(order: Order): string | null {
@@ -39,6 +45,9 @@ function orderStatusDescription(order: Order): string | null {
   if (order.status === OrderStatuses.canceled) {
     return '订单已取消，款项已按规则退回钱包。'
   }
+  if (order.status === OrderStatuses.refunded) {
+    return '退款已通过，实付金额已退回钱包。'
+  }
   return null
 }
 
@@ -48,6 +57,8 @@ export function OrderDetailDialog({
   onClose,
   onCancelOrder,
   onCompleteOrder,
+  onReviewOrder,
+  onRefundOrder,
 }: OrderDetailDialogProps) {
   return (
     <Dialog open={selectedOrder !== null} onOpenChange={onOpenChange}>
@@ -82,6 +93,15 @@ export function OrderDetailDialog({
                 <span>+{selectedOrder.pointsAwarded > 0 ? selectedOrder.pointsAwarded : Math.floor(selectedOrder.payableAmount)}</span>
               </div>
             </div>
+            {selectedOrder.refundStatus ? (
+              <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-sm text-slate-700">
+                <p>
+                  退款状态：<span className="font-semibold text-orange-600">{selectedOrder.refundStatus}</span>
+                </p>
+                {selectedOrder.refundReason ? <p className="mt-1 text-xs text-slate-500">申请理由：{selectedOrder.refundReason}</p> : null}
+                {selectedOrder.refundAdminReason ? <p className="mt-1 text-xs text-slate-500">审核理由：{selectedOrder.refundAdminReason}</p> : null}
+              </div>
+            ) : null}
             <div className="rounded-xl bg-orange-50 px-3 py-2 text-sm text-slate-700">
               当前状态：
               <span className="ml-1 font-semibold text-orange-600">{selectedOrder.status}</span>
@@ -110,6 +130,16 @@ export function OrderDetailDialog({
           {selectedOrder && canComplete(selectedOrder) ? (
             <Button onClick={() => onCompleteOrder(selectedOrder)}>
               完成订单
+            </Button>
+          ) : null}
+          {selectedOrder && selectedOrder.status === OrderStatuses.completed ? (
+            <Button onClick={() => onReviewOrder(selectedOrder)}>
+              评价订单
+            </Button>
+          ) : null}
+          {selectedOrder && canRequestRefund(selectedOrder) ? (
+            <Button variant="outline" onClick={() => onRefundOrder(selectedOrder)}>
+              申请退款
             </Button>
           ) : null}
           {selectedOrder && canCancel(selectedOrder) ? (

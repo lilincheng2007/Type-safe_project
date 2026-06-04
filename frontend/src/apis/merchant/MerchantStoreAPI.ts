@@ -7,14 +7,16 @@ class MerchantStoreAPI extends APIMessage<string> {
   readonly apiName = 'merchantstoreapi'
   readonly storeName: string
   readonly address: string
+  readonly description: string
 
-  constructor(storeName: string, address: string) {
+  constructor(storeName: string, address: string, description: string) {
     super()
     this.storeName = storeName
     this.address = address
+    this.description = description
   }
 }
 
 export function createMerchantStoreIO(input: CreateStoreRequest): TaskIO<string> {
-  return sendAPI(new MerchantStoreAPI(input.storeName, input.address))
+  return sendAPI(new MerchantStoreAPI(input.storeName, input.address, input.description))
 }

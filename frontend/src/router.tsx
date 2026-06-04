@@ -1,11 +1,13 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import { GuestRouteGuard, RoleRouteGuard } from '@/components/RoleRouteGuards'
+import AdminConsole from '@/pages/AdminConsole'
 import CustomerPortal from '@/pages/CustomerPortal'
 import CustomerCheckoutPage from '@/pages/CustomerPortal/components/CustomerCheckoutPage'
 import CustomerMerchantOrderPage from '@/pages/CustomerPortal/components/CustomerMerchantOrderPage'
 import Login from '@/pages/Login'
 import MerchantConsole from '@/pages/MerchantConsole'
+import OrderChatPage from '@/pages/OrderChatPage'
 import Register from '@/pages/Register'
 import { UserRoles } from '@/objects/shared/ids'
 import RiderApp from '@/pages/RiderApp'
@@ -68,6 +70,22 @@ const routes = [
     element: (
       <RoleRouteGuard allowedRoles={[UserRoles.rider]}>
         <RiderApp />
+      </RoleRouteGuard>
+    ),
+  },
+  {
+    path: '/delivery/chat/:orderId',
+    element: (
+      <RoleRouteGuard allowedRoles={[UserRoles.customer, UserRoles.merchant, UserRoles.rider]}>
+        <OrderChatPage />
+      </RoleRouteGuard>
+    ),
+  },
+  {
+    path: '/delivery/admin',
+    element: (
+      <RoleRouteGuard allowedRoles={[UserRoles.admin]}>
+        <AdminConsole />
       </RoleRouteGuard>
     ),
   },

@@ -1,6 +1,7 @@
 package delivery.merchant.api
 
 import cats.effect.IO
+import delivery.admin.tables.storeonboarding.StoreOnboardingRequestTable
 import delivery.merchant.objects.{MerchantStoreProfile}
 import delivery.merchant.objects.apiTypes.{MerchantMeResponse}
 import delivery.merchant.tables.catalogproduct.CatalogProductTable
@@ -21,6 +22,7 @@ final case class MerchantMeAPIMessage() extends APIWithRoleMessage[MerchantMeRes
         case Some(value) =>
           for
             stores <- MerchantStoreTable.listByOwner(connection, username)
+            onboardingRequests <- StoreOnboardingRequestTable.listByOwner(connection, username)
             storeIds = stores.map(_.id)
             products <- CatalogProductTable.list(connection)
             orders <- OrderTable.listByMerchantIds(connection, storeIds)
@@ -35,7 +37,11 @@ final case class MerchantMeAPIMessage() extends APIWithRoleMessage[MerchantMeRes
                 historyOrders = merchantOrders.filter(order => MerchantAPIMessageSupport.isHistoryOrderStatus(order.status))
               )
             }
-            Some(MerchantApiSupport.merchantMeResponse(username, value.copy(profile = value.profile.copy(stores = storeProfiles))))
+            Some(
+              MerchantApiSupport
+                .merchantMeResponse(username, value.copy(profile = value.profile.copy(stores = storeProfiles)))
+                .copy(onboardingRequests = onboardingRequests)
+            )
       output <- response match
         case None => IO.raiseError(HttpApiError.NotFound(MerchantApiSupport.merchantNotFound.error))
         case Some(value) => IO.pure(value)

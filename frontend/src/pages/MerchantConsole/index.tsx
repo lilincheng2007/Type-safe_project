@@ -23,13 +23,16 @@ export default function MerchantConsole() {
   const selectedStoreId = useMerchantConsoleStore((state) => state.selectedStoreId)
   const newStoreName = useMerchantConsoleStore((state) => state.newStoreName)
   const newStoreAddress = useMerchantConsoleStore((state) => state.newStoreAddress)
+  const newStoreDescription = useMerchantConsoleStore((state) => state.newStoreDescription)
   const stores = useMerchantConsoleStore((state) => state.stores)
+  const storeOnboardingRequests = useMerchantConsoleStore((state) => state.storeOnboardingRequests)
   const resetPage = useMerchantConsoleStore((state) => state.resetPage)
   const setActiveTab = useMerchantConsoleStore((state) => state.setActiveTab)
   const setIsStoreDialogOpen = useMerchantConsoleStore((state) => state.setIsStoreDialogOpen)
   const setSelectedStoreId = useMerchantConsoleStore((state) => state.setSelectedStoreId)
   const setNewStoreName = useMerchantConsoleStore((state) => state.setNewStoreName)
   const setNewStoreAddress = useMerchantConsoleStore((state) => state.setNewStoreAddress)
+  const setNewStoreDescription = useMerchantConsoleStore((state) => state.setNewStoreDescription)
   const bootstrap = useMerchantConsoleStore((state) => state.bootstrap)
   const refreshMerchant = useMerchantConsoleStore((state) => state.refreshMerchant)
   const createStore = useMerchantConsoleStore((state) => state.createStore)
@@ -61,9 +64,14 @@ export default function MerchantConsole() {
 
   const handleCreateStore = async () => {
     try {
-      await createStore()
+      const requestId = await createStore()
+      if (requestId) {
+        showNotice('店铺入驻申请已提交，等待管理员审核。', 'success')
+      } else {
+        showNotice('请填写店铺名称、地址和描述。', 'error')
+      }
     } catch (error) {
-      showNotice(error instanceof Error ? error.message : '创建店铺失败', 'error')
+      showNotice(error instanceof Error ? error.message : '提交店铺申请失败', 'error')
     }
   }
 
@@ -179,11 +187,14 @@ export default function MerchantConsole() {
         selectedStoreId={selectedStoreId}
         newStoreName={newStoreName}
         newStoreAddress={newStoreAddress}
+        newStoreDescription={newStoreDescription}
         stores={stores}
+        storeOnboardingRequests={storeOnboardingRequests}
         onOpenChange={setIsStoreDialogOpen}
         onSelectStore={setSelectedStoreId}
         onChangeStoreName={setNewStoreName}
         onChangeStoreAddress={setNewStoreAddress}
+        onChangeStoreDescription={setNewStoreDescription}
         onEnterSelectedStore={() => {
           if (!selectedStoreId) {
             return

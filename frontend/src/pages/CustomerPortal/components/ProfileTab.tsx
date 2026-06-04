@@ -1,18 +1,21 @@
 import { useMemo, useState } from 'react'
-import { Clock3, Crown, Loader2, Sparkles, TicketPercent, TrendingUp, UserCircle, UserRound, Wallet } from 'lucide-react'
+import { ChevronDown, ChevronUp, Clock3, Crown, Loader2, Sparkles, TicketPercent, TrendingUp, UserCircle, UserRound, Wallet } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 import { DeliveryLogoutBar } from '@/components/DeliveryLogoutBar'
+import { OrderChatUnreadBadge } from '@/components/OrderChatUnreadBadge'
 
 import { DeliveryContactsSection } from './DeliveryContactsSection'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { useOrderChatUnreadCounts } from '@/hooks/useOrderChatUnreadCounts'
 import type { AIDietWeeklyReportResponse } from '@/objects/ai/apiTypes/AIDietWeeklyReportResponse'
 import type { AIOrderProgressNarrativesResponse } from '@/objects/ai/apiTypes/AIOrderProgressNarrativesResponse'
 import type { Merchant } from '@/objects/merchant/Merchant'
 import type { Order } from '@/objects/order/Order'
-import { OrderStatuses, type OrderId, type VoucherId } from '@/objects/shared/ids'
+import { OrderStatuses, RefundStatuses, type OrderId, type VoucherId } from '@/objects/shared/ids'
 import type { Voucher } from '@/objects/shared/Voucher'
 
 const getTodayStart = () => {
@@ -24,6 +27,8 @@ const isVoucherExpired = (voucher: Voucher, todayStart: number) => {
   const time = Date.parse(`${voucher.expiresAt}T00:00:00`)
   return Number.isNaN(time) || time < todayStart
 }
+
+const CollapsedListLimit = 3
 
 type ProfileTabProps = {
   username: string
@@ -64,6 +69,8 @@ export function ProfileTab({
   onGenerateAIDietReport,
   onDiscardExpiredVoucher,
 }: ProfileTabProps) {
+  const navigate = useNavigate()
+  const { unreadFor } = useOrderChatUnreadCounts()
   const getMerchantName = (merchantId: string) =>
     merchants.find((merchant) => merchant.id === merchantId)?.storeName ?? '未知商家'
 
@@ -86,10 +93,43 @@ export function ProfileTab({
     if (order.status === OrderStatuses.canceled) {
       return '订单已取消，款项已按规则退回钱包'
     }
+    if (order.status === OrderStatuses.refunded) {
+      return '退款已通过，款项已退回钱包'
+    }
+    return null
+  }
+
+  const getRefundFeedback = (order: Order) => {
+    if (order.refundStatus === RefundStatuses.accepted) {
+      return {
+        title: '退款已通过',
+        message: order.refundAdminReason?.trim() || '管理员已通过退款申请，款项已退回钱包。',
+        className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      }
+    }
+    if (order.refundStatus === RefundStatuses.rejected) {
+      return {
+        title: '退款已驳回',
+        message: order.refundAdminReason?.trim() || '管理员已驳回退款申请。',
+        className: 'border-rose-200 bg-rose-50 text-rose-700',
+      }
+    }
+    if (order.refundStatus === RefundStatuses.pending) {
+      return {
+        title: '退款审核中',
+        message: '退款申请已提交，等待管理员审核。',
+        className: 'border-amber-200 bg-amber-50 text-amber-700',
+      }
+    }
     return null
   }
 
   const [orderProgressCycleSeed] = useState(() => Math.floor(Date.now() / 15000))
+  const [showAllPendingOrders, setShowAllPendingOrders] = useState(false)
+  const [showAllHistoryOrders, setShowAllHistoryOrders] = useState(false)
+  const openChat = (orderId: OrderId, peerRole: 'merchant' | 'rider') => {
+    navigate(`/delivery/chat/${encodeURIComponent(orderId)}?peer=${peerRole}`)
+  }
   const orderProgressNarratives = useMemo(() => {
     const usedMessages = new Set<string>()
     const orders = [...pendingOrders, ...historyOrders]
@@ -129,6 +169,8 @@ export function ProfileTab({
   const activeVouchers = vouchers.filter((voucher) => voucher.remainingCount > 0 && !isVoucherExpired(voucher, todayStart))
   const expiredVouchers = vouchers.filter((voucher) => voucher.remainingCount > 0 && isVoucherExpired(voucher, todayStart))
   const displayedVouchers = [...activeVouchers.slice(0, 3), ...expiredVouchers]
+  const displayedPendingOrders = showAllPendingOrders ? pendingOrders : pendingOrders.slice(0, CollapsedListLimit)
+  const displayedHistoryOrders = showAllHistoryOrders ? historyOrders : historyOrders.slice(0, CollapsedListLimit)
 
   return (
     <div className="space-y-6">
@@ -412,7 +454,7 @@ export function ProfileTab({
           {pendingOrders.length === 0 ? (
             <p className="text-sm text-muted-foreground">暂无待收货订单。</p>
           ) : (
-            pendingOrders.map((order) => (
+            displayedPendingOrders.map((order) => (
               <div
                 key={order.id}
                 className="rounded-2xl border border-border/70 bg-gradient-to-br from-card to-secondary/25 p-4 shadow-sm transition-[border-color,box-shadow] duration-200 hover:border-primary/35 hover:shadow-md"
@@ -439,6 +481,24 @@ export function ProfileTab({
                   <Button
                     size="sm"
                     variant="outline"
+                    className="relative mr-2 cursor-pointer border-border/80 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                    onClick={() => openChat(order.id, 'merchant')}
+                  >
+                    联系商家
+                    <OrderChatUnreadBadge count={unreadFor(order.id, 'merchant')} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="relative mr-2 cursor-pointer border-border/80 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                    onClick={() => openChat(order.id, 'rider')}
+                  >
+                    联系骑手
+                    <OrderChatUnreadBadge count={unreadFor(order.id, 'rider')} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
                     className="cursor-pointer border-border/80 transition-colors hover:border-primary/40 hover:bg-primary/5"
                     onClick={() => onSelectOrder(order.id)}
                   >
@@ -448,6 +508,28 @@ export function ProfileTab({
               </div>
             ))
           )}
+          {!showAllPendingOrders && pendingOrders.length > CollapsedListLimit ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="mx-auto flex cursor-pointer text-muted-foreground hover:text-foreground"
+              onClick={() => setShowAllPendingOrders(true)}
+            >
+              更多
+              <ChevronDown className="size-4" />
+            </Button>
+          ) : null}
+          {showAllPendingOrders && pendingOrders.length > CollapsedListLimit ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="mx-auto flex cursor-pointer text-muted-foreground hover:text-foreground"
+              onClick={() => setShowAllPendingOrders(false)}
+            >
+              收起
+              <ChevronUp className="size-4" />
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -464,52 +546,104 @@ export function ProfileTab({
           {historyOrders.length === 0 ? (
             <p className="text-sm text-muted-foreground">暂无历史订单。</p>
           ) : (
-            historyOrders.map((order) => (
-              <div
-                key={order.id}
-                className="rounded-2xl border border-border/70 bg-gradient-to-br from-card to-secondary/25 p-4 shadow-sm transition-[border-color,box-shadow] duration-200 hover:border-primary/35 hover:shadow-md"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium text-foreground">订单号：{order.id}</p>
-                  <Badge variant="outline" className="border-primary/25 text-primary">
-                    {order.status}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">商家：{getMerchantName(order.merchantId)}</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  实付：¥{order.payableAmount.toFixed(2)} · 获得积分：{order.pointsAwarded} · 下单时间：{order.placedAt}
-                </p>
-                {getOrderStatusDescription(order) && (
-                  <p className="mt-2 text-xs font-medium text-primary">{getOrderStatusDescription(order)}</p>
-                )}
-                {orderProgressNarratives.get(order.id) && (
-                  <div className="mt-3 flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/5 px-3 py-2 text-sm text-primary shadow-sm">
-                    <Sparkles className="size-4 shrink-0" aria-hidden />
-                    <span>{orderProgressNarratives.get(order.id)}</span>
+            displayedHistoryOrders.map((order) => {
+              const refundFeedback = getRefundFeedback(order)
+              return (
+                <div
+                  key={order.id}
+                  className="rounded-2xl border border-border/70 bg-gradient-to-br from-card to-secondary/25 p-4 shadow-sm transition-[border-color,box-shadow] duration-200 hover:border-primary/35 hover:shadow-md"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-medium text-foreground">订单号：{order.id}</p>
+                    <Badge variant="outline" className="border-primary/25 text-primary">
+                      {order.status}
+                    </Badge>
                   </div>
-                )}
-                <div className="mt-3 flex justify-end gap-2">
-                  {order.status === OrderStatuses.delivered && (
+                  <p className="mt-1 text-sm text-muted-foreground">商家：{getMerchantName(order.merchantId)}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    实付：¥{order.payableAmount.toFixed(2)} · 获得积分：{order.pointsAwarded} · 下单时间：{order.placedAt}
+                  </p>
+                  {getOrderStatusDescription(order) && (
+                    <p className="mt-2 text-xs font-medium text-primary">{getOrderStatusDescription(order)}</p>
+                  )}
+                  {refundFeedback ? (
+                    <div className={`mt-3 rounded-xl border px-3 py-2 text-sm shadow-sm ${refundFeedback.className}`}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold">{refundFeedback.title}</span>
+                        <span className="text-xs opacity-80">状态：{order.refundStatus}</span>
+                      </div>
+                      <p className="mt-1 leading-5">{refundFeedback.message}</p>
+                    </div>
+                  ) : null}
+                  {orderProgressNarratives.get(order.id) && (
+                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/5 px-3 py-2 text-sm text-primary shadow-sm">
+                      <Sparkles className="size-4 shrink-0" aria-hidden />
+                      <span>{orderProgressNarratives.get(order.id)}</span>
+                    </div>
+                  )}
+                  <div className="mt-3 flex justify-end gap-2">
                     <Button
                       size="sm"
-                      className="cursor-pointer bg-primary text-primary-foreground transition-[filter] hover:brightness-110"
-                      onClick={() => onCompleteOrder(order.id)}
+                      variant="outline"
+                      className="relative cursor-pointer border-border/80 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                      onClick={() => openChat(order.id, 'merchant')}
                     >
-                      完成订单
+                      联系商家
+                      <OrderChatUnreadBadge count={unreadFor(order.id, 'merchant')} />
                     </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="cursor-pointer border-border/80 transition-colors hover:border-primary/40 hover:bg-primary/5"
-                    onClick={() => onSelectOrder(order.id)}
-                  >
-                    订单详情
-                  </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="relative cursor-pointer border-border/80 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                      onClick={() => openChat(order.id, 'rider')}
+                    >
+                      联系骑手
+                      <OrderChatUnreadBadge count={unreadFor(order.id, 'rider')} />
+                    </Button>
+                    {order.status === OrderStatuses.delivered && (
+                      <Button
+                        size="sm"
+                        className="cursor-pointer bg-primary text-primary-foreground transition-[filter] hover:brightness-110"
+                        onClick={() => onCompleteOrder(order.id)}
+                      >
+                        完成订单
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="cursor-pointer border-border/80 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                      onClick={() => onSelectOrder(order.id)}
+                    >
+                      订单详情
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))
+              )
+            })
           )}
+          {!showAllHistoryOrders && historyOrders.length > CollapsedListLimit ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="mx-auto flex cursor-pointer text-muted-foreground hover:text-foreground"
+              onClick={() => setShowAllHistoryOrders(true)}
+            >
+              更多
+              <ChevronDown className="size-4" />
+            </Button>
+          ) : null}
+          {showAllHistoryOrders && historyOrders.length > CollapsedListLimit ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="mx-auto flex cursor-pointer text-muted-foreground hover:text-foreground"
+              onClick={() => setShowAllHistoryOrders(false)}
+            >
+              收起
+              <ChevronUp className="size-4" />
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
 

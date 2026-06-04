@@ -8,5 +8,6 @@ final case class CheckoutRequest(
     customerName: Option[String] = None,
     customerPhone: Option[String] = None,
     deliveryAddress: Option[String] = None,
-    voucherId: Option[VoucherId] = None
+    voucherId: Option[VoucherId] = None,
+    merchantNotes: List[OrderMerchantNote] = Nil
 )

@@ -2,6 +2,7 @@ package delivery.rider.api
 
 import cats.effect.IO
 import delivery.order.tables.order.OrderTable
+import delivery.review.tables.RiderReviewTable
 import delivery.rider.objects.apiTypes.RiderMeResponse
 import delivery.rider.tables.rideraccount.RiderAccountTable
 import delivery.rider.tables.riderassignment.RiderAssignmentTable
@@ -21,15 +22,21 @@ final case class RiderMeAPIMessage() extends APIWithRoleMessage[RiderMeResponse]
             assignedOrders <- OrderTable.listByRiderId(connection, value.profile.rider.id)
             availableOrders <- OrderTable.listAvailableUnassigned(connection)
             records <- RiderAssignmentTable.listByRider(connection, value.profile.rider.id)
+            reviewSummary <- RiderReviewTable.summaryByRider(connection, value.profile.rider.id)
+            reviews <- RiderReviewTable.listByRider(connection, value.profile.rider.id)
           yield
+            val reviewedRider =
+              if reviewSummary.reviewCount > 0 then value.profile.rider.copy(rating = reviewSummary.averageRating)
+              else value.profile.rider
             val nextAccount = value.copy(profile =
               value.profile.copy(
+                rider = reviewedRider,
                 pendingOrders = assignedOrders.filterNot(order => RiderAPIMessageSupport.isHistoryOrderStatus(order.status)),
                 historyOrders = assignedOrders.filter(order => RiderAPIMessageSupport.isHistoryOrderStatus(order.status))
               )
             )
             val deliveryStatuses = records.map(record => RiderAPIMessageSupport.statusView(record, nextAccount.profile.rider.timeoutCardCount > 0))
-            Some(RiderApiSupport.riderMeResponse(username, nextAccount, availableOrders, deliveryStatuses))
+            Some(RiderApiSupport.riderMeResponse(username, nextAccount, availableOrders, deliveryStatuses).copy(reviewSummary = reviewSummary, reviews = reviews))
       output <- response match
         case None => IO.raiseError(HttpApiError.NotFound(RiderApiSupport.riderNotFound.error))
         case Some(value) => IO.pure(value)

@@ -1,6 +1,13 @@
 import type { VoucherId } from '@/objects/shared/ids'
+import type { MerchantId } from '@/objects/shared/ids'
 
 import type { CheckoutLine } from '../CheckoutLine'
+
+export interface OrderMerchantNote {
+  merchantId: MerchantId
+  text?: string | null
+  imageUrl?: string | null
+}
 
 export interface CheckoutRequest {
   lines: CheckoutLine[]
@@ -8,4 +15,5 @@ export interface CheckoutRequest {
   customerPhone?: string
   deliveryAddress?: string
   voucherId?: VoucherId
+  merchantNotes?: OrderMerchantNote[]
 }

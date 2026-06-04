@@ -9,6 +9,7 @@ export const UserRoles = {
   customer: 'customer',
   merchant: 'merchant',
   rider: 'rider',
+  admin: 'admin',
 } as const
 export type UserRole = (typeof UserRoles)[keyof typeof UserRoles]
 
@@ -42,8 +43,16 @@ export const OrderStatuses = {
   delivered: '已送达',
   completed: '已完成',
   canceled: '已取消',
+  refunded: '已退款',
 } as const
 export type OrderStatus = (typeof OrderStatuses)[keyof typeof OrderStatuses]
+
+export const RefundStatuses = {
+  pending: '待审核',
+  accepted: '已通过',
+  rejected: '已驳回',
+} as const
+export type RefundStatus = (typeof RefundStatuses)[keyof typeof RefundStatuses]
 
 export const ListingStatuses = {
   listed: '上架',

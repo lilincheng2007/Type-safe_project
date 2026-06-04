@@ -1,6 +1,7 @@
 package delivery.merchant.routes
 
 import cats.effect.IO
+import delivery.admin.objects.apiTypes.StoreOnboardingRequestsResponse
 import delivery.merchant.api.*
 import delivery.merchant.objects.*
 import delivery.merchant.objects.apiTypes.*
@@ -11,6 +12,7 @@ import delivery.shared.json.ApiJsonCodecs.given
 import delivery.shared.objects.ErrorBody
 import delivery.shared.objects.apiTypes.OkResponse
 import io.circe.generic.auto.*
+import fs2.Stream
 import org.http4s.*
 import org.http4s.circe.CirceEntityCodec.given
 import org.http4s.dsl.io.*
@@ -39,7 +41,7 @@ object MerchantRoutes:
               else if imageFile.toLowerCase.endsWith(".gif") then MediaType.image.gif
               else if imageFile.toLowerCase.endsWith(".webp") then MediaType.image.webp
               else MediaType.image.jpeg
-            Ok(bytes).map(_.putHeaders(`Content-Type`(media)))
+            Ok(Stream.emits(bytes).covary[IO]).map(_.putHeaders(`Content-Type`(media)))
           }
     }
 
@@ -48,6 +50,7 @@ object MerchantRoutes:
     apiWithRole[MerchantMeAPIMessage, MerchantMeResponse]("merchant"),
     apiWithRole[MerchantProfileAPIMessage, OkResponse]("merchant"),
     apiWithRole[MerchantStoreAPIMessage, String]("merchant"),
+    apiWithRole[MerchantStoreOnboardingRequestsAPIMessage, StoreOnboardingRequestsResponse]("merchant"),
     apiWithRole[MerchantStoreDescriptionAPIMessage, OkResponse]("merchant"),
     apiWithRole[MerchantStoreImageAPIMessage, OkResponse]("merchant"),
     apiWithRole[MerchantStoreImageFileAPIMessage, String]("merchant"),

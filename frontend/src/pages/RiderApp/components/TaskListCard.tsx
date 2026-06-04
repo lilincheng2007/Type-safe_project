@@ -1,8 +1,13 @@
-import { AlertTriangle, CheckCircle2, MapPinned, Route, ShieldCheck } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, MapPinned, Route, ShieldCheck } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { OrderChatUnreadBadge } from '@/components/OrderChatUnreadBadge'
+import { OrderNoteDialog } from '@/components/OrderNoteDialog'
+import type { OrderChatUnreadLookup } from '@/hooks/useOrderChatUnreadCounts'
 import type { Order } from '@/objects/order/Order'
 import type { RiderDeliveryStatus } from '@/objects/rider/RiderDeliveryStatus'
 
@@ -10,9 +15,12 @@ interface TaskListCardProps {
   orders: Order[]
   historyOrders: Order[]
   deliveryStatuses: RiderDeliveryStatus[]
+  unreadFor: OrderChatUnreadLookup
   onUpdateStatus: (orderId: string) => void
   onUseTimeoutCard: (orderId: string) => void
 }
+
+const CollapsedListLimit = 3
 
 function statusFor(orderId: string, statuses: RiderDeliveryStatus[]) {
   return statuses.find((item) => item.orderId === orderId) ?? null
@@ -36,7 +44,12 @@ function timeoutBadge(status: RiderDeliveryStatus | null) {
   return <Badge className="bg-rose-50 text-rose-700 hover:bg-rose-50">超时未免责</Badge>
 }
 
-export function TaskListCard({ orders, historyOrders, deliveryStatuses, onUpdateStatus, onUseTimeoutCard }: TaskListCardProps) {
+export function TaskListCard({ orders, historyOrders, deliveryStatuses, unreadFor, onUpdateStatus, onUseTimeoutCard }: TaskListCardProps) {
+  const navigate = useNavigate()
+  const [showAllHistoryOrders, setShowAllHistoryOrders] = useState(false)
+  const [noteTargetOrder, setNoteTargetOrder] = useState<Order | null>(null)
+  const displayedHistoryOrders = showAllHistoryOrders ? historyOrders : historyOrders.slice(0, CollapsedListLimit)
+
   return (
     <div className="space-y-4">
       <Card className="border-orange-100 bg-white/95">
@@ -66,7 +79,20 @@ export function TaskListCard({ orders, historyOrders, deliveryStatuses, onUpdate
                       接单时间：{formatTime(deliveryStatus.assignedAt)} · 超时截止：{formatTime(deliveryStatus.deadlineAt)}
                     </div>
                   ) : null}
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" className="relative cursor-pointer" onClick={() => navigate(`/delivery/chat/${encodeURIComponent(order.id)}?peer=customer`)}>
+                      联系顾客
+                      <OrderChatUnreadBadge count={unreadFor(order.id, 'customer')} />
+                    </Button>
+                    <Button size="sm" variant="outline" className="relative cursor-pointer" onClick={() => navigate(`/delivery/chat/${encodeURIComponent(order.id)}?peer=merchant`)}>
+                      联系商家
+                      <OrderChatUnreadBadge count={unreadFor(order.id, 'merchant')} />
+                    </Button>
+                    {order.customerNoteText || order.customerNoteImageUrl ? (
+                      <Button size="sm" variant="outline" className="cursor-pointer" onClick={() => setNoteTargetOrder(order)}>
+                        查看客人备注
+                      </Button>
+                    ) : null}
                     <Button size="sm" className="cursor-pointer" onClick={() => onUpdateStatus(order.id)}>
                       <Route className="size-4" />
                       已送达
@@ -87,7 +113,7 @@ export function TaskListCard({ orders, historyOrders, deliveryStatuses, onUpdate
           {historyOrders.length === 0 ? (
             <div className="rounded-xl border border-dashed border-orange-100 p-4 text-sm text-slate-500">当前暂无历史配送。</div>
           ) : (
-            historyOrders.map((order) => {
+            displayedHistoryOrders.map((order) => {
               const deliveryStatus = statusFor(order.id, deliveryStatuses)
               return (
                 <div key={order.id} className="space-y-2 rounded-xl border border-orange-100 p-4">
@@ -124,12 +150,40 @@ export function TaskListCard({ orders, historyOrders, deliveryStatuses, onUpdate
                       使用免责卡
                     </Button>
                   ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" className="relative cursor-pointer" onClick={() => navigate(`/delivery/chat/${encodeURIComponent(order.id)}?peer=customer`)}>
+                      联系顾客
+                      <OrderChatUnreadBadge count={unreadFor(order.id, 'customer')} />
+                    </Button>
+                    <Button size="sm" variant="outline" className="relative cursor-pointer" onClick={() => navigate(`/delivery/chat/${encodeURIComponent(order.id)}?peer=merchant`)}>
+                      联系商家
+                      <OrderChatUnreadBadge count={unreadFor(order.id, 'merchant')} />
+                    </Button>
+                    {order.customerNoteText || order.customerNoteImageUrl ? (
+                      <Button size="sm" variant="outline" className="cursor-pointer" onClick={() => setNoteTargetOrder(order)}>
+                        查看客人备注
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               )
             })
           )}
+          {!showAllHistoryOrders && historyOrders.length > CollapsedListLimit ? (
+            <Button type="button" variant="ghost" className="mx-auto flex cursor-pointer text-slate-500" onClick={() => setShowAllHistoryOrders(true)}>
+              更多
+              <ChevronDown className="size-4" />
+            </Button>
+          ) : null}
+          {showAllHistoryOrders && historyOrders.length > CollapsedListLimit ? (
+            <Button type="button" variant="ghost" className="mx-auto flex cursor-pointer text-slate-500" onClick={() => setShowAllHistoryOrders(false)}>
+              收起
+              <ChevronUp className="size-4" />
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
+      <OrderNoteDialog order={noteTargetOrder} onOpenChange={(open) => !open && setNoteTargetOrder(null)} />
     </div>
   )
 }

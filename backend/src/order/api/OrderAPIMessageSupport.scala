@@ -3,7 +3,8 @@ package delivery.order.api
 import cats.effect.IO
 import delivery.merchant.objects.Product
 import delivery.order.objects.{CheckoutLine, Order, OrderItem}
-import delivery.shared.objects.{OrderStatus, Voucher, VoucherId}
+import delivery.order.objects.apiTypes.OrderMerchantNote
+import delivery.shared.objects.{MerchantId, OrderStatus, Voucher, VoucherId}
 import delivery.user.objects.CustomerProfile
 
 import java.time.LocalDate
@@ -56,7 +57,13 @@ object OrderAPIMessageSupport:
   def levelOf(points: Int): Int =
     1 + math.max(0, points) / FoodieLevelPoints
 
-  def buildOrdersForCheckout(products: List[Product], customerProfile: CustomerProfile, lines: List[CheckoutLine], voucherId: Option[VoucherId]): IO[Either[String, CheckoutBuild]] =
+  def buildOrdersForCheckout(
+      products: List[Product],
+      customerProfile: CustomerProfile,
+      lines: List[CheckoutLine],
+      voucherId: Option[VoucherId],
+      merchantNotes: List[OrderMerchantNote] = Nil
+  ): IO[Either[String, CheckoutBuild]] =
     if lines.isEmpty then IO.pure(Left("购物车为空"))
     else
       for
@@ -64,6 +71,12 @@ object OrderAPIMessageSupport:
         zoneId <- IO.delay(java.time.ZoneId.systemDefault())
       yield
         val grouped = lines.groupBy(_.merchantId).toList
+        val notesByMerchant: Map[MerchantId, OrderMerchantNote] =
+          merchantNotes
+            .map(note => note.copy(text = note.text.map(_.trim).filter(_.nonEmpty), imageUrl = note.imageUrl.map(_.trim).filter(_.nonEmpty)))
+            .filter(note => note.text.nonEmpty || note.imageUrl.nonEmpty)
+            .map(note => note.merchantId -> note)
+            .toMap
         val rawOrders = grouped.flatMap { case (merchantId, groupLines) =>
           val items = groupLines.flatMap { line =>
             products.find(p => p.id == line.productId && p.merchantId == merchantId).map(p => OrderItem(p.id, p.name, p.price, line.quantity))
@@ -87,6 +100,7 @@ object OrderAPIMessageSupport:
                   if idx == rawOrders.size - 1 then roundMoney(discountAmount - rawOrders.take(idx).map { case (_, _, amount) => roundMoney(discountAmount * amount / originalAmount) }.sum)
                   else roundMoney(discountAmount * orderOriginalAmount / originalAmount)
                 val orderPayable = roundMoney(orderOriginalAmount - orderDiscount)
+                val note = notesByMerchant.get(merchantId)
                 Order(
                   id = s"o-$nowMillis-${idx + 1}",
                   customerId = customerProfile.id,
@@ -103,7 +117,9 @@ object OrderAPIMessageSupport:
                   discountAmount = orderDiscount,
                   payableAmount = orderPayable,
                   usedVoucher = usedVoucher,
-                  pointsAwarded = 0
+                  pointsAwarded = 0,
+                  customerNoteText = note.flatMap(_.text),
+                  customerNoteImageUrl = note.flatMap(_.imageUrl)
                 )
               }
               Right(CheckoutBuild(orders.reverse, originalAmount, discountAmount, payableAmount, usedVoucher))

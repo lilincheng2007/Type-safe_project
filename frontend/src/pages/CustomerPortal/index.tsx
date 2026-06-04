@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { DeliveryLogoutBar } from '@/components/DeliveryLogoutBar'
@@ -11,6 +11,8 @@ import { useCustomerPortalStore } from '@/stores/pages/use-customer-portal-store
 import { CartTab } from './components/CartTab'
 import { HomeTab } from './components/HomeTab'
 import { OrderDetailDialog } from './components/OrderDetailDialog'
+import { OrderRefundDialog } from './components/OrderRefundDialog'
+import { OrderReviewDialog } from './components/OrderReviewDialog'
 import { ProfileTab } from './components/ProfileTab'
 import { RechargeDialog } from './components/RechargeDialog'
 import { isCustomerTab } from './functions/helpers'
@@ -33,12 +35,15 @@ export default function CustomerPortal() {
   const isRechargeOpen = useCustomerPortalStore((state) => state.isRechargeOpen)
   const rechargeAmountInput = useCustomerPortalStore((state) => state.rechargeAmountInput)
   const selectedOrder = useCustomerPortalStore((state) => state.selectedOrder)
+  const reviewTargetOrder = useCustomerPortalStore((state) => state.reviewTargetOrder)
+  const [refundTargetOrder, setRefundTargetOrder] = useState<typeof selectedOrder>(null)
   const bootstrap = useCustomerPortalStore((state) => state.bootstrap)
   const setActiveTab = useCustomerPortalStore((state) => state.setActiveTab)
   const changeQuantity = useCustomerPortalStore((state) => state.changeQuantity)
   const setIsRechargeOpen = useCustomerPortalStore((state) => state.setIsRechargeOpen)
   const setRechargeAmountInput = useCustomerPortalStore((state) => state.setRechargeAmountInput)
   const setSelectedOrder = useCustomerPortalStore((state) => state.setSelectedOrder)
+  const setReviewTargetOrder = useCustomerPortalStore((state) => state.setReviewTargetOrder)
   const openOrderDetail = useCustomerPortalStore((state) => state.openOrderDetail)
   const cancelOrder = useCustomerPortalStore((state) => state.cancelOrder)
   const completeOrder = useCustomerPortalStore((state) => state.completeOrder)
@@ -51,6 +56,10 @@ export default function CustomerPortal() {
   const generateAIDietReport = useCustomerPortalStore((state) => state.generateAIDietReport)
   const ensureAIOrderProgressNarratives = useCustomerPortalStore((state) => state.ensureAIOrderProgressNarratives)
   const discardExpiredVoucher = useCustomerPortalStore((state) => state.discardExpiredVoucher)
+  const uploadReviewImage = useCustomerPortalStore((state) => state.uploadReviewImage)
+  const uploadRefundImage = useCustomerPortalStore((state) => state.uploadRefundImage)
+  const submitReview = useCustomerPortalStore((state) => state.submitReview)
+  const requestRefund = useCustomerPortalStore((state) => state.requestRefund)
 
   useEffect(() => {
     void (async () => {
@@ -277,6 +286,22 @@ export default function CustomerPortal() {
         onClose={() => setSelectedOrder(null)}
         onCancelOrder={(order) => void handleCancelOrder(order.id)}
         onCompleteOrder={(order) => void handleCompleteOrder(order.id)}
+        onReviewOrder={(order) => setReviewTargetOrder(order)}
+        onRefundOrder={(order) => setRefundTargetOrder(order)}
+      />
+      <OrderRefundDialog
+        order={refundTargetOrder}
+        onOpenChange={(open) => !open && setRefundTargetOrder(null)}
+        onUploadImage={uploadRefundImage}
+        onSubmitRefund={requestRefund}
+        onNotice={(message, type) => showNotice(message, type)}
+      />
+      <OrderReviewDialog
+        order={reviewTargetOrder}
+        onOpenChange={(open) => !open && setReviewTargetOrder(null)}
+        onUploadImage={uploadReviewImage}
+        onSubmitReview={submitReview}
+        onNotice={(message, type) => showNotice(message, type)}
       />
     </DeliveryPageShell>
   )

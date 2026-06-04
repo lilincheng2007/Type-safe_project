@@ -1,6 +1,8 @@
 import { UserRoles } from '@/objects/shared/ids'
 import type { UserRole } from '@/objects/shared/ids'
 import type { Order } from '@/objects/order/Order'
+import type { ReviewSummary } from '@/objects/review/ReviewSummary'
+import type { RiderReview } from '@/objects/review/RiderReview'
 import type { RiderAccountPublic } from '../RiderAccountPublic'
 import type { RiderDeliveryStatus } from '../RiderDeliveryStatus'
 
@@ -10,4 +12,6 @@ export interface RiderMeResponse {
   riderAccount: RiderAccountPublic
   availableOrders: Order[]
   deliveryStatuses: RiderDeliveryStatus[]
+  reviewSummary?: ReviewSummary
+  reviews?: RiderReview[]
 }

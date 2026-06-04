@@ -44,11 +44,35 @@ object RiderAccountTable:
       |WHERE a.username = ?
       |""".stripMargin
 
-  private[rider] def findByUsername(connection: Connection, username: String): IO[Option[RiderAccountRecord]] =
+  def findByUsername(connection: Connection, username: String): IO[Option[RiderAccountRecord]] =
     IO.blocking {
       val statement = connection.prepareStatement(findSql)
       try
         statement.setString(1, username)
+        val resultSet = statement.executeQuery()
+        try
+          if resultSet.next() then Some(readAccount(connection, resultSet))
+          else None
+        finally resultSet.close()
+      finally statement.close()
+    }
+
+  private val findByRiderIdSql: String =
+    """
+      |SELECT a.username, a.role, a.password, a.rider_id,
+      |       p.name, p.phone, p.realtime_location, p.status, p.total_orders,
+      |       p.rating, p.station, p.salary, p.energy_points, p.timeout_card_count,
+      |       p.timeout_count, p.timeout_exempted_count, p.wallet_balance
+      |FROM rider_accounts a
+      |JOIN rider_profiles p ON p.id = a.rider_id
+      |WHERE a.rider_id = ?
+      |""".stripMargin
+
+  def findByRiderId(connection: Connection, riderId: String): IO[Option[RiderAccountRecord]] =
+    IO.blocking {
+      val statement = connection.prepareStatement(findByRiderIdSql)
+      try
+        statement.setString(1, riderId)
         val resultSet = statement.executeQuery()
         try
           if resultSet.next() then Some(readAccount(connection, resultSet))

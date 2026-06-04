@@ -4,6 +4,7 @@ import { DeliveryLogoutBar } from '@/components/DeliveryLogoutBar'
 import { DeliveryPageShell } from '@/components/DeliveryPageShell'
 import { Card, CardContent } from '@/components/ui/card'
 import { useAppChrome } from '@/hooks/useAppChrome'
+import { useOrderChatUnreadCounts } from '@/hooks/useOrderChatUnreadCounts'
 import { useRiderAppStore } from '@/stores/pages/use-rider-app-store'
 
 import { DispatchCard } from './components/DispatchCard'
@@ -19,6 +20,8 @@ export default function RiderApp() {
   const riderAccount = useRiderAppStore((state) => state.riderAccount)
   const availableOrders = useRiderAppStore((state) => state.availableOrders)
   const deliveryStatuses = useRiderAppStore((state) => state.deliveryStatuses)
+  const reviewSummary = useRiderAppStore((state) => state.reviewSummary)
+  const reviews = useRiderAppStore((state) => state.reviews)
   const resetPage = useRiderAppStore((state) => state.resetPage)
   const bootstrap = useRiderAppStore((state) => state.bootstrap)
   const refreshRider = useRiderAppStore((state) => state.refreshRider)
@@ -26,6 +29,7 @@ export default function RiderApp() {
   const updateOrderStatus = useRiderAppStore((state) => state.updateOrderStatus)
   const redeemTimeoutCard = useRiderAppStore((state) => state.redeemTimeoutCard)
   const applyTimeoutCard = useRiderAppStore((state) => state.useTimeoutCard)
+  const { unreadFor } = useOrderChatUnreadCounts(Boolean(riderAccount))
 
   useEffect(() => {
     resetPage()
@@ -92,6 +96,7 @@ export default function RiderApp() {
       />
       <DispatchCard
         availableOrders={availableOrders}
+        unreadFor={unreadFor}
         onGrabOrder={(orderId) => {
           void grabOrder(orderId)
             .then(() => showNotice('抢单成功，订单已进入你的配送任务。', 'success'))
@@ -102,6 +107,7 @@ export default function RiderApp() {
         orders={assignedOrders}
         historyOrders={historyOrders}
         deliveryStatuses={deliveryStatuses}
+        unreadFor={unreadFor}
         onUpdateStatus={(orderId) => {
           void updateOrderStatus(orderId)
             .then((result) => {
@@ -123,7 +129,7 @@ export default function RiderApp() {
             .catch((error) => showNotice(error instanceof Error ? error.message : '使用免责卡失败', 'error'))
         }}
       />
-      <SalaryCard salary={rider.salary} />
+      <SalaryCard salary={rider.salary} reviewSummary={reviewSummary} reviews={reviews} />
       <DeliveryLogoutBar />
     </DeliveryPageShell>
   )

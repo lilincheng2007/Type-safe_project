@@ -5,7 +5,7 @@ import cats.syntax.all.*
 import delivery.order.objects.Order
 import delivery.order.tables.orderitem.OrderItemTable
 import delivery.shared.json.ApiJsonCodecs.given
-import delivery.shared.objects.{MerchantId, OrderId, OrderStatus, RiderId, UserId, Voucher}
+import delivery.shared.objects.{MerchantId, OrderId, OrderStatus, RefundStatus, RiderId, UserId, Voucher}
 import io.circe.parser.decode
 import io.circe.syntax.*
 import org.postgresql.util.PGobject
@@ -19,9 +19,11 @@ object OrderTable:
       |INSERT INTO orders (
       |  id, customer_id, customer_name, customer_phone, merchant_id, rider_id,
       |  total_amount, delivery_address, status, placed_at,
-      |  original_amount, discount_amount, payable_amount, used_voucher, points_awarded, updated_at
+      |  original_amount, discount_amount, payable_amount, used_voucher, points_awarded,
+      |  refund_status, refund_reason, refund_image_url, refund_admin_reason, refunded_at,
+      |  customer_note_text, customer_note_image_url, updated_at
       |)
-      |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
+      |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
       |ON CONFLICT (id) DO UPDATE SET
       |  customer_id = EXCLUDED.customer_id,
       |  customer_name = EXCLUDED.customer_name,
@@ -37,6 +39,13 @@ object OrderTable:
       |  payable_amount = EXCLUDED.payable_amount,
       |  used_voucher = EXCLUDED.used_voucher,
       |  points_awarded = EXCLUDED.points_awarded,
+      |  refund_status = EXCLUDED.refund_status,
+      |  refund_reason = EXCLUDED.refund_reason,
+      |  refund_image_url = EXCLUDED.refund_image_url,
+      |  refund_admin_reason = EXCLUDED.refund_admin_reason,
+      |  refunded_at = EXCLUDED.refunded_at,
+      |  customer_note_text = EXCLUDED.customer_note_text,
+      |  customer_note_image_url = EXCLUDED.customer_note_image_url,
       |  updated_at = now()
       |""".stripMargin
 
@@ -54,7 +63,9 @@ object OrderTable:
     """
       |SELECT id, customer_id, customer_name, customer_phone, merchant_id, rider_id,
       |       total_amount, delivery_address, status, placed_at,
-      |       original_amount, discount_amount, payable_amount, used_voucher, points_awarded
+      |       original_amount, discount_amount, payable_amount, used_voucher, points_awarded,
+      |       refund_status, refund_reason, refund_image_url, refund_admin_reason, refunded_at,
+      |       customer_note_text, customer_note_image_url
       |FROM orders
       |""".stripMargin
 
@@ -108,6 +119,26 @@ object OrderTable:
 
   def listByRiderId(connection: Connection, riderId: RiderId): IO[List[Order]] =
     queryMany(connection, listByRiderIdSql)(_.setString(1, riderId))
+
+  private val listByRefundStatusSql: String =
+    s"""
+       |$selectColumns
+       |WHERE refund_status = ?
+       |ORDER BY created_at DESC
+       |""".stripMargin
+
+  def listByRefundStatus(connection: Connection, status: RefundStatus): IO[List[Order]] =
+    queryMany(connection, listByRefundStatusSql)(_.setString(1, status.toString))
+
+  private val listRefundRequestsSql: String =
+    s"""
+       |$selectColumns
+       |WHERE refund_status IS NOT NULL
+       |ORDER BY created_at DESC
+       |""".stripMargin
+
+  def listRefundRequests(connection: Connection): IO[List[Order]] =
+    queryMany(connection, listRefundRequestsSql)(_ => ())
 
   private val listAvailableUnassignedSql: String =
     s"""
@@ -192,6 +223,27 @@ object OrderTable:
       case Some(value) => statement.setObject(14, jsonb(value.asJson.noSpaces))
       case None        => statement.setNull(14, java.sql.Types.OTHER)
     statement.setInt(15, order.pointsAwarded)
+    order.refundStatus match
+      case Some(value) => statement.setString(16, value.toString)
+      case None        => statement.setNull(16, java.sql.Types.VARCHAR)
+    order.refundReason match
+      case Some(value) => statement.setString(17, value)
+      case None        => statement.setNull(17, java.sql.Types.VARCHAR)
+    order.refundImageUrl match
+      case Some(value) => statement.setString(18, value)
+      case None        => statement.setNull(18, java.sql.Types.VARCHAR)
+    order.refundAdminReason match
+      case Some(value) => statement.setString(19, value)
+      case None        => statement.setNull(19, java.sql.Types.VARCHAR)
+    order.refundedAt match
+      case Some(value) => statement.setString(20, value)
+      case None        => statement.setNull(20, java.sql.Types.VARCHAR)
+    order.customerNoteText match
+      case Some(value) => statement.setString(21, value)
+      case None        => statement.setNull(21, java.sql.Types.VARCHAR)
+    order.customerNoteImageUrl match
+      case Some(value) => statement.setString(22, value)
+      case None        => statement.setNull(22, java.sql.Types.VARCHAR)
 
   private def bindStrings(statement: PreparedStatement, values: List[String]): Unit =
     values.zipWithIndex.foreach { case (value, index) => statement.setString(index + 1, value) }
@@ -239,7 +291,14 @@ object OrderTable:
       discountAmount = Option(resultSet.getBigDecimal("discount_amount")).map(_.doubleValue()).getOrElse(0),
       payableAmount = Option(resultSet.getBigDecimal("payable_amount")).map(_.doubleValue()).getOrElse(totalAmount),
       usedVoucher = usedVoucher,
-      pointsAwarded = resultSet.getInt("points_awarded")
+      pointsAwarded = resultSet.getInt("points_awarded"),
+      refundStatus = Option(resultSet.getString("refund_status")).flatMap(RefundStatus.fromString),
+      refundReason = Option(resultSet.getString("refund_reason")),
+      refundImageUrl = Option(resultSet.getString("refund_image_url")),
+      refundAdminReason = Option(resultSet.getString("refund_admin_reason")),
+      refundedAt = Option(resultSet.getString("refunded_at")),
+      customerNoteText = Option(resultSet.getString("customer_note_text")),
+      customerNoteImageUrl = Option(resultSet.getString("customer_note_image_url"))
     )
 
   private def jsonb(value: String): PGobject =

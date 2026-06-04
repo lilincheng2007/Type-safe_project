@@ -5,9 +5,17 @@ import { aiOrderProgressNarrativesIO } from '@/apis/ai/AIOrderProgressNarratives
 import { fetchCustomerOrdersIO } from '@/apis/order/CustomerOrdersAPI'
 import { fetchCatalogIO } from '@/apis/merchant/CatalogAPI'
 import { cancelOrderIO } from '@/apis/order/OrderCancelAPI'
+import { uploadRefundImageFileIO } from '@/apis/order/CustomerRefundImageFileAPI'
+import { uploadOrderImageFileIO } from '@/apis/order/CustomerOrderImageFileAPI'
 import { completeOrderIO } from '@/apis/order/OrderCompleteAPI'
 import { checkoutIO, type CheckoutDeliverySnapshot } from '@/apis/order/CheckoutAPI'
+import type { OrderMerchantNote } from '@/objects/order/apiTypes/CheckoutRequest'
 import { fetchOrderDetailIO } from '@/apis/order/OrderDetailAPI'
+import { requestOrderRefundIO } from '@/apis/order/OrderRefundRequestAPI'
+import { uploadReviewImageFileIO } from '@/apis/review/CustomerReviewImageFileAPI'
+import { voteMerchantReviewIO } from '@/apis/review/CustomerReviewVoteAPI'
+import { submitOrderReviewIO } from '@/apis/review/CustomerSubmitOrderReviewAPI'
+import { fetchMerchantReviewsIO } from '@/apis/review/MerchantReviewsAPI'
 import { runTask } from '@/apis/shared/client'
 import { fetchCustomerMeIO } from '@/apis/user/CustomerMeAPI'
 import { patchCustomerProfileIO } from '@/apis/user/CustomerProfilePatchAPI'
@@ -25,6 +33,7 @@ import type { AIOrderProgressNarrativesResponse } from '@/objects/ai/apiTypes/AI
 import { validateDeliveryContacts } from '@/lib/deliveryContacts'
 import type { CustomerAccountPublic } from '@/objects/user/CustomerAccountPublic'
 import type { CustomerDeliveryContact } from '@/objects/user/CustomerDeliveryContact'
+import type { MerchantReviewsResponse } from '@/objects/review/apiTypes/MerchantReviewsResponse'
 
 export type CustomerTab = 'home' | 'cart' | 'profile'
 
@@ -49,6 +58,7 @@ type CustomerPortalStore = {
   isRechargeOpen: boolean
   rechargeAmountInput: string
   selectedOrder: Order | null
+  reviewTargetOrder: Order | null
   aiDietReport: AIDietWeeklyReportResponse | null
   aiDietReportLoading: boolean
   aiDietReportError: string | null
@@ -66,13 +76,32 @@ type CustomerPortalStore = {
   setIsRechargeOpen: (open: boolean) => void
   setRechargeAmountInput: (value: string) => void
   setSelectedOrder: (order: Order | null) => void
+  setReviewTargetOrder: (order: Order | null) => void
   openOrderDetail: (orderId: OrderId) => Promise<{ ok: true } | { ok: false; message: string }>
   cancelOrder: (orderId: OrderId) => Promise<{ ok: true } | { ok: false; message: string }>
   completeOrder: (orderId: OrderId) => Promise<{ ok: true } | { ok: false; message: string }>
+  uploadRefundImage: (file: File) => Promise<{ ok: true; imageUrl: string } | { ok: false; message: string }>
+  uploadOrderImage: (file: File) => Promise<{ ok: true; imageUrl: string } | { ok: false; message: string }>
+  requestRefund: (input: {
+    orderId: OrderId
+    reason: string
+    imageUrl: string | null
+  }) => Promise<{ ok: true } | { ok: false; message: string }>
+  uploadReviewImage: (file: File) => Promise<{ ok: true; imageUrl: string } | { ok: false; message: string }>
+  submitReview: (input: {
+    orderId: OrderId
+    merchantRating: number
+    merchantDescription: string
+    merchantImageUrl: string | null
+    riderRating: number | null
+  }) => Promise<{ ok: true } | { ok: false; message: string }>
+  fetchMerchantReviews: (merchantId: MerchantId) => Promise<MerchantReviewsResponse>
+  voteMerchantReview: (reviewId: string, vote: 'up' | 'down' | 'none') => Promise<{ ok: true } | { ok: false; message: string }>
   checkout: (options?: {
     merchantId?: MerchantId
     delivery?: CheckoutDeliverySnapshot
     voucherId?: VoucherId
+    merchantNotes?: OrderMerchantNote[]
   }) => Promise<{ ok: true; createdCount: number } | { ok: false; message: string }>
   recharge: () => Promise<{ ok: true; amount: number } | { ok: false; message: string }>
   discardExpiredVoucher: (voucherId: VoucherId) => Promise<{ ok: true } | { ok: false; message: string }>
@@ -105,6 +134,7 @@ const initialState = {
   isRechargeOpen: false,
   rechargeAmountInput: '',
   selectedOrder: null as Order | null,
+  reviewTargetOrder: null as Order | null,
   aiDietReport: null as AIDietWeeklyReportResponse | null,
   aiDietReportLoading: false,
   aiDietReportError: null as string | null,
@@ -220,6 +250,7 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
   setIsRechargeOpen: (isRechargeOpen) => set({ isRechargeOpen }),
   setRechargeAmountInput: (rechargeAmountInput) => set({ rechargeAmountInput }),
   setSelectedOrder: (selectedOrder) => set({ selectedOrder }),
+  setReviewTargetOrder: (reviewTargetOrder) => set({ reviewTargetOrder }),
   openOrderDetail: async (orderId) => {
     try {
       const order = await runTask(fetchOrderDetailIO(orderId))
@@ -248,13 +279,69 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
       await get().refreshPortal()
       set((state) => ({
         selectedOrder: state.selectedOrder?.id === orderId ? order : state.selectedOrder,
+        reviewTargetOrder: order,
       }))
       return { ok: true }
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : '确认完成失败' }
     }
   },
-  checkout: async (options?: { merchantId?: MerchantId; delivery?: CheckoutDeliverySnapshot; voucherId?: VoucherId }) => {
+  uploadRefundImage: async (file) => {
+    try {
+      const imageUrl = await runTask(uploadRefundImageFileIO(file))
+      return { ok: true, imageUrl }
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : '退款凭证上传失败' }
+    }
+  },
+  uploadOrderImage: async (file) => {
+    try {
+      const imageUrl = await runTask(uploadOrderImageFileIO(file))
+      return { ok: true, imageUrl }
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : '图片上传失败' }
+    }
+  },
+  requestRefund: async (input) => {
+    try {
+      const data = await runTask(requestOrderRefundIO(input.orderId, input.reason, input.imageUrl))
+      await get().refreshPortal()
+      set((state) => ({
+        selectedOrder: state.selectedOrder?.id === input.orderId ? data.order : state.selectedOrder,
+      }))
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : '退款申请提交失败' }
+    }
+  },
+  uploadReviewImage: async (file) => {
+    try {
+      const imageUrl = await runTask(uploadReviewImageFileIO(file))
+      return { ok: true, imageUrl }
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : '图片上传失败' }
+    }
+  },
+  submitReview: async (input) => {
+    try {
+      await runTask(submitOrderReviewIO(input))
+      await get().refreshPortal()
+      set({ reviewTargetOrder: null })
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : '提交评价失败' }
+    }
+  },
+  fetchMerchantReviews: async (merchantId) => runTask(fetchMerchantReviewsIO(merchantId)),
+  voteMerchantReview: async (reviewId, vote) => {
+    try {
+      await runTask(voteMerchantReviewIO(reviewId, vote))
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : '评价投票失败' }
+    }
+  },
+  checkout: async (options?: { merchantId?: MerchantId; delivery?: CheckoutDeliverySnapshot; voucherId?: VoucherId; merchantNotes?: OrderMerchantNote[] }) => {
     const merchantId = options?.merchantId
     const { cartLines, walletBalance, products, customerAccount } = get()
     const lines = merchantId ? cartLines.filter((line) => line.merchantId === merchantId) : cartLines
@@ -281,7 +368,7 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
     }
 
     try {
-      const data = await runTask(checkoutIO(lines, options?.delivery, options?.voucherId))
+      const data = await runTask(checkoutIO(lines, options?.delivery, options?.voucherId, options?.merchantNotes ?? []))
       const nextCartLines = merchantId
         ? cartLines.filter((line) => line.merchantId !== merchantId)
         : []

@@ -8,7 +8,7 @@ type OrderId = String
 type VoucherId = String
 
 enum UserRole derives CanEqual:
-  case customer, merchant, rider
+  case customer, merchant, rider, admin
 end UserRole
 
 object UserRole:
@@ -40,7 +40,7 @@ object ServiceChannel:
 end ServiceChannel
 
 enum OrderStatus derives CanEqual:
-  case 待商家接单, 制作中, 待骑手接单, 配送中, 已送达, 已完成, 已取消
+  case 待商家接单, 制作中, 待骑手接单, 配送中, 已送达, 已完成, 已取消, 已退款
 end OrderStatus
 
 object OrderStatus:
@@ -49,8 +49,16 @@ object OrderStatus:
       case "待接单" => Some(待骑手接单)
       case _        => values.find(_.toString == value)
 
-  val history: Set[OrderStatus] = Set(已送达, 已完成, 已取消)
+  val history: Set[OrderStatus] = Set(已送达, 已完成, 已取消, 已退款)
 end OrderStatus
+
+enum RefundStatus derives CanEqual:
+  case 待审核, 已通过, 已驳回
+end RefundStatus
+
+object RefundStatus:
+  def fromString(value: String): Option[RefundStatus] = values.find(_.toString == value)
+end RefundStatus
 
 enum ListingStatus derives CanEqual:
   case 上架, 下架

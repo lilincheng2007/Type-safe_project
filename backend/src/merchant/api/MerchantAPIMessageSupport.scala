@@ -32,6 +32,9 @@ object MerchantAPIMessageSupport:
       IO.fromOption(stores.find(_.id == merchantId))(HttpApiError.BadRequest("无权操作该店铺"))
     }
 
+  def listOwnedStores(connection: Connection, username: String): IO[List[Merchant]] =
+    MerchantStoreTable.listByOwner(connection, username)
+
   def validateImageUrl(rawUrl: String): IO[Option[String]] =
     val trimmed = rawUrl.trim
     val urlOk =

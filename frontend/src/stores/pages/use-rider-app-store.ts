@@ -10,6 +10,8 @@ import type { Order } from '@/objects/order/Order'
 import type { RiderAccountPublic } from '@/objects/rider/RiderAccountPublic'
 import type { RiderDeliverySettlement } from '@/objects/rider/RiderDeliverySettlement'
 import type { RiderDeliveryStatus } from '@/objects/rider/RiderDeliveryStatus'
+import type { ReviewSummary } from '@/objects/review/ReviewSummary'
+import type { RiderReview } from '@/objects/review/RiderReview'
 import type { RiderTimeoutCardRedeemResponse } from '@/objects/rider/apiTypes/RiderTimeoutCardRedeemResponse'
 import type { RiderUseTimeoutCardResponse } from '@/objects/rider/apiTypes/RiderUseTimeoutCardResponse'
 import type { OrderId } from '@/objects/shared/ids'
@@ -21,6 +23,8 @@ type RiderAppStore = {
   riderAccount: RiderAccountPublic | null
   availableOrders: Order[]
   deliveryStatuses: RiderDeliveryStatus[]
+  reviewSummary: ReviewSummary
+  reviews: RiderReview[]
   resetPage: () => void
   refreshRider: () => Promise<RiderAccountPublic>
   bootstrap: () => Promise<void>
@@ -36,6 +40,8 @@ const initialState = {
   riderAccount: null as RiderAccountPublic | null,
   availableOrders: [] as Order[],
   deliveryStatuses: [] as RiderDeliveryStatus[],
+  reviewSummary: { averageRating: 5.0, reviewCount: 0 } as ReviewSummary,
+  reviews: [] as RiderReview[],
 }
 
 export const useRiderAppStore = create<RiderAppStore>()((set, get) => ({
@@ -47,6 +53,8 @@ export const useRiderAppStore = create<RiderAppStore>()((set, get) => ({
       riderAccount: me.riderAccount,
       availableOrders: me.availableOrders,
       deliveryStatuses: me.deliveryStatuses,
+      reviewSummary: me.reviewSummary ?? { averageRating: 5.0, reviewCount: 0 },
+      reviews: me.reviews ?? [],
     })
     return me.riderAccount
   },

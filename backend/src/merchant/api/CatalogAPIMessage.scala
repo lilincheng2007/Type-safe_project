@@ -4,6 +4,7 @@ import cats.effect.IO
 import delivery.merchant.objects.apiTypes.CatalogResponse
 import delivery.merchant.tables.catalogproduct.CatalogProductTable
 import delivery.merchant.tables.merchantstore.MerchantStoreTable
+import delivery.review.tables.MerchantReviewTable
 import delivery.shared.api.APIMessage
 import delivery.shared.objects.ListingStatus
 
@@ -14,7 +15,14 @@ final case class CatalogAPIMessage() extends APIMessage[CatalogResponse]:
     for
       products <- CatalogProductTable.list(connection)
       merchants <- MerchantStoreTable.listCatalog(connection)
+      reviewSummaries <- MerchantReviewTable.summariesByMerchant(connection, merchants.map(_.id))
       visibleProducts = products.filter(_.listingStatus == ListingStatus.上架)
       visibleProductIds = visibleProducts.map(_.id).toSet
-      visibleMerchants = merchants.map(merchant => merchant.copy(featuredProductIds = merchant.featuredProductIds.filter(visibleProductIds.contains)))
+      visibleMerchants = merchants.map { merchant =>
+        val reviewedRating = reviewSummaries.get(merchant.id).filter(_.reviewCount > 0).map(_.averageRating)
+        merchant.copy(
+          rating = reviewedRating.getOrElse(merchant.rating),
+          featuredProductIds = merchant.featuredProductIds.filter(visibleProductIds.contains)
+        )
+      }
     yield CatalogResponse(visibleMerchants, visibleProducts)

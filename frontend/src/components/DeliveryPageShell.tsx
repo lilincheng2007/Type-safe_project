@@ -16,6 +16,7 @@ const navItems: NavItem[] = [
   { to: '/delivery/customer', label: '顾客端', roles: [UserRoles.customer] },
   { to: '/delivery/merchant', label: '商家端', roles: [UserRoles.merchant] },
   { to: '/delivery/rider', label: '骑手端', roles: [UserRoles.rider] },
+  { to: '/delivery/admin', label: '管理员端', roles: [UserRoles.admin] },
 ]
 
 interface DeliveryPageShellProps {

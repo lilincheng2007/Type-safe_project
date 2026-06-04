@@ -22,4 +22,5 @@ final case class RegisterAPIMessage(role: UserRole, username: String, password: 
         case UserRole.customer => UserAPIMessageSupport.registerCustomer(connection, username, password)
         case UserRole.merchant => UserAPIMessageSupport.registerMerchant(connection, username, password)
         case UserRole.rider    => UserAPIMessageSupport.registerRider(connection, username, password)
+        case UserRole.admin    => IO.unit
     yield OkResponse(ok = true)

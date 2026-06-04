@@ -1,6 +1,8 @@
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { ChartNoAxesCombined } from 'lucide-react'
 
+import { fetchMerchantReviewsIO } from '@/apis/review/MerchantReviewsAPI'
+import { runTask } from '@/apis/shared/client'
 import { DeliveryLogoutBar } from '@/components/DeliveryLogoutBar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,9 +10,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
+import { getLocalImageFileError } from '@/lib/local-image-file'
 import type { MerchantStoreProfile } from '@/objects/merchant/MerchantStoreProfile'
 import { OrderStatuses } from '@/objects/shared/ids'
 import { useMerchantConsoleStore } from '@/stores/pages/use-merchant-console-store'
+import type { MerchantReviewsResponse } from '@/objects/review/apiTypes/MerchantReviewsResponse'
 
 type ProfileTabProps = {
   selectedStore: MerchantStoreProfile | null
@@ -26,6 +30,7 @@ export function ProfileTab({ selectedStore, onOpenStoreDialog }: ProfileTabProps
     merchantId: null,
     imageUrl: '',
   })
+  const [reviews, setReviews] = useState<MerchantReviewsResponse | null>(null)
   const selectedMerchantId = selectedStore?.merchant.id ?? null
   const storeImageUrl =
     storeImageDraft.merchantId === selectedMerchantId
@@ -39,6 +44,14 @@ export function ProfileTab({ selectedStore, onOpenStoreDialog }: ProfileTabProps
     (order) => order.status === OrderStatuses.waitingForMerchantAcceptance || order.status === OrderStatuses.cooking,
   )
   const totalTurnover = merchantHistoryOrders.reduce((sum, item) => sum + item.payableAmount, 0)
+
+  useEffect(() => {
+    if (!selectedMerchantId) {
+      setReviews(null)
+      return
+    }
+    void runTask(fetchMerchantReviewsIO(selectedMerchantId)).then(setReviews).catch(() => setReviews(null))
+  }, [selectedMerchantId])
 
   const handleSaveStoreImage = async () => {
     if (!selectedStore) {
@@ -62,13 +75,9 @@ export function ProfileTab({ selectedStore, onOpenStoreDialog }: ProfileTabProps
       return
     }
 
-    if (!file.type.startsWith('image/')) {
-      showNotice('请选择图片文件。', 'error')
-      return
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      showNotice('图片不能超过 2MB。', 'error')
+    const fileError = getLocalImageFileError(file)
+    if (fileError) {
+      showNotice(fileError, 'error')
       return
     }
 
@@ -163,9 +172,44 @@ export function ProfileTab({ selectedStore, onOpenStoreDialog }: ProfileTabProps
                 <span>总成交额</span>
                 <span>{totalTurnover} 元</span>
               </div>
+              <div className="flex items-center justify-between rounded-xl border border-orange-100 p-3">
+                <span>当前评分</span>
+                <span>★ {(reviews?.summary.averageRating ?? selectedStore.merchant.rating).toFixed(1)} / {reviews?.summary.reviewCount ?? 0} 条评价</span>
+              </div>
             </>
           ) : (
             <p>当前未选择店铺。</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-orange-100 bg-white/95">
+        <CardHeader>
+          <CardTitle>顾客评价</CardTitle>
+          <CardDescription>商家只能查看评价，不能赞同或反对。</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {!reviews || reviews.reviews.length === 0 ? (
+            <p className="text-sm text-slate-500">暂无评价。</p>
+          ) : (
+            reviews.reviews.map((review) => (
+              <article key={review.id} className="rounded-xl border border-orange-100 p-3 text-sm text-slate-700">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-medium text-slate-900">{review.customerName}</span>
+                  <span className="text-amber-500">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span>
+                </div>
+                <p className="mt-2 leading-6">{review.description}</p>
+                {review.orderItemNames && review.orderItemNames.length > 0 ? (
+                  <p className="mt-2 rounded-lg bg-orange-50 px-3 py-2 text-xs font-medium text-orange-700">
+                    对应菜品：{review.orderItemNames.join('、')}
+                  </p>
+                ) : null}
+                {review.imageUrl ? (
+                  <img src={resolveApiMediaUrl(review.imageUrl)} alt="评价图片" className="mt-2 aspect-video w-full max-w-xs rounded-lg object-cover" />
+                ) : null}
+                <p className="mt-2 text-xs text-slate-500">赞同 {review.upvotes} · 反对 {review.downvotes}</p>
+              </article>
+            ))
           )}
         </CardContent>
       </Card>

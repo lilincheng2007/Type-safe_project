@@ -1,6 +1,7 @@
 import { APIMessage } from '@/apis/shared/APIMessage'
 import type { TaskIO } from '@/apis/shared/TaskIO'
 import { sendAPI } from '@/apis/shared/sendAPI'
+import { getLocalImageFileError } from '@/lib/local-image-file'
 import type { MerchantId } from '@/objects/shared/ids'
 
 class MerchantStoreImageFileAPI extends APIMessage<string> {
@@ -37,6 +38,8 @@ function fileToBase64(file: File): Promise<string> {
 
 export function uploadMerchantStoreImageFileIO(merchantId: MerchantId, file: File): TaskIO<string> {
   return async () => {
+    const fileError = getLocalImageFileError(file)
+    if (fileError) throw new Error(fileError)
     const bytesBase64 = await fileToBase64(file)
     return sendAPI(new MerchantStoreImageFileAPI(merchantId, bytesBase64, file.type.toLowerCase(), file.name || null))()
   }
