@@ -26,5 +26,7 @@ final case class Product(
     inventoryStatus: InventoryStatus,
     discountText: Option[String] = None,
     categoryName: String = "默认分类",
-    bundleGroups: List[ProductBundleGroup] = Nil
+    bundleGroups: List[ProductBundleGroup] = Nil,
+    inventoryMode: String = "finite",
+    maxPerOrder: Option[Int] = None
 )

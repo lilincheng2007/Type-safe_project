@@ -1,16 +1,12 @@
-import { CalendarDays } from 'lucide-react'
-import { useRef } from 'react'
-
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 type PromotionDateInputProps = {
   value: string | null | undefined
+  min?: string
   onChange: (value: string | null) => void
 }
-
-type DateInputElement = HTMLInputElement & { showPicker?: () => void }
 
 const parseStoredDate = (value: string | null | undefined) => {
   const [year, month, day] = (value ?? '').split('-').map((part) => Number(part))
@@ -27,27 +23,19 @@ const normalizeStoredDate = (value: string | null | undefined) => {
   return parsed ? toStoredDate(parsed.year, parsed.month, parsed.day) : ''
 }
 
-export function PromotionDateInput({ value, onChange }: PromotionDateInputProps) {
-  const inputRef = useRef<DateInputElement>(null)
+export function PromotionDateInput({ value, min, onChange }: PromotionDateInputProps) {
   const normalizedValue = normalizeStoredDate(value)
-
-  const openCalendar = () => {
-    inputRef.current?.focus()
-    inputRef.current?.showPicker?.()
-  }
+  const normalizedMin = normalizeStoredDate(min)
 
   return (
     <div className="space-y-1.5">
       <div className="flex gap-2">
         <Input
-          ref={inputRef}
           type="date"
           value={normalizedValue}
+          min={normalizedMin || undefined}
           onChange={(event) => onChange(event.target.value ? normalizeStoredDate(event.target.value) : null)}
         />
-        <Button type="button" variant="outline" className="shrink-0 border-orange-100 px-3" onClick={openCalendar}>
-          <CalendarDays className="size-4 text-orange-500" />
-        </Button>
         {normalizedValue ? (
           <Button type="button" variant="ghost" className="shrink-0 px-2 text-xs text-slate-500" onClick={() => onChange(null)}>
             清空

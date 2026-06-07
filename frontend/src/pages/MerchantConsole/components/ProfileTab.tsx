@@ -12,6 +12,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
 import { getLocalImageFileError } from '@/lib/local-image-file'
+import { businessStatusLabels } from '@/lib/merchant-business-hours'
+import type { MerchantBusinessStatus, MerchantHolidayBusinessHour, MerchantWeeklyBusinessHour } from '@/objects/merchant/MerchantBusinessHours'
 import type { MerchantStoreProfile } from '@/objects/merchant/MerchantStoreProfile'
 import { OrderStatuses } from '@/objects/shared/ids'
 import { useMerchantConsoleStore } from '@/stores/pages/use-merchant-console-store'
@@ -22,11 +24,23 @@ type ProfileTabProps = {
   onOpenStoreDialog: () => void
 }
 
+type BusinessHoursDraft = {
+  merchantId: string | null
+  businessStatus: MerchantBusinessStatus
+  weeklyBusinessHours: MerchantWeeklyBusinessHour[]
+  holidayBusinessHours: MerchantHolidayBusinessHour[]
+}
+
+const dayLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const defaultWeeklyHours = (): MerchantWeeklyBusinessHour[] =>
+  dayLabels.map((_, index) => ({ dayOfWeek: index + 1, startTime: '09:00', endTime: '21:00', enabled: index < 5 }))
+
 export function ProfileTab({ selectedStore, onOpenStoreDialog }: ProfileTabProps) {
   const { showNotice } = useAppChrome()
   const updateStoreImage = useMerchantConsoleStore((state) => state.updateStoreImage)
   const uploadStoreImageFile = useMerchantConsoleStore((state) => state.uploadStoreImageFile)
   const saveStoreAnnouncement = useMerchantConsoleStore((state) => state.saveStoreAnnouncement)
+  const saveBusinessHours = useMerchantConsoleStore((state) => state.saveBusinessHours)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [storeImageDraft, setStoreImageDraft] = useState<{ merchantId: string | null; imageUrl: string }>({
     merchantId: null,
@@ -36,6 +50,18 @@ export function ProfileTab({ selectedStore, onOpenStoreDialog }: ProfileTabProps
   const [announcementDraft, setAnnouncementDraft] = useState<{ merchantId: string | null; text: string }>({
     merchantId: null,
     text: '',
+  })
+  const [businessHoursDraft, setBusinessHoursDraft] = useState<BusinessHoursDraft>({
+    merchantId: null,
+    businessStatus: 'open',
+    weeklyBusinessHours: defaultWeeklyHours(),
+    holidayBusinessHours: [],
+  })
+  const [holidayDraft, setHolidayDraft] = useState<MerchantHolidayBusinessHour>({
+    date: '',
+    businessStatus: 'closedToday',
+    startTime: null,
+    endTime: null,
   })
   const selectedMerchantId = selectedStore?.merchant.id ?? null
   const storeImageUrl =
@@ -47,6 +73,15 @@ export function ProfileTab({ selectedStore, onOpenStoreDialog }: ProfileTabProps
     announcementDraft.merchantId === selectedMerchantId
       ? announcementDraft.text
       : (selectedStore?.merchant.announcement ?? '')
+  const businessHours =
+    businessHoursDraft.merchantId === selectedMerchantId
+      ? businessHoursDraft
+      : {
+          merchantId: selectedMerchantId,
+          businessStatus: selectedStore?.merchant.businessStatus ?? 'open',
+          weeklyBusinessHours: selectedStore?.merchant.weeklyBusinessHours?.length ? selectedStore.merchant.weeklyBusinessHours : defaultWeeklyHours(),
+          holidayBusinessHours: selectedStore?.merchant.holidayBusinessHours ?? [],
+        }
 
   const merchantPendingOrders = selectedStore?.pendingOrders ?? []
   const merchantHistoryOrders = selectedStore?.historyOrders ?? []
@@ -115,8 +150,111 @@ export function ProfileTab({ selectedStore, onOpenStoreDialog }: ProfileTabProps
     }
   }
 
+  const updateBusinessHours = (patch: Partial<BusinessHoursDraft>) => {
+    setBusinessHoursDraft({ ...businessHours, ...patch, merchantId: selectedMerchantId })
+  }
+
+  const updateWeeklyHour = (dayOfWeek: number, patch: Partial<MerchantWeeklyBusinessHour>) => {
+    updateBusinessHours({
+      weeklyBusinessHours: businessHours.weeklyBusinessHours.map((item) => item.dayOfWeek === dayOfWeek ? { ...item, ...patch } : item),
+    })
+  }
+
+  const addHolidayHour = () => {
+    if (!holidayDraft.date) {
+      showNotice('请选择特殊日期。', 'error')
+      return
+    }
+    updateBusinessHours({
+      holidayBusinessHours: [
+        ...businessHours.holidayBusinessHours.filter((item) => item.date !== holidayDraft.date),
+        holidayDraft,
+      ].sort((a, b) => a.date.localeCompare(b.date)),
+    })
+    setHolidayDraft({ date: '', businessStatus: 'closedToday', startTime: null, endTime: null })
+  }
+
+  const handleSaveBusinessHours = async () => {
+    if (!selectedStore) {
+      showNotice('请先选择店铺。', 'error')
+      return
+    }
+    try {
+      await saveBusinessHours({
+        merchantId: selectedStore.merchant.id,
+        businessStatus: businessHours.businessStatus,
+        weeklyBusinessHours: businessHours.weeklyBusinessHours,
+        holidayBusinessHours: businessHours.holidayBusinessHours,
+      })
+      setBusinessHoursDraft({ merchantId: null, businessStatus: 'open', weeklyBusinessHours: defaultWeeklyHours(), holidayBusinessHours: [] })
+      showNotice('营业状态和营业时间已保存。', 'success')
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : '保存营业时间失败', 'error')
+    }
+  }
+
   return (
     <div className="space-y-4">
+      <Card className="border-orange-100 bg-white/95">
+        <CardHeader>
+          <CardTitle>营业状态与时间</CardTitle>
+          <CardDescription>顾客端会根据这里判断是否可下单；休息中、今日打烊或暂停接单时不可下单。</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>当前状态</Label>
+            <select
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={businessHours.businessStatus}
+              disabled={!selectedStore}
+              onChange={(event) => updateBusinessHours({ businessStatus: event.target.value as MerchantBusinessStatus })}
+            >
+              {Object.entries(businessStatusLabels).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-900">每周营业时间</p>
+            <div className="grid gap-2">
+              {businessHours.weeklyBusinessHours.map((item) => (
+                <div key={item.dayOfWeek} className="grid gap-2 rounded-xl border border-orange-100 p-3 md:grid-cols-[5rem_1fr_1fr_5rem] md:items-center">
+                  <span className="text-sm font-medium">{dayLabels[item.dayOfWeek - 1]}</span>
+                  <Input type="time" value={item.startTime} onChange={(event) => updateWeeklyHour(item.dayOfWeek, { startTime: event.target.value })} />
+                  <Input type="time" value={item.endTime} onChange={(event) => updateWeeklyHour(item.dayOfWeek, { endTime: event.target.value })} />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={item.enabled} onChange={(event) => updateWeeklyHour(item.dayOfWeek, { enabled: event.target.checked })} />
+                    启用
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2 rounded-xl border border-dashed border-orange-200 p-3">
+            <p className="text-sm font-medium text-slate-900">节假日特殊营业时间</p>
+            <div className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_1fr_auto] md:items-end">
+              <Input type="date" value={holidayDraft.date} onChange={(event) => setHolidayDraft({ ...holidayDraft, date: event.target.value })} />
+              <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={holidayDraft.businessStatus} onChange={(event) => setHolidayDraft({ ...holidayDraft, businessStatus: event.target.value as MerchantBusinessStatus })}>
+                {Object.entries(businessStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+              <Input type="time" value={holidayDraft.startTime ?? ''} onChange={(event) => setHolidayDraft({ ...holidayDraft, startTime: event.target.value || null })} />
+              <Input type="time" value={holidayDraft.endTime ?? ''} onChange={(event) => setHolidayDraft({ ...holidayDraft, endTime: event.target.value || null })} />
+              <Button type="button" variant="outline" onClick={addHolidayHour}>添加</Button>
+            </div>
+            {businessHours.holidayBusinessHours.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {businessHours.holidayBusinessHours.map((item) => (
+                  <button key={item.date} type="button" className="rounded-full border border-orange-100 px-3 py-1 text-xs text-slate-600" onClick={() => updateBusinessHours({ holidayBusinessHours: businessHours.holidayBusinessHours.filter((current) => current.date !== item.date) })}>
+                    {item.date} · {businessStatusLabels[item.businessStatus]} {item.startTime && item.endTime ? `${item.startTime}-${item.endTime}` : ''} · 点击删除
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <Button type="button" disabled={!selectedStore} onClick={() => void handleSaveBusinessHours()}>保存营业设置</Button>
+        </CardContent>
+      </Card>
+
       <Card className="border-orange-100 bg-white/95">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

@@ -11,6 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
 import { bundleBasePrice, bundleLineUnitPrice, bundleSelectionSummary } from '@/lib/bundles'
+import { maxCartLineQuantity, maxOrderQuantity, productAvailable } from '@/lib/cart-inventory'
+import { merchantAvailability } from '@/lib/merchant-business-hours'
 import { isPromotionActive, promotionDisplayName, promotionSummary, roundMoney } from '@/lib/promotions'
 import { cn } from '@/lib/utils'
 import { filterReviews, reviewFilterCounts, reviewFilterOptions, type ReviewFilterKey } from '@/lib/review-filters'
@@ -34,6 +36,16 @@ const discountRateText = (originalPrice: number, currentPrice: number) =>
 
 const bundleLineKey = (line: { merchantId: string; productId: string; bundleSelections?: CheckoutBundleSelection[] }) =>
   `${line.merchantId}::${line.productId}::${JSON.stringify(line.bundleSelections ?? [])}`
+
+function productStockText(product: Product) {
+  if ((product.inventoryMode ?? 'finite') === 'unlimited') return '无限库存'
+  if (!productAvailable(product)) return '已售罄'
+  return `剩余 ${product.remainingStock} 份`
+}
+
+function productLimitText(product: Product) {
+  return product.maxPerOrder ? `每单限购 ${product.maxPerOrder} 份` : '不限购'
+}
 
 function highlightedSummaryParts(summary: string, highlights: string[]) {
   const cleanHighlights = highlights.filter((item) => item.trim() && summary.includes(item)).slice(0, 4)
@@ -106,6 +118,8 @@ export default function CustomerMerchantOrderPage() {
 
   const merchantId = merchantIdParam as MerchantId | undefined
   const merchant = merchantId ? merchants.find((m) => m.id === merchantId) ?? null : null
+  const availability = merchant ? merchantAvailability(merchant) : null
+  const canOrder = availability?.isOpen ?? false
   const merchantProducts = useMemo(
     () =>
       merchantId
@@ -355,9 +369,13 @@ export default function CustomerMerchantOrderPage() {
                   </Button>
                 </div>
                 <CardDescription className="text-pretty">{merchant.address}</CardDescription>
-                <Badge variant="outline" className="mt-1 w-fit border-primary/25 text-primary">
-                  {merchant.category}
-                </Badge>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  <Badge variant="outline" className="w-fit border-primary/25 text-primary">
+                    {merchant.category}
+                  </Badge>
+                  {availability ? <Badge variant={availability.isOpen ? 'default' : 'destructive'}>{availability.label}</Badge> : null}
+                </div>
+                {!canOrder && availability?.nextOpenText ? <p className="text-sm text-orange-600">预计 {availability.nextOpenText} 开始营业</p> : null}
                 {(merchant.description ?? '').trim() ? (
                   <p className="max-w-2xl text-sm leading-relaxed text-foreground/75">{merchant.description}</p>
                 ) : null}
@@ -500,6 +518,8 @@ export default function CustomerMerchantOrderPage() {
                                 const displayPrice = bundleProductCard ? bundleBasePrice(product) : product.price
                                 const productPromotion = productPromotionForDisplay(product.id, displayPrice)
                                 const quantity = bundleProductCard ? totalQuantityForProduct(product.id) : quantityForProduct(product.id)
+                                const available = canOrder && productAvailable(product)
+                                const reachedLimit = quantity >= maxOrderQuantity(product)
                                 return (
                                   <div
                                     key={product.id}
@@ -538,6 +558,10 @@ export default function CustomerMerchantOrderPage() {
                                           <p className="font-semibold text-foreground">{product.name}</p>
                                           <p className="text-sm leading-relaxed text-muted-foreground">{product.description}</p>
                                           <p className="text-xs font-medium text-muted-foreground">月售 {product.monthlySales}</p>
+                                          <div className="flex flex-wrap gap-1.5">
+                                            <Badge variant={available ? 'outline' : 'destructive'} className="text-xs">{productStockText(product)}</Badge>
+                                            <Badge variant="outline" className="text-xs">{productLimitText(product)}</Badge>
+                                          </div>
                                           {bundleProductCard ? (
                                             <p className="text-xs font-medium text-amber-600">
                                               套餐 · {(product.bundleGroups ?? []).map((group) => `${group.name}选${group.quantity}`).join(' · ')}
@@ -568,10 +592,11 @@ export default function CustomerMerchantOrderPage() {
                                               <Button
                                                 type="button"
                                                 size="sm"
-                                                className="h-9 cursor-pointer rounded-full bg-yellow-400 px-4 font-semibold text-slate-950 shadow-sm hover:bg-yellow-300"
+                                                disabled={!available || reachedLimit}
+                                                className="h-9 cursor-pointer rounded-full bg-yellow-400 px-4 font-semibold text-slate-950 shadow-sm hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
                                                 onClick={() => openBundleSelector(product)}
                                               >
-                                                选套餐
+                                                {!canOrder ? '休息中' : !available ? '已售罄' : reachedLimit ? '已达限购' : '选套餐'}
                                               </Button>
                                             </div>
                                           ) : quantity > 0 ? (
@@ -590,8 +615,9 @@ export default function CustomerMerchantOrderPage() {
                                               <Button
                                                 type="button"
                                                 size="icon"
-                                                className="size-8 cursor-pointer rounded-full bg-yellow-400 text-slate-950 shadow-sm hover:bg-yellow-300"
-                                                aria-label="增加数量"
+                                                disabled={!available || reachedLimit}
+                                                className="size-8 cursor-pointer rounded-full bg-yellow-400 text-slate-950 shadow-sm hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
+                                                aria-label={reachedLimit ? '已达限购数量' : '增加数量'}
                                                 onClick={() => addProductToCart(product.merchantId, product.id)}
                                               >
                                                 <Plus className="size-5" />
@@ -601,8 +627,9 @@ export default function CustomerMerchantOrderPage() {
                                             <Button
                                               type="button"
                                               size="icon"
-                                              className="size-9 cursor-pointer rounded-full bg-yellow-400 text-slate-950 shadow-sm hover:bg-yellow-300"
-                                              aria-label="加入购物车"
+                                              disabled={!available}
+                                              className="size-9 cursor-pointer rounded-full bg-yellow-400 text-slate-950 shadow-sm hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
+                                              aria-label={available ? '加入购物车' : '已售罄'}
                                               onClick={() => addProductToCart(product.merchantId, product.id)}
                                             >
                                               <Plus className="size-5" />
@@ -829,6 +856,9 @@ export default function CustomerMerchantOrderPage() {
                     const selectionSummary = bundleSelectionSummary(product, line.bundleSelections, products)
                     const unitPrice = bundleLineUnitPrice(product, line.bundleSelections, products)
                     const linePromotion = productPromotionForDisplay(product.id, unitPrice)
+                    const maxQuantity = maxCartLineQuantity(line, products, linesForMerchant.filter((item) => bundleLineKey(item) !== lineKey))
+                    const reachedLimit = Number.isFinite(maxQuantity) ? line.quantity >= maxQuantity : false
+                    const available = productAvailable(product) && maxQuantity > 0
                     return (
                       <div
                         key={lineKey}
@@ -860,7 +890,8 @@ export default function CustomerMerchantOrderPage() {
                           <Button
                             size="icon"
                             variant="outline"
-                            className="size-8 cursor-pointer"
+                            disabled={!available || reachedLimit}
+                            className="size-8 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                             onClick={() => changeCartLineQuantity(lineKey, line.quantity + 1)}
                           >
                             <Plus className="size-4" />
@@ -892,13 +923,13 @@ export default function CustomerMerchantOrderPage() {
               </Button>
               <Button
                 className="h-11 min-w-[8.5rem] cursor-pointer bg-gradient-to-r from-primary to-[oklch(0.62_0.18_45)] text-base font-semibold text-primary-foreground shadow-[0_16px_40px_rgba(225,29,72,0.35)] transition-[filter,box-shadow] duration-200 hover:brightness-110 hover:shadow-[0_20px_50px_rgba(225,29,72,0.42)] disabled:cursor-not-allowed disabled:opacity-50 dark:to-[oklch(0.68_0.14_45)]"
-                disabled={linesForMerchant.length === 0}
+                disabled={linesForMerchant.length === 0 || !canOrder}
                 onClick={() => {
-                  if (!merchantId || linesForMerchant.length === 0) return
+                  if (!merchantId || linesForMerchant.length === 0 || !canOrder) return
                   navigate(`/delivery/customer/checkout?merchantId=${encodeURIComponent(merchantId)}`)
                 }}
               >
-                结算本店
+                {canOrder ? '结算本店' : '店铺休息中'}
               </Button>
             </div>
           </div>

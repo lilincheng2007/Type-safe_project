@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { fetchOrderChatUnreadCountsIO } from '@/apis/order/OrderChatAPI'
+import { fetchOrderChatUnreadCountsIO } from '@/apis/order/OrderChatClient'
 import type { OrderChatRole } from '@/objects/order/OrderChatMessage'
 import type { OrderChatUnreadCount } from '@/objects/order/OrderChatUnreadCount'
 import type { OrderId } from '@/objects/shared/ids'

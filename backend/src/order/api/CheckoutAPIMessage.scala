@@ -33,7 +33,7 @@ final case class CheckoutAPIMessage(
         case None        => IO.raiseError(HttpApiError.NotFound(OrderApiSupport.customerNotFound.error))
       }
       normalizedAccount = account.copy(profile = account.profile.copy(vouchers = VoucherSupport.mergeStandardPlatformVouchers(account.profile.id, account.profile.vouchers)))
-      products <- CatalogProductTable.list(connection)
+      products <- CatalogProductTable.listForUpdate(connection)
       merchants <- MerchantStoreTable.listCatalog(connection)
       platformPromotions <- PlatformPromotionTable.get(connection)
       profileForOrders =
@@ -55,6 +55,7 @@ final case class CheckoutAPIMessage(
             )
           )
           for
+            _ <- OrderAPIMessageSupport.inventoryDeductions(products, body.lines.map(OrderApiSupport.normalizeLine)).traverse_(CatalogProductTable.upsert(connection, _))
             _ <- checkout.orders.traverse_(OrderTable.upsert(connection, _))
             _ <- persistPromotionUsage(connection, username, merchants, platformPromotions, checkout.orders)
             _ <- CheckoutRequestTable.insert(connection, username, body, checkout.orders.map(_.id))
@@ -65,7 +66,8 @@ final case class CheckoutAPIMessage(
             originalAmount = checkout.originalAmount,
             discountAmount = checkout.discountAmount,
             payableAmount = checkout.payableAmount,
-            usedVoucher = checkout.usedVoucher
+            usedVoucher = checkout.usedVoucher,
+            priceBreakdown = checkout.priceBreakdown
           )
     yield result
 

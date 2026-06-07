@@ -64,7 +64,7 @@ object PromotionPricing:
 
   private def isWithinDailyWindow(promotion: Promotion, nowTime: LocalTime): Boolean =
     (promotion.dailyStartTime.flatMap(parseTime), promotion.dailyEndTime.flatMap(parseTime)) match
-      case (Some(start), Some(end)) if start == end => true
+      case (Some(start), Some(end)) if start == end => false
       case (Some(start), Some(end)) if start.isBefore(end) =>
         !nowTime.isBefore(start) && nowTime.isBefore(end)
       case (Some(start), Some(end)) =>

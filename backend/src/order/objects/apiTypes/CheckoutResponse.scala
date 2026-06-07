@@ -9,5 +9,6 @@ final case class CheckoutResponse(
     originalAmount: Double,
     discountAmount: Double,
     payableAmount: Double,
-    usedVoucher: Option[Voucher]
+    usedVoucher: Option[Voucher],
+    priceBreakdown: delivery.order.objects.OrderPriceBreakdown
 )

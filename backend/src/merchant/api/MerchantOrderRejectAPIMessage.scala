@@ -1,7 +1,7 @@
 package delivery.merchant.api
 
 import cats.effect.IO
-import delivery.order.api.OrderAPIMessageSupport
+import delivery.order.api.{OrderAPIMessageSupport, OrderStatusTransitionService}
 import delivery.order.tables.order.OrderTable
 import delivery.shared.api.{APIWithRoleMessage, HttpApiError}
 import delivery.shared.objects.{OrderId, OrderStatus}
@@ -26,8 +26,7 @@ final case class MerchantOrderRejectAPIMessage(orderId: OrderId) extends APIWith
         case None        => IO.raiseError(HttpApiError.BadRequest("未找到顾客账号"))
       }
       refundAmount = if order.payableAmount > 0 then order.payableAmount else order.totalAmount
-      canceledOrder = order.copy(status = OrderStatus.已取消)
+      canceledOrder <- OrderStatusTransitionService.transition(connection, order, OrderStatus.已取消, actorRole = "merchant")
       nextAccount = account.copy(profile = account.profile.copy(walletBalance = OrderAPIMessageSupport.roundMoney(account.profile.walletBalance + refundAmount)))
-      _ <- OrderTable.upsert(connection, canceledOrder)
       _ <- CustomerProfileTable.upsert(connection, nextAccount)
     yield OkResponse(ok = true)

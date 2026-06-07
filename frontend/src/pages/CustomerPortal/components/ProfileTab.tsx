@@ -16,6 +16,7 @@ import type { AIOrderProgressNarrativesResponse } from '@/objects/ai/apiTypes/AI
 import type { Merchant } from '@/objects/merchant/Merchant'
 import type { Product } from '@/objects/merchant/Product'
 import type { Order } from '@/objects/order/Order'
+import { compactTimelineText } from '@/lib/order-timeline'
 import { OrderStatuses, RefundStatuses, type MerchantId, type OrderId, type ProductId, type VoucherId } from '@/objects/shared/ids'
 import type { Voucher } from '@/objects/shared/Voucher'
 
@@ -591,6 +592,9 @@ export function ProfileTab({
                     </Badge>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">商家：{getMerchantName(order.merchantId)}</p>
+                  <div className="mt-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary">
+                    {compactTimelineText(order)}
+                  </div>
                   <p className="mt-1 text-sm text-muted-foreground">收货地址：{order.deliveryAddress}</p>
                   <p className="mt-1 text-sm text-muted-foreground">实付：¥{order.payableAmount.toFixed(2)} · 预计积分：{Math.floor(order.payableAmount)}</p>
                   {getOrderStatusDescription(order) && (

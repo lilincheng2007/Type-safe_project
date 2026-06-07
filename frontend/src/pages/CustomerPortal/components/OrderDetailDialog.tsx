@@ -1,6 +1,9 @@
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
+import { orderPriceBreakdown, priceBreakdownAmountClassName, priceBreakdownAmountText } from '@/lib/order-price-breakdown'
+import { buildOrderTimeline, estimateDeliveryRange, formatTimelineTime, orderTimelineAlert } from '@/lib/order-timeline'
+import { cn } from '@/lib/utils'
 import type { Order } from '@/objects/order/Order'
 import { OrderStatuses, RefundStatuses } from '@/objects/shared/ids'
 
@@ -80,6 +83,11 @@ export function OrderDetailDialog({
   onRefundOrder,
   onAppealRefund,
 }: OrderDetailDialogProps) {
+  const breakdown = selectedOrder ? orderPriceBreakdown(selectedOrder) : null
+  const timeline = selectedOrder ? buildOrderTimeline(selectedOrder) : []
+  const deliveryRange = selectedOrder ? estimateDeliveryRange(selectedOrder) : null
+  const alertText = selectedOrder ? orderTimelineAlert(selectedOrder) : null
+
   return (
     <Dialog open={selectedOrder !== null} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md rounded-2xl border border-orange-100 bg-white p-6">
@@ -90,36 +98,21 @@ export function OrderDetailDialog({
         {selectedOrder ? (
           <div className="space-y-3">
             <div className="space-y-2 rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-rose-50 px-4 py-3 text-sm text-slate-700">
-              <div className="flex items-center justify-between">
-                <span>商品原价</span>
-                <span className="tabular-nums">¥{selectedOrder.originalAmount.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center justify-between text-green-600">
-                <span>优惠抵扣</span>
-                <span className="tabular-nums">-¥{selectedOrder.discountAmount.toFixed(2)}</span>
-              </div>
-              {(selectedOrder.merchantDiscountAmount ?? 0) > 0 ? (
-                <div className="flex items-center justify-between text-xs text-green-600">
-                  <span>商家优惠</span>
-                  <span>-¥{(selectedOrder.merchantDiscountAmount ?? 0).toFixed(2)}</span>
-                </div>
-              ) : null}
-              {(selectedOrder.platformDiscountAmount ?? 0) > 0 ? (
-                <div className="flex items-center justify-between text-xs text-green-600">
-                  <span>平台/优惠券抵扣</span>
-                  <span>-¥{(selectedOrder.platformDiscountAmount ?? 0).toFixed(2)}</span>
-                </div>
-              ) : null}
+              {breakdown?.lines.map((line) => {
+                const isTotal = line.kind === 'total'
+                return (
+                  <div key={line.key} className={`flex items-center justify-between ${isTotal ? 'font-semibold text-orange-700' : priceBreakdownAmountClassName(line)}`}>
+                    <span>{line.label}</span>
+                    <span className={isTotal ? 'text-lg tabular-nums' : 'tabular-nums'}>{priceBreakdownAmountText(line)}</span>
+                  </div>
+                )
+              })}
               {selectedOrder.usedVoucher ? (
                 <p className="rounded-lg bg-white/70 px-2 py-1 text-xs text-orange-700">
                   已使用：{selectedOrder.usedVoucher.title}
                 </p>
               ) : null}
               <Separator className="bg-orange-100" />
-              <div className="flex items-center justify-between font-semibold text-orange-700">
-                <span>实付金额</span>
-                <span className="text-lg tabular-nums">¥{selectedOrder.payableAmount.toFixed(2)}</span>
-              </div>
               <div className="flex items-center justify-between text-xs text-slate-500">
                 <span>{selectedOrder.pointsAwarded > 0 ? '已获得积分' : '预计获得积分'}</span>
                 <span>+{selectedOrder.pointsAwarded > 0 ? selectedOrder.pointsAwarded : Math.floor(selectedOrder.payableAmount)}</span>
@@ -141,6 +134,35 @@ export function OrderDetailDialog({
               {orderStatusDescription(selectedOrder) ? (
                 <p className="mt-1 text-xs text-slate-500">{orderStatusDescription(selectedOrder)}</p>
               ) : null}
+              {selectedOrder.estimatedReadyAt ? <p className="mt-1 text-xs text-orange-700">预计出餐：{selectedOrder.estimatedReadyAt}</p> : null}
+              {deliveryRange ? <p className="mt-1 text-xs text-orange-700">预计送达：{deliveryRange}</p> : null}
+              {alertText ? <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">{alertText}</p> : null}
+            </div>
+            <div className="rounded-2xl border border-orange-100 bg-white px-3 py-3">
+              <p className="mb-3 text-sm font-semibold text-slate-900">订单时间线</p>
+              <div className="space-y-3">
+                {timeline.map((node) => (
+                  <div key={node.key} className="flex gap-3">
+                    <span
+                      className={cn(
+                        'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold',
+                        node.state === 'done' && 'border-orange-500 bg-orange-500 text-white',
+                        node.state === 'current' && 'border-orange-500 bg-orange-50 text-orange-600',
+                        node.state === 'pending' && 'border-slate-200 bg-slate-50 text-slate-300',
+                      )}
+                    >
+                      {node.state === 'pending' ? '' : '✓'}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className={cn('text-sm font-medium', node.state === 'pending' ? 'text-slate-400' : 'text-slate-900')}>{node.label}</p>
+                        <span className="text-xs text-slate-500">{formatTimelineTime(node.time)}</span>
+                      </div>
+                      {node.description ? <p className="mt-0.5 text-xs text-slate-500">{node.description}</p> : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium text-slate-900">商品明细</p>

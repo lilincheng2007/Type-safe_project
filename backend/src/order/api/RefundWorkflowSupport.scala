@@ -2,7 +2,6 @@ package delivery.order.api
 
 import cats.effect.IO
 import delivery.order.objects.Order
-import delivery.order.tables.order.OrderTable
 import delivery.shared.api.HttpApiError
 import delivery.shared.objects.{OrderStatus, RefundStatus}
 import delivery.user.tables.customerprofile.CustomerProfileTable
@@ -31,13 +30,18 @@ object RefundWorkflowSupport:
       }
       now <- IO.realTimeInstant.map(_.toString)
       refundAmount = if order.payableAmount > 0 then order.payableAmount else order.totalAmount
-      refundedOrder = order.copy(
-        status = OrderStatus.已退款,
-        refundStatus = Some(RefundStatus.已通过),
-        refundMerchantReason = merchantReason.orElse(order.refundMerchantReason),
-        refundMerchantReviewedAt = if markMerchantReviewed then Some(now) else order.refundMerchantReviewedAt,
-        refundAdminReason = adminReason.orElse(order.refundAdminReason),
-        refundedAt = Some(now)
+      refundedOrder <- OrderStatusTransitionService.transition(
+        connection,
+        order,
+        OrderStatus.已退款,
+        actorRole = if markMerchantReviewed then "merchant" else "admin",
+        patch = _.copy(
+          refundStatus = Some(RefundStatus.已通过),
+          refundMerchantReason = merchantReason.orElse(order.refundMerchantReason),
+          refundMerchantReviewedAt = if markMerchantReviewed then Some(now) else order.refundMerchantReviewedAt,
+          refundAdminReason = adminReason.orElse(order.refundAdminReason),
+          refundedAt = Some(now)
+        )
       )
       nextPoints = math.max(0, account.profile.foodiePoints - order.pointsAwarded)
       nextProfile = account.profile.copy(
@@ -47,7 +51,6 @@ object RefundWorkflowSupport:
         historyOrders = refundedOrder :: account.profile.historyOrders.filterNot(_.id == order.id),
         pendingOrders = account.profile.pendingOrders.filterNot(_.id == order.id)
       )
-      _ <- OrderTable.upsert(connection, refundedOrder)
       _ <- CustomerProfileTable.upsert(connection, account.copy(profile = nextProfile))
     yield refundedOrder
 

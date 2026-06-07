@@ -5,9 +5,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { bundleLineUnitPrice, bundleSelectionSummary } from '@/lib/bundles'
+import { cartLineKey, maxCartLineQuantity, productAvailable } from '@/lib/cart-inventory'
 import type { Merchant } from '@/objects/merchant/Merchant'
 import type { Product } from '@/objects/merchant/Product'
-import type { CheckoutBundleSelection } from '@/objects/order/CheckoutLine'
 import type { MerchantId } from '@/objects/shared/ids'
 import type { ProductId } from '@/objects/shared/ids'
 import type { CartLine } from '@/stores/pages/use-customer-portal-store'
@@ -26,8 +26,10 @@ const cartDockBottomStyle: CSSProperties = {
   bottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))',
 }
 
-const cartLineKey = (line: { merchantId: string; productId: string; bundleSelections?: CheckoutBundleSelection[] }) =>
-  `${line.merchantId}::${line.productId}::${JSON.stringify(line.bundleSelections ?? [])}`
+const cartLineLimitText = (maxQuantity: number) => {
+  if (maxQuantity <= 0) return '已售罄或不可购买'
+  return Number.isFinite(maxQuantity) ? `最多可购 ${maxQuantity} 份` : '库存充足'
+}
 
 export function CartTab({ merchants, products, cartLines, onChangeQuantity, onChangeCartLineQuantity, onCheckout }: CartTabProps) {
   const cartGroupedByMerchant = cartLines.reduce<Record<string, CartLine[]>>((grouped, line) => {
@@ -105,6 +107,8 @@ export function CartTab({ merchants, products, cartLines, onChangeQuantity, onCh
                         const lineKey = cartLineKey(line)
                         const unitPrice = bundleLineUnitPrice(product, line.bundleSelections, products)
                         const selectionSummary = bundleSelectionSummary(product, line.bundleSelections, products)
+                        const maxQuantity = maxCartLineQuantity(line, products, cartLines.filter((item) => cartLineKey(item) !== lineKey))
+                        const canIncrease = productAvailable(product) && (Number.isFinite(maxQuantity) ? line.quantity < maxQuantity : true)
 
                         return (
                           <div
@@ -115,6 +119,7 @@ export function CartTab({ merchants, products, cartLines, onChangeQuantity, onCh
                               <p className="font-medium text-foreground">{product.name}</p>
                               {selectionSummary ? <p className="line-clamp-2 text-xs text-amber-600">{selectionSummary}</p> : null}
                               <p className="text-sm text-muted-foreground">单价 ¥{unitPrice.toFixed(1)}</p>
+                              <p className="text-xs font-medium text-muted-foreground">{cartLineLimitText(maxQuantity)}</p>
                             </div>
                             <div className="flex items-center gap-2">
                               <Button
@@ -129,7 +134,8 @@ export function CartTab({ merchants, products, cartLines, onChangeQuantity, onCh
                               <Button
                                 size="icon"
                                 variant="outline"
-                                className="size-8 cursor-pointer border-border/80 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                                disabled={!canIncrease}
+                                className="size-8 cursor-pointer border-border/80 transition-colors hover:border-primary/40 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
                                 onClick={() => line.bundleSelections?.length ? onChangeCartLineQuantity(lineKey, line.quantity + 1) : onChangeQuantity(line.merchantId, line.productId, line.quantity + 1)}
                               >
                                 <Plus className="size-4" />

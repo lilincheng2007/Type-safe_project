@@ -1,5 +1,6 @@
 import type { MerchantCategory, ProductId, MerchantId } from '@/objects/shared/ids'
 import type { Promotion } from '@/objects/shared/Promotion'
+import type { MerchantBusinessStatus, MerchantHolidayBusinessHour, MerchantWeeklyBusinessHour } from './MerchantBusinessHours'
 
 export interface Merchant {
   id: MerchantId
@@ -15,4 +16,7 @@ export interface Merchant {
   description: string
   announcement: string
   promotions?: Promotion[]
+  businessStatus?: MerchantBusinessStatus
+  weeklyBusinessHours?: MerchantWeeklyBusinessHour[]
+  holidayBusinessHours?: MerchantHolidayBusinessHour[]
 }

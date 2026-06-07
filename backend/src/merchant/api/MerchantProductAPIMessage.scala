@@ -17,6 +17,8 @@ final case class MerchantProductAPIMessage(
     price: Double,
     remainingStock: Int,
     listingStatus: ListingStatus,
+    inventoryMode: Option[String] = None,
+    maxPerOrder: Option[Int] = None,
     bundleGroups: Option[List[ProductBundleGroup]] = None
 ) extends APIWithRoleMessage[Product]:
   override def plan(connection: Connection, username: String): IO[Product] =
@@ -32,6 +34,8 @@ final case class MerchantProductAPIMessage(
         existingProducts <- CatalogProductTable.list(connection)
         productImageUrl <- MerchantAPIMessageSupport.validateProductImageUrl(imageUrl.getOrElse(existing.imageUrl))
         productCategoryName = MerchantAPIMessageSupport.normalizeProductCategoryName(categoryName.orElse(Some(existing.categoryName)))
+        normalizedInventoryMode = MerchantAPIMessageSupport.normalizeInventoryMode(inventoryMode.orElse(Some(existing.inventoryMode)))
+        normalizedMaxPerOrder = MerchantAPIMessageSupport.normalizeMaxPerOrder(maxPerOrder.orElse(existing.maxPerOrder))
         normalizedBundleGroups = bundleGroups.getOrElse(existing.bundleGroups)
         _ <- validateBundleGroups(normalizedBundleGroups, existingProducts, existing.merchantId, Some(existing.id)) match
           case Left(message) => IO.raiseError(HttpApiError.BadRequest(message))
@@ -42,9 +46,11 @@ final case class MerchantProductAPIMessage(
           imageUrl = productImageUrl,
           categoryName = productCategoryName,
           price = price,
-          remainingStock = remainingStock,
+          remainingStock = if normalizedInventoryMode == "unlimited" then 999999 else remainingStock,
           listingStatus = listingStatus,
-          inventoryStatus = MerchantAPIMessageSupport.inventoryStatus(remainingStock, listingStatus),
+          inventoryStatus = MerchantAPIMessageSupport.inventoryStatus(remainingStock, listingStatus, normalizedInventoryMode),
+          inventoryMode = normalizedInventoryMode,
+          maxPerOrder = normalizedMaxPerOrder,
           bundleGroups = normalizedBundleGroups
         )
         _ <- CatalogProductTable.upsert(connection, updated)

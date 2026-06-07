@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev:backend\" \"npm run dev:frontend:wait\"",
     "dev:db": "docker compose -f backend/docker-compose.yml up -d postgres",
-    "dev:backend": "bash -lc 'npm run dev:db && until (echo > /dev/tcp/127.0.0.1/5432) >/dev/null 2>&1; do sleep 1; done; cd backend && sbt -batch clean run'",
+    "dev:backend": "bash -lc 'if [ -z \"${JAVA_HOME:-}\" ]; then if [ -x /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java ]; then export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home; elif [ -x /opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home/bin/java ]; then export JAVA_HOME=/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home; fi; fi; if [ -n \"${JAVA_HOME:-}\" ]; then export PATH=\"$JAVA_HOME/bin:$PATH\"; fi; npm run dev:db && until (echo > /dev/tcp/127.0.0.1/5432) >/dev/null 2>&1; do sleep 1; done; cd backend && sbt -batch clean run'",
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:frontend:wait": "bash -lc 'until curl -sf -X POST -H \"Content-Type: application/json\" -d \"{}\" http://127.0.0.1:8787/api/catalogapi >/dev/null; do sleep 1; done; npm run dev --prefix frontend'"
   },

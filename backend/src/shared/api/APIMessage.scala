@@ -28,7 +28,7 @@ trait APIWithRoleMessage[Response] extends APIMessage[Response]:
 
 final case class RegisteredAPIMessage(
     apiName: String,
-    requiredRole: Option[String],
+    requiredRoles: Option[Set[String]],
     planJson: (Json, Connection, Option[String]) => IO[Json]
 )
 
@@ -48,7 +48,7 @@ object RegisteredAPIMessage:
   ): RegisteredAPIMessage =
     RegisteredAPIMessage(
       apiName = nameOf[Message],
-      requiredRole = None,
+      requiredRoles = None,
       planJson = (payload, connection, _) =>
         for
           message <- IO.fromEither(payload.as[Message].left.map(error => HttpApiError.BadRequest(s"请求体格式错误：${error.getMessage}")))
@@ -61,9 +61,16 @@ object RegisteredAPIMessage:
       Encoder[Response],
       ClassTag[Message]
   ): RegisteredAPIMessage =
+    apiWithRoles[Message, Response](Set(role))
+
+  def apiWithRoles[Message <: APIWithRoleMessage[Response], Response](roles: Set[String])(using
+      Decoder[Message],
+      Encoder[Response],
+      ClassTag[Message]
+  ): RegisteredAPIMessage =
     RegisteredAPIMessage(
       apiName = nameOf[Message],
-      requiredRole = Some(role),
+      requiredRoles = Some(roles),
       planJson = (payload, connection, username) =>
         for
           message <- IO.fromEither(payload.as[Message].left.map(error => HttpApiError.BadRequest(s"请求体格式错误：${error.getMessage}")))
@@ -93,7 +100,7 @@ object APIMessageRouter:
       handleErrors {
         for
           apiMessage <- IO.fromOption(apiMessagesByName.get(normalize(apiName)))(HttpApiError.NotFound(s"不支持的 API：$apiName"))
-          username <- resolveUsername(req, apiMessage.requiredRole)
+          username <- resolveUsername(req, apiMessage.requiredRoles)
           payload <- req.as[Json]
           response <- DatabaseSession.withTransactionConnection(ds)(connection => apiMessage.planJson(payload, connection, username))
           httpResponse <- Ok(response)
@@ -104,17 +111,17 @@ object APIMessageRouter:
   private def normalize(apiName: String): String =
     apiName.trim.toLowerCase
 
-  private def resolveUsername(req: Request[IO], requiredRole: Option[String]): IO[Option[String]] =
-    requiredRole match
+  private def resolveUsername(req: Request[IO], requiredRoles: Option[Set[String]]): IO[Option[String]] =
+    requiredRoles match
       case None => IO.pure(None)
-      case Some(expected) =>
+      case Some(expectedRoles) =>
         bearerToken(req) match
           case None => IO.raiseError(HttpApiError.Unauthorized("缺少 Authorization Bearer token"))
           case Some(token) =>
             JwtSupport.verifyToken(token).flatMap {
               case Left(msg) => IO.raiseError(HttpApiError.Unauthorized(msg))
               case Right((username, role)) =>
-                if role == expected then IO.pure(Some(username))
+                if expectedRoles.contains(role) then IO.pure(Some(username))
                 else IO.raiseError(HttpApiError.Forbidden("权限不足"))
             }
 

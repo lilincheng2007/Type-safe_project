@@ -45,14 +45,16 @@ object OpenAIClient:
           val action: IO[Json] =
             EmberClientBuilder.default[IO].withTimeout(30.seconds).build.use { client =>
               for
-                req <- IO.pure(
-                  Request[IO](Method.POST, Uri.unsafeFromString(s"$baseUrl/chat/completions"))
-                    .withHeaders(
-                      Authorization(Credentials.Token(AuthScheme.Bearer, key)),
-                      `Content-Type`(MediaType.application.json)
-                    )
-                    .withEntity(requestJson)
+                uri <- IO.fromEither(
+                  Uri.fromString(s"$baseUrl/chat/completions")
+                    .leftMap(failure => new RuntimeException(s"OPENAI_BASE_URL 配置无效：${failure.message}"))
                 )
+                req = Request[IO](Method.POST, uri)
+                  .withHeaders(
+                    Authorization(Credentials.Token(AuthScheme.Bearer, key)),
+                    `Content-Type`(MediaType.application.json)
+                  )
+                  .withEntity(requestJson)
                 resp <- client.expect[Json](req)
                 content <- extractContent(resp)
                 parsed <- parseJsonContent(content)

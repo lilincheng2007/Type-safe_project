@@ -1,5 +1,5 @@
 import type { ListingStatus } from '@/objects/shared/ids'
-import type { ProductBundleGroup } from '@/objects/merchant/Product'
+import type { ProductBundleGroup, ProductInventoryMode } from '@/objects/merchant/Product'
 
 export interface UpdateProductRequest {
   name: string
@@ -9,5 +9,7 @@ export interface UpdateProductRequest {
   price: number
   remainingStock: number
   listingStatus: ListingStatus
+  inventoryMode?: ProductInventoryMode
+  maxPerOrder?: number | null
   bundleGroups?: ProductBundleGroup[]
 }

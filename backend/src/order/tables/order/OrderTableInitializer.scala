@@ -39,6 +39,12 @@ object OrderTableInitializer:
       |  refunded_at VARCHAR(40),
       |  customer_note_text TEXT,
       |  customer_note_image_url TEXT,
+      |  status_timeline JSONB NOT NULL DEFAULT '[]'::jsonb,
+      |  estimated_prep_minutes INTEGER,
+      |  estimated_ready_at VARCHAR(40),
+      |  prep_delay_reason TEXT,
+      |  prep_delayed_at VARCHAR(40),
+      |  prep_timeout_notified_at VARCHAR(40),
       |  delivery_address TEXT NOT NULL,
       |  status VARCHAR(32) NOT NULL CHECK (status IN ($orderStatusSql)),
       |  placed_at VARCHAR(40) NOT NULL,
@@ -55,6 +61,8 @@ object OrderTableInitializer:
       |ALTER TABLE orders ADD COLUMN IF NOT EXISTS merchant_receivable_amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (merchant_receivable_amount >= 0);
       |ALTER TABLE orders ADD COLUMN IF NOT EXISTS applied_promotions JSONB NOT NULL DEFAULT '[]'::jsonb;
       |ALTER TABLE orders ADD COLUMN IF NOT EXISTS points_awarded INTEGER NOT NULL DEFAULT 0 CHECK (points_awarded >= 0);
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS price_snapshot JSONB;
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS price_breakdown JSONB;
       |ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_status VARCHAR(32);
       |ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_reason TEXT;
       |ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_image_url TEXT;
@@ -65,6 +73,12 @@ object OrderTableInitializer:
       |ALTER TABLE orders ADD COLUMN IF NOT EXISTS refunded_at VARCHAR(40);
       |ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_note_text TEXT;
       |ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_note_image_url TEXT;
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS status_timeline JSONB NOT NULL DEFAULT '[]'::jsonb;
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_prep_minutes INTEGER;
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_ready_at VARCHAR(40);
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS prep_delay_reason TEXT;
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS prep_delayed_at VARCHAR(40);
+      |ALTER TABLE orders ADD COLUMN IF NOT EXISTS prep_timeout_notified_at VARCHAR(40);
       |ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_refund_status_check;
       |UPDATE orders SET refund_status = '待商家审核' WHERE refund_status = '待审核';
       |UPDATE orders SET refund_requested_at = updated_at::text WHERE refund_status IS NOT NULL AND refund_requested_at IS NULL;

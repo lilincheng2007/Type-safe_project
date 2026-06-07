@@ -36,6 +36,17 @@ object CatalogProductTableInitializer:
       |ALTER TABLE catalog_products
       |  ADD COLUMN IF NOT EXISTS bundle_config JSONB NOT NULL DEFAULT '[]'::jsonb;
       |
+      |ALTER TABLE catalog_products
+      |  ADD COLUMN IF NOT EXISTS inventory_mode VARCHAR(32) NOT NULL DEFAULT 'finite';
+      |
+      |ALTER TABLE catalog_products
+      |  ADD COLUMN IF NOT EXISTS max_per_order INTEGER;
+      |
+      |ALTER TABLE catalog_products DROP CONSTRAINT IF EXISTS catalog_products_inventory_mode_check;
+      |ALTER TABLE catalog_products ADD CONSTRAINT catalog_products_inventory_mode_check CHECK (inventory_mode IN ('unlimited', 'finite', 'soldOut'));
+      |ALTER TABLE catalog_products DROP CONSTRAINT IF EXISTS catalog_products_max_per_order_check;
+      |ALTER TABLE catalog_products ADD CONSTRAINT catalog_products_max_per_order_check CHECK (max_per_order IS NULL OR max_per_order > 0);
+      |
       |UPDATE catalog_products
       |SET category_name = '默认分类'
       |WHERE btrim(category_name) = '';

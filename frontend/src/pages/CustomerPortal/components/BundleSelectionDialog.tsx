@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
 import { bundleLineUnitPrice, bundleOptionExtraPrice } from '@/lib/bundles'
+import { maxOrderQuantity, productAvailable } from '@/lib/cart-inventory'
 import { cn } from '@/lib/utils'
 import type { Product } from '@/objects/merchant/Product'
 import type { CheckoutBundleSelection } from '@/objects/order/CheckoutLine'
@@ -20,6 +21,11 @@ type BundleSelectionDialogProps = {
 }
 
 const selectionKey = (groupId: string, productId: string) => `${groupId}::${productId}`
+const optionStockText = (product: Product) => {
+  if ((product.inventoryMode ?? 'finite') === 'unlimited') return '无限库存'
+  if (!productAvailable(product)) return '已售罄'
+  return `剩余${product.remainingStock}份`
+}
 const discountRateText = (originalPrice: number, currentPrice: number) =>
   originalPrice > 0 && currentPrice > 0 ? `${(currentPrice / originalPrice * 10).toFixed(1)}折` : '优惠价'
 
@@ -70,7 +76,10 @@ export function BundleSelectionDialog({
 
   const totalIncluded = product ? (product.bundleGroups ?? []).reduce((sum, group) => sum + group.quantity, 0) : 0
   const includedSummary = product ? (product.bundleGroups ?? []).map((group) => `${group.name}:${group.quantity}份`).join('、') : ''
-  const ready = product ? (product.bundleGroups ?? []).every((group) => selectedCountForGroup(group.id) === group.quantity) : false
+  const selectedInventoryReady = selectedOptions.every((selection) => productAvailable(selection.product) && selection.quantity <= maxOrderQuantity(selection.product))
+  const ready = product
+    ? productAvailable(product) && selectedInventoryReady && (product.bundleGroups ?? []).every((group) => selectedCountForGroup(group.id) === group.quantity)
+    : false
   const unitPrice = product ? bundleLineUnitPrice(product, selections, products) : 0
   const productPromotion = product && productPromotionForDisplay ? productPromotionForDisplay(product.id, unitPrice) : null
 
@@ -78,7 +87,10 @@ export function BundleSelectionDialog({
     (bundleProduct?.bundleGroups ?? []).reduce<Record<string, number>>((counts, group) => {
       if (group.selectionType === 'fixed') {
         group.options.forEach((option) => {
-          counts[selectionKey(group.id, option.productId)] = 1
+          const optionProduct = products.find((item) => item.id === option.productId)
+          if (optionProduct && productAvailable(optionProduct) && maxOrderQuantity(optionProduct) >= 1) {
+            counts[selectionKey(group.id, option.productId)] = 1
+          }
         })
       }
       return counts
@@ -86,7 +98,7 @@ export function BundleSelectionDialog({
 
   useEffect(() => {
     setSelectionCounts(open ? defaultSelectionCounts(product) : {})
-  }, [open, product])
+  }, [open, product, products])
 
   const close = (nextOpen: boolean) => {
     if (!nextOpen) {
@@ -95,7 +107,7 @@ export function BundleSelectionDialog({
     onOpenChange(nextOpen)
   }
 
-  const chooseOption = (groupId: string, productId: string, groupQuantity: number, selectionType: string | undefined) => {
+  const chooseOption = (groupId: string, productId: string, groupQuantity: number, selectionType: string | undefined, maxSelectable: number) => {
     const key = selectionKey(groupId, productId)
     const selectedCount = selectedCountForGroup(groupId)
     const currentCount = selectionCounts[key] ?? 0
@@ -109,19 +121,22 @@ export function BundleSelectionDialog({
         Object.keys(next).forEach((itemKey) => {
           if (itemKey.startsWith(`${groupId}::`)) delete next[itemKey]
         })
-        return currentCount > 0 ? next : { ...next, [key]: 1 }
+        return currentCount > 0 || maxSelectable < 1 ? next : { ...next, [key]: 1 }
       }
 
       if (selectionType === 'nonRepeatable' && currentCount > 0) {
         return { ...current, [key]: 0 }
       }
 
-      if (selectedCount < groupQuantity) {
+      if (selectedCount < groupQuantity && currentCount < maxSelectable) {
         return { ...current, [key]: currentCount + 1 }
       }
 
       if (currentCount > 0) {
-        return { ...current, [key]: Math.max(0, currentCount - 1) }
+        const nextCount = Math.max(0, currentCount - 1)
+        const next = { ...current, [key]: nextCount }
+        if (nextCount === 0) delete next[key]
+        return next
       }
 
       return current
@@ -192,7 +207,9 @@ export function BundleSelectionDialog({
 
                         const key = selectionKey(group.id, option.productId)
                         const count = selectionCounts[key] ?? 0
-                        const unavailable = group.selectionType === 'fixed' || (selectedCount >= group.quantity && count === 0)
+                        const optionLimit = maxOrderQuantity(optionProduct)
+                        const soldOut = !productAvailable(optionProduct) || optionLimit < 1
+                        const unavailable = group.selectionType === 'fixed' || soldOut || (selectedCount >= group.quantity && count === 0)
                         const extraPrice = bundleOptionExtraPrice(group, optionProduct)
 
                         return (
@@ -207,7 +224,7 @@ export function BundleSelectionDialog({
                                 : 'border-slate-100 shadow-sm',
                               unavailable ? 'opacity-45 grayscale' : 'cursor-pointer hover:border-yellow-200 active:scale-[0.99]',
                             )}
-                            onClick={() => chooseOption(group.id, option.productId, group.quantity, group.selectionType)}
+                            onClick={() => chooseOption(group.id, option.productId, group.quantity, group.selectionType, optionLimit)}
                           >
                             <div className="relative aspect-[1.05] overflow-hidden bg-slate-100">
                               {optionProduct.imageUrl?.trim() ? (
@@ -220,7 +237,7 @@ export function BundleSelectionDialog({
                                   商家推荐
                                 </Badge>
                               ) : null}
-                              <span className="absolute bottom-0 left-0 bg-black/55 px-2 py-1 text-sm font-semibold text-white">1人份</span>
+                              <span className="absolute bottom-0 left-0 bg-black/55 px-2 py-1 text-sm font-semibold text-white">{soldOut ? '已售罄' : optionStockText(optionProduct)}</span>
                             </div>
 
                             <div className="relative min-h-28 p-3">
@@ -282,7 +299,7 @@ export function BundleSelectionDialog({
                   ) : (
                     <p className="text-3xl font-bold tabular-nums">¥{unitPrice.toFixed(1)}</p>
                   )}
-                  <p className="mt-1 text-sm text-white/55">{ready ? '限1份' : '请按类别选满套餐内容'}</p>
+                  <p className="mt-1 text-sm text-white/55">{ready ? (product.maxPerOrder ? `每单限购${product.maxPerOrder}份` : '可加入购物车') : '请按类别选满套餐内容'}</p>
                 </div>
                 <Button
                   type="button"

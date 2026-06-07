@@ -6,6 +6,7 @@ import { DeliveryPageShell } from '@/components/DeliveryPageShell'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAppChrome } from '@/hooks/useAppChrome'
+import { useAuthSession } from '@/hooks/useAuthSession'
 import { useMerchantConsoleStore } from '@/stores/pages/use-merchant-console-store'
 
 import { BusinessDataTab } from './components/BusinessDataTab'
@@ -19,6 +20,7 @@ import { isMerchantTab } from './functions/helpers'
 export default function MerchantConsole() {
   const [searchParams] = useSearchParams()
   const { showNotice } = useAppChrome()
+  const session = useAuthSession()
   const bootstrapDone = useMerchantConsoleStore((state) => state.bootstrapDone)
   const loadError = useMerchantConsoleStore((state) => state.loadError)
   const merchantAccount = useMerchantConsoleStore((state) => state.merchantAccount)
@@ -30,7 +32,7 @@ export default function MerchantConsole() {
   const newStoreDescription = useMerchantConsoleStore((state) => state.newStoreDescription)
   const stores = useMerchantConsoleStore((state) => state.stores)
   const storeOnboardingRequests = useMerchantConsoleStore((state) => state.storeOnboardingRequests)
-  const resetPage = useMerchantConsoleStore((state) => state.resetPage)
+  const prepareForSession = useMerchantConsoleStore((state) => state.prepareForSession)
   const setActiveTab = useMerchantConsoleStore((state) => state.setActiveTab)
   const setIsStoreDialogOpen = useMerchantConsoleStore((state) => state.setIsStoreDialogOpen)
   const setSelectedStoreId = useMerchantConsoleStore((state) => state.setSelectedStoreId)
@@ -44,13 +46,14 @@ export default function MerchantConsole() {
   const acceptOrder = useMerchantConsoleStore((state) => state.acceptOrder)
   const rejectOrder = useMerchantConsoleStore((state) => state.rejectOrder)
   const finishCooking = useMerchantConsoleStore((state) => state.finishCooking)
+  const delayPrep = useMerchantConsoleStore((state) => state.delayPrep)
   const updateProduct = useMerchantConsoleStore((state) => state.updateProduct)
   const uploadProductImageFile = useMerchantConsoleStore((state) => state.uploadProductImageFile)
 
   useEffect(() => {
-    resetPage()
+    prepareForSession(session?.account ?? null)
     void bootstrap()
-  }, [bootstrap, resetPage])
+  }, [bootstrap, prepareForSession, session?.account])
 
   useEffect(() => {
     const tab = searchParams.get('tab')
@@ -191,8 +194,8 @@ export default function MerchantConsole() {
         <TabsContent value="orders">
           <OrdersTab
             selectedStore={selectedStore}
-            onAcceptOrder={(orderId) => {
-              void acceptOrder(orderId)
+            onAcceptOrder={(orderId, prepMinutes) => {
+              void acceptOrder(orderId, prepMinutes)
                 .then(() => showNotice('已接单，订单进入制作中。', 'success'))
                 .catch((error) => showNotice(error instanceof Error ? error.message : '接单失败', 'error'))
             }}
@@ -205,6 +208,11 @@ export default function MerchantConsole() {
               void finishCooking(orderId)
                 .then(() => showNotice('订单已进入待骑手接单状态。', 'success'))
                 .catch((error) => showNotice(error instanceof Error ? error.message : '出餐完成失败', 'error'))
+            }}
+            onDelayPrep={(orderId, extraMinutes, reason) => {
+              void delayPrep(orderId, extraMinutes, reason)
+                .then(() => showNotice('已通知顾客备餐延迟。', 'success'))
+                .catch((error) => showNotice(error instanceof Error ? error.message : '延迟备餐失败', 'error'))
             }}
           />
         </TabsContent>

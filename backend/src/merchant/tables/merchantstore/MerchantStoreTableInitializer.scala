@@ -39,6 +39,9 @@ object MerchantStoreTableInitializer:
       |  description TEXT NOT NULL DEFAULT '',
       |  announcement TEXT NOT NULL DEFAULT '',
       |  promotions JSONB NOT NULL DEFAULT '[]'::jsonb,
+      |  business_status VARCHAR(32) NOT NULL DEFAULT 'open',
+      |  weekly_business_hours JSONB NOT NULL DEFAULT '[]'::jsonb,
+      |  holiday_business_hours JSONB NOT NULL DEFAULT '[]'::jsonb,
       |  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       |);
       |
@@ -48,6 +51,12 @@ object MerchantStoreTableInitializer:
       |ALTER TABLE catalog_merchants ADD COLUMN IF NOT EXISTS announcement TEXT NOT NULL DEFAULT '';
       |ALTER TABLE merchant_stores ADD COLUMN IF NOT EXISTS promotions JSONB NOT NULL DEFAULT '[]'::jsonb;
       |ALTER TABLE catalog_merchants ADD COLUMN IF NOT EXISTS promotions JSONB NOT NULL DEFAULT '[]'::jsonb;
+      |ALTER TABLE merchant_stores ADD COLUMN IF NOT EXISTS business_status VARCHAR(32) NOT NULL DEFAULT 'open';
+      |ALTER TABLE catalog_merchants ADD COLUMN IF NOT EXISTS business_status VARCHAR(32) NOT NULL DEFAULT 'open';
+      |ALTER TABLE merchant_stores ADD COLUMN IF NOT EXISTS weekly_business_hours JSONB NOT NULL DEFAULT '[]'::jsonb;
+      |ALTER TABLE catalog_merchants ADD COLUMN IF NOT EXISTS weekly_business_hours JSONB NOT NULL DEFAULT '[]'::jsonb;
+      |ALTER TABLE merchant_stores ADD COLUMN IF NOT EXISTS holiday_business_hours JSONB NOT NULL DEFAULT '[]'::jsonb;
+      |ALTER TABLE catalog_merchants ADD COLUMN IF NOT EXISTS holiday_business_hours JSONB NOT NULL DEFAULT '[]'::jsonb;
       |
       |CREATE INDEX IF NOT EXISTS merchant_stores_owner_username_idx ON merchant_stores(owner_username);
       |""".stripMargin

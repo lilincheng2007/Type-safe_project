@@ -18,6 +18,7 @@ object AdminRoutes:
     apiWithRole[AdminRefundRequestsAPIMessage, AdminRefundRequestsResponse]("admin"),
     apiWithRole[AdminRefundAcceptAPIMessage, OkResponse]("admin"),
     apiWithRole[AdminRefundRejectAPIMessage, OkResponse]("admin"),
+    apiWithRole[AdminOrderMonitorAPIMessage, AdminOrderMonitorResponse]("admin"),
     apiWithRole[AdminPlatformPromotionsAPIMessage, PlatformPromotionsResponse]("admin"),
     apiWithRole[AdminPlatformPromotionsUpdateAPIMessage, OkResponse]("admin")
   )

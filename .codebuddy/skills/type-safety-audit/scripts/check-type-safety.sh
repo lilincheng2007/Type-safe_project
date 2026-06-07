@@ -208,6 +208,20 @@ old_imports=$(grep -rn "@/api/\|frontend/src/api\|src/api" "$FRONTEND" --include
 [ -z "$old_imports" ] && pass "前端无旧 API 路径导入" || { fail "前端存在旧 API 路径导入"; echo "$old_imports"; }
 
 echo ""
+
+# 检查 7: Unsafe 组件与逃逸口
+echo "--- 检查 7: Unsafe 组件与逃逸口 ---"
+frontend_unsafe=$(grep -rnE "Unsafe|Unsfe|dangerouslySetInnerHTML|eval[[:space:]]*\(|new[[:space:]]+Function[[:space:]]*\(|as[[:space:]]+any|@ts-ignore|@ts-expect-error" "$FRONTEND" --include='*.ts' --include='*.tsx' 2>/dev/null | head -20 || true)
+backend_unsafe=$(grep -rnE "Unsafe|Unsfe|unsafeRun|unsafeFromString|asInstanceOf" "$BACKEND" --include='*.scala' 2>/dev/null | head -20 || true)
+if [ -z "$frontend_unsafe$backend_unsafe" ]; then
+  pass "未发现 Unsafe 组件、Unsfe 拼写、危险 DOM/JS 逃逸或后端 unsafe API"
+else
+  fail "发现 Unsafe 组件或类型安全逃逸口"
+  [ -n "$frontend_unsafe" ] && echo "$frontend_unsafe"
+  [ -n "$backend_unsafe" ] && echo "$backend_unsafe"
+fi
+
+echo ""
 echo "========================================="
 echo " 检查结果: $PASS 通过, $FAIL 失败"
 echo "========================================="

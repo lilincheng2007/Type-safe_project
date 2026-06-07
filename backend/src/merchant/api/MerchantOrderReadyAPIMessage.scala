@@ -1,6 +1,7 @@
 package delivery.merchant.api
 
 import cats.effect.IO
+import delivery.order.api.OrderStatusTransitionService
 import delivery.order.tables.order.OrderTable
 import delivery.shared.api.{APIWithRoleMessage, HttpApiError}
 import delivery.shared.objects.{OrderId, OrderStatus}
@@ -16,8 +17,5 @@ final case class MerchantOrderReadyAPIMessage(orderId: OrderId) extends APIWithR
         case None        => IO.raiseError(HttpApiError.BadRequest("未找到订单"))
       }
       _ <- MerchantAPIMessageSupport.requireOwnedStore(connection, username, order.merchantId)
-      _ <-
-        if MerchantAPIMessageSupport.canFinishCooking(order.status) then IO.unit
-        else IO.raiseError(HttpApiError.BadRequest(s"当前状态不可执行出餐完成：${order.status}"))
-      _ <- OrderTable.upsert(connection, order.copy(status = OrderStatus.待骑手接单))
+      _ <- OrderStatusTransitionService.transition(connection, order, OrderStatus.待骑手接单, actorRole = "merchant")
     yield OkResponse(ok = true)

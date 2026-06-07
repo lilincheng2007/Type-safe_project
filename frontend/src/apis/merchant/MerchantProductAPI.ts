@@ -1,7 +1,7 @@
 import { APIMessage } from '@/apis/shared/APIMessage'
 import type { TaskIO } from '@/apis/shared/TaskIO'
 import { sendAPI } from '@/apis/shared/sendAPI'
-import type { Product, ProductBundleGroup } from '@/objects/merchant/Product'
+import type { Product, ProductBundleGroup, ProductInventoryMode } from '@/objects/merchant/Product'
 import type { UpdateProductRequest } from '@/objects/merchant/apiTypes/UpdateProductRequest'
 import type { ListingStatus, ProductId } from '@/objects/shared/ids'
 
@@ -15,6 +15,8 @@ class MerchantProductAPI extends APIMessage<Product> {
   readonly price: number
   readonly remainingStock: number
   readonly listingStatus: ListingStatus
+  readonly inventoryMode?: ProductInventoryMode
+  readonly maxPerOrder?: number | null
   readonly bundleGroups: ProductBundleGroup[]
 
   constructor(
@@ -26,6 +28,8 @@ class MerchantProductAPI extends APIMessage<Product> {
     price: number,
     remainingStock: number,
     listingStatus: ListingStatus,
+    inventoryMode?: ProductInventoryMode,
+    maxPerOrder?: number | null,
     bundleGroups: ProductBundleGroup[] = [],
   ) {
     super()
@@ -37,6 +41,8 @@ class MerchantProductAPI extends APIMessage<Product> {
     this.price = price
     this.remainingStock = remainingStock
     this.listingStatus = listingStatus
+    this.inventoryMode = inventoryMode
+    this.maxPerOrder = maxPerOrder
     this.bundleGroups = bundleGroups
   }
 }
@@ -52,6 +58,8 @@ export function updateMerchantProductIO(productId: ProductId, input: UpdateProdu
       input.price,
       input.remainingStock,
       input.listingStatus,
+      input.inventoryMode,
+      input.maxPerOrder,
       input.bundleGroups ?? [],
     ),
   )

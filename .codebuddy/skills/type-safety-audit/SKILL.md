@@ -1,6 +1,6 @@
 ---
 name: type-safety-audit
-description: "审计 Type-safe_project 的前后端类型安全与 sample 风格结构一致性。检查后端 XxxAPIMessage.scala 与前端 src/apis/XxxAPI.ts 是否一一对应，objects 与 objects/apiTypes 是否前后端对齐，页面是否按 components/hooks/objects/functions 拆分，是否存在硬编码字符串替代枚举、前端 state 越权替代后端逻辑、路由绕过 APIMessage、README/规则过时等问题。"
+description: "审计 Type-safe_project 的前后端类型安全与 sample 风格结构一致性。检查后端 XxxAPIMessage.scala 与前端 src/apis/XxxAPI.ts 是否一一对应，objects 与 objects/apiTypes 是否前后端对齐，页面是否按 components/hooks/objects/functions 拆分，是否存在 Unsafe/Unsfe 组件或类型安全逃逸口、硬编码字符串替代枚举、前端 state 越权替代后端逻辑、路由绕过 APIMessage、README/规则过时等问题。"
 ---
 
 # Type-Safe Project 类型安全审计 Skill
@@ -80,12 +80,20 @@ description: "审计 Type-safe_project 的前后端类型安全与 sample 风格
 - 静态资源路由可作为明确例外，例如商户上传图片访问路由。
 - 当前前端 `apiNameOf()` 使用显式 `apiName`，不依赖 `constructor.name`，无需强制 `keep_classnames`。
 
+### 检查 7：Unsafe 组件与类型安全逃逸口
+
+规则：
+- 禁止前端新增或使用名称包含 `Unsafe` / `Unsfe` 的组件、函数、文件或导出。
+- 禁止前端使用 `dangerouslySetInnerHTML`、`eval(...)`、`new Function(...)`、`as any`、`@ts-ignore`、`@ts-expect-error` 绕过类型与渲染安全。
+- 禁止后端使用 `unsafeRun*`、`Uri.unsafeFromString`、`asInstanceOf` 等绕过 IO/解析/类型安全的逃逸口。
+- 如确有第三方库适配需求，应封装为具名 safe helper，并用显式校验、`Either` / `IO.fromEither` 或 typed wrapper 消除 unsafe 调用。
+
 ## 工作流
 
 1. 读取 `references/fe-be-contract-map.md` 获取当前契约快照。
 2. 读取 `references/type-safety-issues-catalog.md` 获取常见问题与修复方式。
 3. 执行 `scripts/check-type-safety.sh /Users/leonli/Desktop/Type-safe_project`。
-4. 若失败，优先修复：API 文件对齐 → objects/apiTypes 分层 → 前端越权状态 → 枚举/ID 使用 → 文档过时。
+4. 若失败，优先修复：API 文件对齐 → objects/apiTypes 分层 → Unsafe/Unsfe 与类型安全逃逸口 → 前端越权状态 → 枚举/ID 使用 → 文档过时。
 5. 修复后同时运行前端 `npm run typecheck --prefix frontend` 与后端 `cd backend && sbt -batch compile`。
 
 ## 参考文件

@@ -1,6 +1,7 @@
 import type { InventoryStatus, ListingStatus, MerchantId, ProductId } from '@/objects/shared/ids'
 
 export type ProductBundleGroupSelectionType = 'fixed' | 'repeatable' | 'nonRepeatable'
+export type ProductInventoryMode = 'unlimited' | 'finite' | 'soldOut'
 
 export interface ProductBundleOption {
   productId: ProductId
@@ -30,6 +31,8 @@ export interface Product {
   remainingStock: number
   listingStatus: ListingStatus
   inventoryStatus: InventoryStatus
+  inventoryMode?: ProductInventoryMode
+  maxPerOrder?: number | null
   discountText?: string
   bundleGroups?: ProductBundleGroup[]
 }

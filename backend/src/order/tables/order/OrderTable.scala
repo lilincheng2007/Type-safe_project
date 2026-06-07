@@ -2,7 +2,7 @@ package delivery.order.tables.order
 
 import cats.effect.IO
 import cats.syntax.all.*
-import delivery.order.objects.Order
+import delivery.order.objects.{Order, OrderPriceBreakdown, OrderPriceSnapshot, OrderTimelineEvent}
 import delivery.order.tables.orderitem.OrderItemTable
 import delivery.shared.json.ApiJsonCodecs.given
 import delivery.shared.objects.{MerchantId, OrderId, OrderStatus, Promotion, RefundStatus, RiderId, UserId, Voucher}
@@ -21,11 +21,13 @@ object OrderTable:
       |  total_amount, delivery_address, status, placed_at,
       |  original_amount, discount_amount, payable_amount, used_voucher,
       |  merchant_discount_amount, platform_discount_amount, merchant_receivable_amount, applied_promotions, points_awarded,
+      |  price_snapshot, price_breakdown,
       |  refund_status, refund_reason, refund_image_url, refund_requested_at,
       |  refund_merchant_reason, refund_merchant_reviewed_at, refund_admin_reason, refunded_at,
-      |  customer_note_text, customer_note_image_url, updated_at
+      |  customer_note_text, customer_note_image_url, status_timeline,
+      |  estimated_prep_minutes, estimated_ready_at, prep_delay_reason, prep_delayed_at, prep_timeout_notified_at, updated_at
       |)
-      |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
+      |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
       |ON CONFLICT (id) DO UPDATE SET
       |  customer_id = EXCLUDED.customer_id,
       |  customer_name = EXCLUDED.customer_name,
@@ -45,6 +47,8 @@ object OrderTable:
       |  merchant_receivable_amount = EXCLUDED.merchant_receivable_amount,
       |  applied_promotions = EXCLUDED.applied_promotions,
       |  points_awarded = EXCLUDED.points_awarded,
+      |  price_snapshot = EXCLUDED.price_snapshot,
+      |  price_breakdown = EXCLUDED.price_breakdown,
       |  refund_status = EXCLUDED.refund_status,
       |  refund_reason = EXCLUDED.refund_reason,
       |  refund_image_url = EXCLUDED.refund_image_url,
@@ -55,6 +59,12 @@ object OrderTable:
       |  refunded_at = EXCLUDED.refunded_at,
       |  customer_note_text = EXCLUDED.customer_note_text,
       |  customer_note_image_url = EXCLUDED.customer_note_image_url,
+      |  status_timeline = EXCLUDED.status_timeline,
+      |  estimated_prep_minutes = EXCLUDED.estimated_prep_minutes,
+      |  estimated_ready_at = EXCLUDED.estimated_ready_at,
+      |  prep_delay_reason = EXCLUDED.prep_delay_reason,
+      |  prep_delayed_at = EXCLUDED.prep_delayed_at,
+      |  prep_timeout_notified_at = EXCLUDED.prep_timeout_notified_at,
       |  updated_at = now()
       |""".stripMargin
 
@@ -74,9 +84,11 @@ object OrderTable:
       |       total_amount, delivery_address, status, placed_at,
       |       original_amount, discount_amount, payable_amount, used_voucher,
       |       merchant_discount_amount, platform_discount_amount, merchant_receivable_amount, applied_promotions, points_awarded,
+      |       price_snapshot, price_breakdown,
       |       refund_status, refund_reason, refund_image_url, refund_requested_at,
       |       refund_merchant_reason, refund_merchant_reviewed_at, refund_admin_reason, refunded_at,
-      |       customer_note_text, customer_note_image_url
+      |       customer_note_text, customer_note_image_url, status_timeline,
+      |       estimated_prep_minutes, estimated_ready_at, prep_delay_reason, prep_delayed_at, prep_timeout_notified_at
       |FROM orders
       |""".stripMargin
 
@@ -238,36 +250,58 @@ object OrderTable:
     statement.setDouble(17, order.merchantReceivableAmount)
     statement.setObject(18, jsonb(order.appliedPromotions.asJson.noSpaces))
     statement.setInt(19, order.pointsAwarded)
+    order.priceSnapshot match
+      case Some(value) => statement.setObject(20, jsonb(value.asJson.noSpaces))
+      case None        => statement.setNull(20, java.sql.Types.OTHER)
+    order.priceBreakdown match
+      case Some(value) => statement.setObject(21, jsonb(value.asJson.noSpaces))
+      case None        => statement.setNull(21, java.sql.Types.OTHER)
     order.refundStatus match
-      case Some(value) => statement.setString(20, value.toString)
-      case None        => statement.setNull(20, java.sql.Types.VARCHAR)
-    order.refundReason match
-      case Some(value) => statement.setString(21, value)
-      case None        => statement.setNull(21, java.sql.Types.VARCHAR)
-    order.refundImageUrl match
-      case Some(value) => statement.setString(22, value)
+      case Some(value) => statement.setString(22, value.toString)
       case None        => statement.setNull(22, java.sql.Types.VARCHAR)
-    order.refundRequestedAt match
+    order.refundReason match
       case Some(value) => statement.setString(23, value)
       case None        => statement.setNull(23, java.sql.Types.VARCHAR)
-    order.refundMerchantReason match
+    order.refundImageUrl match
       case Some(value) => statement.setString(24, value)
       case None        => statement.setNull(24, java.sql.Types.VARCHAR)
-    order.refundMerchantReviewedAt match
+    order.refundRequestedAt match
       case Some(value) => statement.setString(25, value)
       case None        => statement.setNull(25, java.sql.Types.VARCHAR)
-    order.refundAdminReason match
+    order.refundMerchantReason match
       case Some(value) => statement.setString(26, value)
       case None        => statement.setNull(26, java.sql.Types.VARCHAR)
-    order.refundedAt match
+    order.refundMerchantReviewedAt match
       case Some(value) => statement.setString(27, value)
       case None        => statement.setNull(27, java.sql.Types.VARCHAR)
-    order.customerNoteText match
+    order.refundAdminReason match
       case Some(value) => statement.setString(28, value)
       case None        => statement.setNull(28, java.sql.Types.VARCHAR)
-    order.customerNoteImageUrl match
+    order.refundedAt match
       case Some(value) => statement.setString(29, value)
       case None        => statement.setNull(29, java.sql.Types.VARCHAR)
+    order.customerNoteText match
+      case Some(value) => statement.setString(30, value)
+      case None        => statement.setNull(30, java.sql.Types.VARCHAR)
+    order.customerNoteImageUrl match
+      case Some(value) => statement.setString(31, value)
+      case None        => statement.setNull(31, java.sql.Types.VARCHAR)
+    statement.setObject(32, jsonb(order.statusTimeline.asJson.noSpaces))
+    order.estimatedPrepMinutes match
+      case Some(value) => statement.setInt(33, value)
+      case None        => statement.setNull(33, java.sql.Types.INTEGER)
+    order.estimatedReadyAt match
+      case Some(value) => statement.setString(34, value)
+      case None        => statement.setNull(34, java.sql.Types.VARCHAR)
+    order.prepDelayReason match
+      case Some(value) => statement.setString(35, value)
+      case None        => statement.setNull(35, java.sql.Types.VARCHAR)
+    order.prepDelayedAt match
+      case Some(value) => statement.setString(36, value)
+      case None        => statement.setNull(36, java.sql.Types.VARCHAR)
+    order.prepTimeoutNotifiedAt match
+      case Some(value) => statement.setString(37, value)
+      case None        => statement.setNull(37, java.sql.Types.VARCHAR)
 
   private def bindStrings(statement: PreparedStatement, values: List[String]): Unit =
     values.zipWithIndex.foreach { case (value, index) => statement.setString(index + 1, value) }
@@ -300,6 +334,9 @@ object OrderTable:
     val totalAmount = resultSet.getBigDecimal("total_amount").doubleValue()
     val usedVoucher = Option(resultSet.getString("used_voucher")).flatMap(raw => decode[Voucher](raw).toOption)
     val appliedPromotions = Option(resultSet.getString("applied_promotions")).flatMap(raw => decode[List[Promotion]](raw).toOption).getOrElse(Nil)
+    val priceSnapshot = Option(resultSet.getString("price_snapshot")).flatMap(raw => decode[OrderPriceSnapshot](raw).toOption)
+    val priceBreakdown = Option(resultSet.getString("price_breakdown")).flatMap(raw => decode[OrderPriceBreakdown](raw).toOption)
+    val statusTimeline = Option(resultSet.getString("status_timeline")).flatMap(raw => decode[List[OrderTimelineEvent]](raw).toOption).getOrElse(Nil)
     val payableAmount = Option(resultSet.getBigDecimal("payable_amount")).map(_.doubleValue()).getOrElse(totalAmount)
     Order(
       id = resultSet.getString("id"),
@@ -321,6 +358,8 @@ object OrderTable:
       platformDiscountAmount = Option(resultSet.getBigDecimal("platform_discount_amount")).map(_.doubleValue()).getOrElse(0),
       merchantReceivableAmount = Option(resultSet.getBigDecimal("merchant_receivable_amount")).map(_.doubleValue()).getOrElse(payableAmount),
       appliedPromotions = appliedPromotions,
+      priceSnapshot = priceSnapshot,
+      priceBreakdown = priceBreakdown,
       pointsAwarded = resultSet.getInt("points_awarded"),
       refundStatus = Option(resultSet.getString("refund_status")).flatMap(RefundStatus.fromString),
       refundReason = Option(resultSet.getString("refund_reason")),
@@ -331,7 +370,13 @@ object OrderTable:
       refundAdminReason = Option(resultSet.getString("refund_admin_reason")),
       refundedAt = Option(resultSet.getString("refunded_at")),
       customerNoteText = Option(resultSet.getString("customer_note_text")),
-      customerNoteImageUrl = Option(resultSet.getString("customer_note_image_url"))
+      customerNoteImageUrl = Option(resultSet.getString("customer_note_image_url")),
+      statusTimeline = statusTimeline,
+      estimatedPrepMinutes = Option(resultSet.getInt("estimated_prep_minutes")).filter(_ => !resultSet.wasNull()),
+      estimatedReadyAt = Option(resultSet.getString("estimated_ready_at")),
+      prepDelayReason = Option(resultSet.getString("prep_delay_reason")),
+      prepDelayedAt = Option(resultSet.getString("prep_delayed_at")),
+      prepTimeoutNotifiedAt = Option(resultSet.getString("prep_timeout_notified_at"))
     )
 
   private def jsonb(value: String): PGobject =
@@ -339,5 +384,3 @@ object OrderTable:
     pg.setType("jsonb")
     pg.setValue(value)
     pg
-
-end OrderTable

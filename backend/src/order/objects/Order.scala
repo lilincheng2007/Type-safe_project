@@ -22,6 +22,8 @@ final case class Order(
     platformDiscountAmount: Double = 0,
     merchantReceivableAmount: Double = 0,
     appliedPromotions: List[Promotion] = Nil,
+    priceSnapshot: Option[OrderPriceSnapshot] = None,
+    priceBreakdown: Option[OrderPriceBreakdown] = None,
     pointsAwarded: Int = 0,
     refundStatus: Option[RefundStatus] = None,
     refundReason: Option[String] = None,
@@ -32,5 +34,11 @@ final case class Order(
     refundAdminReason: Option[String] = None,
     refundedAt: Option[String] = None,
     customerNoteText: Option[String] = None,
-    customerNoteImageUrl: Option[String] = None
+    customerNoteImageUrl: Option[String] = None,
+    statusTimeline: List[OrderTimelineEvent] = Nil,
+    estimatedPrepMinutes: Option[Int] = None,
+    estimatedReadyAt: Option[String] = None,
+    prepDelayReason: Option[String] = None,
+    prepDelayedAt: Option[String] = None,
+    prepTimeoutNotifiedAt: Option[String] = None
 )

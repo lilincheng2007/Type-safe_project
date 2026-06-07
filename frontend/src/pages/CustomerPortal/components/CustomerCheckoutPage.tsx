@@ -14,6 +14,7 @@ import { useAppChrome } from '@/hooks/useAppChrome'
 import { appendContact, normalizedDeliveryContacts } from '@/lib/deliveryContacts'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
 import { bundleLineUnitPrice, bundleSelectionSummary } from '@/lib/bundles'
+import { createOrderPriceBreakdown, priceBreakdownAmountClassName, priceBreakdownAmountText } from '@/lib/order-price-breakdown'
 import { bestPromotion, promotionDisplayName, promotionSummary, roundMoney } from '@/lib/promotions'
 import type { CheckoutBundleSelection } from '@/objects/order/CheckoutLine'
 import type { MerchantId } from '@/objects/shared/ids'
@@ -119,6 +120,14 @@ export default function CustomerCheckoutPage() {
   const platformDiscount = platformPromotion?.discountAmount ?? 0
   const discount = roundMoney(merchantDiscount + voucherDiscount + platformDiscount)
   const payable = Math.max(0, roundMoney(total - discount))
+  const checkoutPriceBreakdown = createOrderPriceBreakdown({
+    productOriginalAmount: total,
+    merchantDiscountAmount: merchantDiscount,
+    voucherDiscountAmount: voucherDiscount,
+    platformDiscountAmount: platformDiscount,
+    deliveryFeeAmount: 0,
+    payableAmount: payable,
+  })
   const estimatedPoints = Math.floor(payable)
   const insufficient = walletBalance < payable
   const merchantIdsInOrder = useMemo(() => [...new Set(lines.map((line) => line.merchantId))], [lines])
@@ -513,26 +522,20 @@ export default function CustomerCheckoutPage() {
             <CardTitle className="text-lg">金额</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">商品总金额</span>
-              <span className="tabular-nums text-foreground">¥{total.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span>商家优惠</span>
-              <span className="tabular-nums text-green-600">-¥{merchantDiscount.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span>平台/优惠券抵扣</span>
-              <span className="tabular-nums text-green-600">-¥{(voucherDiscount + platformDiscount).toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span>优惠抵扣合计</span>
-              <span className="tabular-nums text-green-600">-¥{discount.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-xl bg-orange-50 px-3 py-2">
-              <span className="font-medium text-orange-900">实付金额</span>
-              <span className="text-xl font-semibold tabular-nums text-primary">¥{payable.toFixed(2)}</span>
-            </div>
+            {checkoutPriceBreakdown.lines.map((line) => {
+              const isTotal = line.kind === 'total'
+              return (
+                <div
+                  key={line.key}
+                  className={isTotal ? 'flex items-center justify-between rounded-xl bg-orange-50 px-3 py-2' : 'flex items-center justify-between text-muted-foreground'}
+                >
+                  <span className={isTotal ? 'font-medium text-orange-900' : undefined}>{line.label}</span>
+                  <span className={`tabular-nums ${isTotal ? 'text-xl font-semibold text-primary' : priceBreakdownAmountClassName(line)}`}>
+                    {priceBreakdownAmountText(line)}
+                  </span>
+                </div>
+              )
+            })}
             <div className="flex items-center justify-between text-muted-foreground">
               <span>预计获得积分</span>
               <span className="tabular-nums text-orange-600">+{estimatedPoints}</span>

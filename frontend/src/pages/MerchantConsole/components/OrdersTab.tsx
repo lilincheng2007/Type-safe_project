@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { OrderChatUnreadBadge } from '@/components/OrderChatUnreadBadge'
 import { OrderNoteDialog } from '@/components/OrderNoteDialog'
@@ -22,9 +24,10 @@ import { useOrderChatUnreadCounts } from '@/hooks/useOrderChatUnreadCounts'
 
 type OrdersTabProps = {
   selectedStore: MerchantStoreProfile | null
-  onAcceptOrder: (orderId: OrderId) => void
+  onAcceptOrder: (orderId: OrderId, prepMinutes?: number) => void
   onRejectOrder: (orderId: OrderId) => void
   onFinishCooking: (orderId: OrderId) => void
+  onDelayPrep: (orderId: OrderId, extraMinutes: number, reason: string) => void
 }
 
 const CollapsedListLimit = 3
@@ -32,6 +35,8 @@ const CollapsedListLimit = 3
 function orderItemSummary(order: Order): string {
   return order.items.map((item) => `${item.name}×${item.quantity}`).join('、')
 }
+
+const prepTimeOptions = [10, 15, 20, 30]
 
 function statusHint(order: Order): string {
   if (order.status === OrderStatuses.waitingForMerchantAcceptance) {
@@ -65,6 +70,8 @@ function OrderCard({ order, children, onOpen }: { order: Order; children?: React
         </Badge>
       </div>
       <p className="mt-1 text-sm text-slate-600">{statusHint(order)}</p>
+      {order.estimatedReadyAt ? <p className="mt-1 text-xs font-medium text-orange-600">预计出餐：{order.estimatedReadyAt}</p> : null}
+      {order.prepDelayReason ? <p className="mt-1 text-xs font-medium text-amber-600">延迟原因：{order.prepDelayReason}</p> : null}
       <p className="mt-2 line-clamp-2 text-sm text-slate-500">{orderItemSummary(order)}</p>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="text-slate-500">下单时间 {order.placedAt}</span>
@@ -75,7 +82,7 @@ function OrderCard({ order, children, onOpen }: { order: Order; children?: React
   )
 }
 
-export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinishCooking }: OrdersTabProps) {
+export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinishCooking, onDelayPrep }: OrdersTabProps) {
   const navigate = useNavigate()
   const { unreadFor } = useOrderChatUnreadCounts()
   const merchantPendingOrders = selectedStore?.pendingOrders ?? []
@@ -93,6 +100,9 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
   const [showAllFulfillmentOrders, setShowAllFulfillmentOrders] = useState(false)
   const [showAllHistoryOrders, setShowAllHistoryOrders] = useState(false)
   const [noteTargetOrder, setNoteTargetOrder] = useState<Order | null>(null)
+  const [prepMinutesByOrder, setPrepMinutesByOrder] = useState<Record<string, string>>({})
+  const [delayReasonByOrder, setDelayReasonByOrder] = useState<Record<string, string>>({})
+  const [delayMinutesByOrder, setDelayMinutesByOrder] = useState<Record<string, string>>({})
   const displayedAwaitingMerchantOrders = showAllAwaitingMerchantOrders ? awaitingMerchantOrders : awaitingMerchantOrders.slice(0, CollapsedListLimit)
   const displayedCookingOrders = showAllCookingOrders ? activeCookingOrders : activeCookingOrders.slice(0, CollapsedListLimit)
   const displayedFulfillmentOrders = showAllFulfillmentOrders ? fulfillmentOrders : fulfillmentOrders.slice(0, CollapsedListLimit)
@@ -164,12 +174,42 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
             displayedAwaitingMerchantOrders.map((order) => (
               <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
                 {renderContactActions(order)}
+                <div className="flex w-full flex-wrap items-end gap-2 rounded-lg border border-orange-100 bg-orange-50/60 p-2" onClick={(event) => event.stopPropagation()}>
+                  <div className="min-w-40 flex-1 space-y-1">
+                    <Label className="text-xs text-slate-600">预计备餐时间</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {prepTimeOptions.map((minutes) => (
+                        <Button
+                          key={`${order.id}-${minutes}`}
+                          type="button"
+                          size="sm"
+                          variant={(prepMinutesByOrder[order.id] ?? '15') === String(minutes) ? 'default' : 'outline'}
+                          onClick={() => setPrepMinutesByOrder((current) => ({ ...current, [order.id]: String(minutes) }))}
+                        >
+                          {minutes} 分钟
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="w-28 space-y-1">
+                    <Label htmlFor={`prep-custom-${order.id}`} className="text-xs text-slate-600">自定义</Label>
+                    <Input
+                      id={`prep-custom-${order.id}`}
+                      type="number"
+                      min={1}
+                      max={180}
+                      value={prepMinutesByOrder[order.id] ?? '15'}
+                      onChange={(event) => setPrepMinutesByOrder((current) => ({ ...current, [order.id]: event.target.value }))}
+                    />
+                  </div>
+                </div>
                 <Button
                   size="sm"
                   className="bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-sm hover:from-orange-600 hover:to-rose-600"
                   onClick={(event) => {
                     event.stopPropagation()
-                    onAcceptOrder(order.id)
+                    const prepMinutes = Number.parseInt(prepMinutesByOrder[order.id] ?? '15', 10)
+                    onAcceptOrder(order.id, Number.isFinite(prepMinutes) ? prepMinutes : 15)
                   }}
                 >
                   <CheckCircle2 className="mr-1 size-4" />
@@ -220,6 +260,39 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
             displayedCookingOrders.map((order) => (
               <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
                 {renderContactActions(order)}
+                <div className="flex w-full flex-wrap items-end gap-2 rounded-lg border border-amber-100 bg-amber-50/60 p-2" onClick={(event) => event.stopPropagation()}>
+                  <div className="w-28 space-y-1">
+                    <Label htmlFor={`delay-minutes-${order.id}`} className="text-xs text-slate-600">延迟分钟</Label>
+                    <Input
+                      id={`delay-minutes-${order.id}`}
+                      type="number"
+                      min={1}
+                      max={180}
+                      value={delayMinutesByOrder[order.id] ?? '10'}
+                      onChange={(event) => setDelayMinutesByOrder((current) => ({ ...current, [order.id]: event.target.value }))}
+                    />
+                  </div>
+                  <div className="min-w-48 flex-1 space-y-1">
+                    <Label htmlFor={`delay-reason-${order.id}`} className="text-xs text-slate-600">延迟原因</Label>
+                    <Input
+                      id={`delay-reason-${order.id}`}
+                      value={delayReasonByOrder[order.id] ?? ''}
+                      placeholder="如：高峰期排队、现做耗时"
+                      onChange={(event) => setDelayReasonByOrder((current) => ({ ...current, [order.id]: event.target.value }))}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const minutes = Number.parseInt(delayMinutesByOrder[order.id] ?? '10', 10)
+                      onDelayPrep(order.id, Number.isFinite(minutes) ? minutes : 10, delayReasonByOrder[order.id] ?? '')
+                    }}
+                  >
+                    通知延迟
+                  </Button>
+                </div>
                 <Button
                   size="sm"
                   variant="outline"

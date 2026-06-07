@@ -14,5 +14,8 @@ final case class Merchant(
     imageUrl: Option[String],
     description: String = "",
     announcement: String = "",
-    promotions: List[Promotion] = Nil
+    promotions: List[Promotion] = Nil,
+    businessStatus: String = "open",
+    weeklyBusinessHours: List[MerchantWeeklyBusinessHour] = Nil,
+    holidayBusinessHours: List[MerchantHolidayBusinessHour] = Nil
 )

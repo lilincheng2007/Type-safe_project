@@ -130,6 +130,11 @@ object ApiJsonCodecs:
 
   given Codec[ProductBundleGroup] = Codec.from(productBundleGroupDecoder, productBundleGroupEncoder)
   given Codec[OrderItem] = deriveCodec
+  given Codec[OrderPriceSnapshotItem] = deriveCodec
+  given Codec[OrderPriceSnapshot] = deriveCodec
+  given Codec[OrderPriceBreakdownLine] = deriveCodec
+  given Codec[OrderPriceBreakdown] = deriveCodec
+  given Codec[OrderTimelineEvent] = deriveCodec
 
   private val orderDecoder0: Decoder[Order] = Decoder.instance { c =>
     for
@@ -152,6 +157,8 @@ object ApiJsonCodecs:
       platformDiscountAmount <- c.downField("platformDiscountAmount").as[Option[Double]]
       merchantReceivableAmount <- c.downField("merchantReceivableAmount").as[Option[Double]]
       appliedPromotions <- c.downField("appliedPromotions").as[Option[List[Promotion]]]
+      priceSnapshot <- c.downField("priceSnapshot").as[Option[OrderPriceSnapshot]]
+      priceBreakdown <- c.downField("priceBreakdown").as[Option[OrderPriceBreakdown]]
       pointsAwarded <- c.downField("pointsAwarded").as[Option[Int]]
       refundStatus <- c.downField("refundStatus").as[Option[RefundStatus]]
       refundReason <- c.downField("refundReason").as[Option[String]]
@@ -163,6 +170,12 @@ object ApiJsonCodecs:
       refundedAt <- c.downField("refundedAt").as[Option[String]]
       customerNoteText <- c.downField("customerNoteText").as[Option[String]]
       customerNoteImageUrl <- c.downField("customerNoteImageUrl").as[Option[String]]
+      statusTimeline <- c.downField("statusTimeline").as[Option[List[OrderTimelineEvent]]]
+      estimatedPrepMinutes <- c.downField("estimatedPrepMinutes").as[Option[Int]]
+      estimatedReadyAt <- c.downField("estimatedReadyAt").as[Option[String]]
+      prepDelayReason <- c.downField("prepDelayReason").as[Option[String]]
+      prepDelayedAt <- c.downField("prepDelayedAt").as[Option[String]]
+      prepTimeoutNotifiedAt <- c.downField("prepTimeoutNotifiedAt").as[Option[String]]
     yield Order(
       id,
       customerId,
@@ -183,6 +196,8 @@ object ApiJsonCodecs:
       platformDiscountAmount.getOrElse(0),
       merchantReceivableAmount.getOrElse(payableAmount.getOrElse(totalAmount)),
       appliedPromotions.getOrElse(Nil),
+      priceSnapshot,
+      priceBreakdown,
       pointsAwarded.getOrElse(0),
       refundStatus,
       refundReason,
@@ -193,7 +208,13 @@ object ApiJsonCodecs:
       refundAdminReason,
       refundedAt,
       customerNoteText,
-      customerNoteImageUrl
+      customerNoteImageUrl,
+      statusTimeline.getOrElse(Nil),
+      estimatedPrepMinutes,
+      estimatedReadyAt,
+      prepDelayReason,
+      prepDelayedAt,
+      prepTimeoutNotifiedAt
     )
   }
 
@@ -218,6 +239,8 @@ object ApiJsonCodecs:
     fields += "platformDiscountAmount" -> o.platformDiscountAmount.asJson
     fields += "merchantReceivableAmount" -> o.merchantReceivableAmount.asJson
     fields += "appliedPromotions" -> o.appliedPromotions.asJson
+    o.priceSnapshot.foreach(value => fields += "priceSnapshot" -> value.asJson)
+    o.priceBreakdown.foreach(value => fields += "priceBreakdown" -> value.asJson)
     fields += "pointsAwarded" -> o.pointsAwarded.asJson
     o.refundStatus.foreach(status => fields += "refundStatus" -> status.asJson)
     o.refundReason.foreach(reason => fields += "refundReason" -> reason.asJson)
@@ -229,6 +252,12 @@ object ApiJsonCodecs:
     o.refundedAt.foreach(value => fields += "refundedAt" -> value.asJson)
     o.customerNoteText.foreach(value => fields += "customerNoteText" -> value.asJson)
     o.customerNoteImageUrl.foreach(value => fields += "customerNoteImageUrl" -> value.asJson)
+    fields += "statusTimeline" -> o.statusTimeline.asJson
+    o.estimatedPrepMinutes.foreach(value => fields += "estimatedPrepMinutes" -> value.asJson)
+    o.estimatedReadyAt.foreach(value => fields += "estimatedReadyAt" -> value.asJson)
+    o.prepDelayReason.foreach(value => fields += "prepDelayReason" -> value.asJson)
+    o.prepDelayedAt.foreach(value => fields += "prepDelayedAt" -> value.asJson)
+    o.prepTimeoutNotifiedAt.foreach(value => fields += "prepTimeoutNotifiedAt" -> value.asJson)
     Json.obj(fields.result()*)
   }
 
@@ -338,6 +367,7 @@ object ApiJsonCodecs:
 
   given Codec[CheckoutRequest] = Codec.from(checkoutRequestDecoder, checkoutRequestEncoder)
   given Codec[CheckoutResponse] = deriveCodec
+  given Codec[NotificationReadStatesResponse] = deriveCodec
   given Codec[CustomerOrdersResponse] = deriveCodec
   given Codec[OrderCancelResponse] = deriveCodec
   given Codec[OrderRefundRequestResponse] = deriveCodec
@@ -345,6 +375,8 @@ object ApiJsonCodecs:
   given Codec[OrderChatUnreadCountsResponse] = deriveCodec
 
   given Codec[Product] = deriveCodec
+  given Codec[MerchantWeeklyBusinessHour] = deriveCodec
+  given Codec[MerchantHolidayBusinessHour] = deriveCodec
 
   private val merchantDecoder0: Decoder[Merchant] = Decoder.instance { c =>
     for
@@ -360,7 +392,10 @@ object ApiJsonCodecs:
       description <- c.downField("description").as[Option[String]]
       announcement <- c.downField("announcement").as[Option[String]]
       promotions <- c.downField("promotions").as[Option[List[Promotion]]]
-    yield Merchant(id, storeName, category, address, phone, rating, tags, featuredProductIds, imageUrl, description.getOrElse(""), announcement.getOrElse(""), promotions.getOrElse(Nil))
+      businessStatus <- c.downField("businessStatus").as[Option[String]]
+      weeklyBusinessHours <- c.downField("weeklyBusinessHours").as[Option[List[MerchantWeeklyBusinessHour]]]
+      holidayBusinessHours <- c.downField("holidayBusinessHours").as[Option[List[MerchantHolidayBusinessHour]]]
+    yield Merchant(id, storeName, category, address, phone, rating, tags, featuredProductIds, imageUrl, description.getOrElse(""), announcement.getOrElse(""), promotions.getOrElse(Nil), businessStatus.getOrElse("open"), weeklyBusinessHours.getOrElse(Nil), holidayBusinessHours.getOrElse(Nil))
   }
 
   private val merchantEncoder0: Encoder[Merchant] = Encoder.instance { m =>
@@ -400,6 +435,8 @@ object ApiJsonCodecs:
   given Codec[StoreOnboardingRequest] = deriveCodec
   given Codec[StoreOnboardingRequestsResponse] = deriveCodec
   given Codec[AdminRefundRequestsResponse] = deriveCodec
+  given Codec[AdminOrderMonitorItem] = deriveCodec
+  given Codec[AdminOrderMonitorResponse] = deriveCodec
   given Codec[PlatformPromotionsResponse] = deriveCodec
 
   given Codec[MerchantReview] = deriveCodec

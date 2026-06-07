@@ -24,8 +24,6 @@ final case class OrderCompleteAPIMessage(orderId: OrderId) extends APIWithRoleMe
       }
       _ <-
         if order.customerId != account.profile.id then IO.raiseError(HttpApiError.BadRequest("无权操作该订单"))
-        else if order.status == OrderStatus.已完成 then IO.raiseError(HttpApiError.BadRequest("订单已完成"))
-        else if order.status != OrderStatus.已送达 then IO.raiseError(HttpApiError.BadRequest(s"当前状态不可确认完成：${order.status}"))
         else IO.unit
       earnedPoints = math.floor(if order.payableAmount > 0 then order.payableAmount else order.totalAmount).toInt
       currentPoints = account.profile.foodiePoints
@@ -34,7 +32,13 @@ final case class OrderCompleteAPIMessage(orderId: OrderId) extends APIWithRoleMe
       nextLevel = OrderAPIMessageSupport.levelOf(nextPoints)
       rewardCount = math.max(0, nextLevel - currentLevel)
       nextVouchers = VoucherSupport.addStandardPlatformVouchers(account.profile.id, account.profile.vouchers, rewardCount)
-      completedOrder = order.copy(status = OrderStatus.已完成, pointsAwarded = earnedPoints)
+      completedOrder <- OrderStatusTransitionService.transition(
+        connection,
+        order,
+        OrderStatus.已完成,
+        actorRole = "customer",
+        patch = _.copy(pointsAwarded = earnedPoints)
+      )
       nextAccount = account.copy(profile = account.profile.copy(
         pendingOrders = account.profile.pendingOrders.filterNot(_.id == orderId),
         historyOrders = completedOrder :: account.profile.historyOrders.filterNot(_.id == orderId),
@@ -42,7 +46,6 @@ final case class OrderCompleteAPIMessage(orderId: OrderId) extends APIWithRoleMe
         foodieLevel = nextLevel,
         vouchers = nextVouchers
       ))
-      _ <- OrderTable.upsert(connection, completedOrder)
       _ <- order.riderId match
         case Some(riderId) => RiderAssignmentTable.upsert(connection, riderId, completedOrder.id, completedOrder.status)
         case None          => IO.unit

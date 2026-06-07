@@ -21,6 +21,7 @@ object MerchantRoutes:
     apiWithRole[MerchantStoreOnboardingRequestsAPIMessage, StoreOnboardingRequestsResponse]("merchant"),
     apiWithRole[MerchantStoreDescriptionAPIMessage, OkResponse]("merchant"),
     apiWithRole[MerchantStoreAnnouncementAPIMessage, OkResponse]("merchant"),
+    apiWithRole[MerchantBusinessHoursAPIMessage, OkResponse]("merchant"),
     apiWithRole[MerchantStorePromotionsAPIMessage, OkResponse]("merchant"),
     apiWithRole[MerchantStoreImageAPIMessage, OkResponse]("merchant"),
     apiWithRole[MerchantStoreImageFileAPIMessage, String]("merchant"),
@@ -31,6 +32,7 @@ object MerchantRoutes:
     apiWithRole[MerchantOrderAcceptAPIMessage, OkResponse]("merchant"),
     apiWithRole[MerchantOrderRejectAPIMessage, OkResponse]("merchant"),
     apiWithRole[MerchantOrderReadyAPIMessage, OkResponse]("merchant"),
+    apiWithRole[MerchantOrderPrepDelayAPIMessage, OkResponse]("merchant"),
     apiWithRole[MerchantRefundRequestsAPIMessage, MerchantRefundRequestsResponse]("merchant"),
     apiWithRole[MerchantRefundAcceptAPIMessage, OkResponse]("merchant"),
     apiWithRole[MerchantRefundRejectAPIMessage, OkResponse]("merchant")

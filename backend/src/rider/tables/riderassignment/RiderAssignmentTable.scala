@@ -143,6 +143,27 @@ object RiderAssignmentTable:
       finally statement.close()
     }
 
+  private val listAllSql: String =
+    """
+      |SELECT rider_id, order_id, status, assigned_at, completed_at, deadline_at,
+      |       was_timeout, timeout_exempted, timeout_card_used, overtime_seconds
+      |FROM rider_assignments
+      |ORDER BY assigned_at DESC
+      |""".stripMargin
+
+  def listAll(connection: Connection): IO[List[RiderAssignmentRecord]] =
+    IO.blocking {
+      val statement = connection.prepareStatement(listAllSql)
+      try
+        val resultSet = statement.executeQuery()
+        try
+          val builder = List.newBuilder[RiderAssignmentRecord]
+          while resultSet.next() do builder += readRecord(resultSet)
+          builder.result()
+        finally resultSet.close()
+      finally statement.close()
+    }
+
   private def readRecord(resultSet: ResultSet): RiderAssignmentRecord =
     RiderAssignmentRecord(
       riderId = resultSet.getString("rider_id"),

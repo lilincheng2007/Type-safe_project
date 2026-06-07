@@ -18,6 +18,8 @@ final case class MerchantCreateProductAPIMessage(
     price: Double,
     remainingStock: Int,
     listingStatus: ListingStatus,
+    inventoryMode: Option[String] = None,
+    maxPerOrder: Option[Int] = None,
     bundleGroups: Option[List[ProductBundleGroup]] = None
 ) extends APIWithRoleMessage[Product]:
   override def plan(connection: Connection, username: String): IO[Product] =
@@ -29,6 +31,8 @@ final case class MerchantCreateProductAPIMessage(
         existingProducts <- CatalogProductTable.list(connection)
         productImageUrl <- MerchantAPIMessageSupport.validateProductImageUrl(imageUrl.getOrElse(""))
         productCategoryName = MerchantAPIMessageSupport.normalizeProductCategoryName(categoryName)
+        normalizedInventoryMode = MerchantAPIMessageSupport.normalizeInventoryMode(inventoryMode)
+        normalizedMaxPerOrder = MerchantAPIMessageSupport.normalizeMaxPerOrder(maxPerOrder)
         normalizedBundleGroups = bundleGroups.getOrElse(Nil)
         _ <- validateBundleGroups(normalizedBundleGroups, existingProducts, merchantId, None) match
           case Left(message) => IO.raiseError(HttpApiError.BadRequest(message))
@@ -43,9 +47,11 @@ final case class MerchantCreateProductAPIMessage(
           imageUrl = productImageUrl,
           categoryName = productCategoryName,
           monthlySales = 0,
-          remainingStock = remainingStock,
+          remainingStock = if normalizedInventoryMode == "unlimited" then 999999 else remainingStock,
           listingStatus = listingStatus,
-          inventoryStatus = MerchantAPIMessageSupport.inventoryStatus(remainingStock, listingStatus),
+          inventoryStatus = MerchantAPIMessageSupport.inventoryStatus(remainingStock, listingStatus, normalizedInventoryMode),
+          inventoryMode = normalizedInventoryMode,
+          maxPerOrder = normalizedMaxPerOrder,
           discountText = None,
           bundleGroups = normalizedBundleGroups
         )

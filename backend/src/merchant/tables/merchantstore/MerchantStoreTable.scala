@@ -16,9 +16,9 @@ object MerchantStoreTable:
     """
       |INSERT INTO merchant_stores (
       |  id, owner_username, store_name, category, address, phone, rating,
-      |  tags, featured_product_ids, image_url, description, announcement, promotions, updated_at
+      |  tags, featured_product_ids, image_url, description, announcement, promotions, business_status, weekly_business_hours, holiday_business_hours, updated_at
       |)
-      |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
+      |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
       |ON CONFLICT (id) DO UPDATE SET
       |  owner_username = EXCLUDED.owner_username,
       |  store_name = EXCLUDED.store_name,
@@ -32,15 +32,18 @@ object MerchantStoreTable:
       |  description = EXCLUDED.description,
       |  announcement = EXCLUDED.announcement,
       |  promotions = EXCLUDED.promotions,
+      |  business_status = EXCLUDED.business_status,
+      |  weekly_business_hours = EXCLUDED.weekly_business_hours,
+      |  holiday_business_hours = EXCLUDED.holiday_business_hours,
       |  updated_at = now()
       |""".stripMargin
 
   private val upsertCatalogSql: String =
     """
       |INSERT INTO catalog_merchants (
-      |  id, store_name, category, address, phone, rating, tags, featured_product_ids, image_url, description, announcement, promotions, updated_at
+      |  id, store_name, category, address, phone, rating, tags, featured_product_ids, image_url, description, announcement, promotions, business_status, weekly_business_hours, holiday_business_hours, updated_at
       |)
-      |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
+      |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
       |ON CONFLICT (id) DO UPDATE SET
       |  store_name = EXCLUDED.store_name,
       |  category = EXCLUDED.category,
@@ -53,6 +56,9 @@ object MerchantStoreTable:
       |  description = EXCLUDED.description,
       |  announcement = EXCLUDED.announcement,
       |  promotions = EXCLUDED.promotions,
+      |  business_status = EXCLUDED.business_status,
+      |  weekly_business_hours = EXCLUDED.weekly_business_hours,
+      |  holiday_business_hours = EXCLUDED.holiday_business_hours,
       |  updated_at = now()
       |""".stripMargin
 
@@ -90,7 +96,7 @@ object MerchantStoreTable:
 
   private val listCatalogSql: String =
     """
-      |SELECT id, store_name, category, address, phone, rating, tags, featured_product_ids, image_url, description, announcement, promotions
+      |SELECT id, store_name, category, address, phone, rating, tags, featured_product_ids, image_url, description, announcement, promotions, business_status, weekly_business_hours, holiday_business_hours
       |FROM catalog_merchants
       |ORDER BY updated_at DESC
       |""".stripMargin
@@ -110,7 +116,7 @@ object MerchantStoreTable:
 
   private val listByOwnerSql: String =
     """
-      |SELECT id, store_name, category, address, phone, rating, tags, featured_product_ids, image_url, description, announcement, promotions
+      |SELECT id, store_name, category, address, phone, rating, tags, featured_product_ids, image_url, description, announcement, promotions, business_status, weekly_business_hours, holiday_business_hours
       |FROM merchant_stores
       |WHERE owner_username = ?
       |ORDER BY updated_at DESC
@@ -148,6 +154,9 @@ object MerchantStoreTable:
         statement.setString(11, merchant.description)
         statement.setString(12, merchant.announcement)
         statement.setObject(13, jsonb(merchant.promotions.asJson.noSpaces))
+        statement.setString(14, merchant.businessStatus)
+        statement.setObject(15, jsonb(merchant.weeklyBusinessHours.asJson.noSpaces))
+        statement.setObject(16, jsonb(merchant.holidayBusinessHours.asJson.noSpaces))
       case None =>
         statement.setString(2, merchant.storeName)
         statement.setString(3, merchant.category.toString)
@@ -162,6 +171,9 @@ object MerchantStoreTable:
         statement.setString(10, merchant.description)
         statement.setString(11, merchant.announcement)
         statement.setObject(12, jsonb(merchant.promotions.asJson.noSpaces))
+        statement.setString(13, merchant.businessStatus)
+        statement.setObject(14, jsonb(merchant.weeklyBusinessHours.asJson.noSpaces))
+        statement.setObject(15, jsonb(merchant.holidayBusinessHours.asJson.noSpaces))
 
   private def readMerchant(resultSet: ResultSet): Merchant =
     Merchant(
@@ -176,7 +188,10 @@ object MerchantStoreTable:
       imageUrl = Option(resultSet.getString("image_url")),
       description = Option(resultSet.getString("description")).getOrElse(""),
       announcement = Option(resultSet.getString("announcement")).getOrElse(""),
-      promotions = Option(resultSet.getString("promotions")).flatMap(raw => decode[List[delivery.shared.objects.Promotion]](raw).toOption).getOrElse(Nil)
+      promotions = Option(resultSet.getString("promotions")).flatMap(raw => decode[List[delivery.shared.objects.Promotion]](raw).toOption).getOrElse(Nil),
+      businessStatus = Option(resultSet.getString("business_status")).getOrElse("open"),
+      weeklyBusinessHours = Option(resultSet.getString("weekly_business_hours")).flatMap(raw => decode[List[delivery.merchant.objects.MerchantWeeklyBusinessHour]](raw).toOption).getOrElse(Nil),
+      holidayBusinessHours = Option(resultSet.getString("holiday_business_hours")).flatMap(raw => decode[List[delivery.merchant.objects.MerchantHolidayBusinessHour]](raw).toOption).getOrElse(Nil)
     )
 
   private def jsonb(value: String): PGobject =

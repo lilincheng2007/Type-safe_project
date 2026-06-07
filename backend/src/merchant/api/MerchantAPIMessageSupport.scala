@@ -22,10 +22,19 @@ object MerchantAPIMessageSupport:
   def canFinishCooking(status: OrderStatus): Boolean =
     status == OrderStatus.制作中
 
-  def inventoryStatus(remainingStock: Int, listingStatus: ListingStatus): InventoryStatus =
-    if listingStatus == ListingStatus.下架 || remainingStock <= 0 then InventoryStatus.售罄
+  def inventoryStatus(remainingStock: Int, listingStatus: ListingStatus, inventoryMode: String): InventoryStatus =
+    val mode = inventoryMode.trim
+    if listingStatus == ListingStatus.下架 || mode == "soldOut" then InventoryStatus.售罄
+    else if mode == "unlimited" then InventoryStatus.充足
+    else if remainingStock <= 0 then InventoryStatus.售罄
     else if remainingStock <= 20 then InventoryStatus.紧张
     else InventoryStatus.充足
+
+  def normalizeInventoryMode(value: Option[String]): String =
+    value.map(_.trim).filter(Set("unlimited", "finite", "soldOut").contains).getOrElse("finite")
+
+  def normalizeMaxPerOrder(value: Option[Int]): Option[Int] =
+    value.filter(_ > 0).map(limit => math.min(limit, 999))
 
   def requireOwnedStore(connection: Connection, username: String, merchantId: MerchantId): IO[Merchant] =
     MerchantStoreTable.listByOwner(connection, username).flatMap { stores =>

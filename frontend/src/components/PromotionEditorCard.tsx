@@ -30,6 +30,43 @@ export function normalizePromotionPatch(promotion: Promotion, patch: Partial<Pro
 
 const padDatePart = (value: number) => value.toString().padStart(2, '0')
 const toDateInputValue = (date: Date) => `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`
+const parseDateInputValue = (value: string | null | undefined) => {
+  const [year, month, day] = (value ?? '').split('-').map((part) => Number(part))
+  if (!year || !month || !day) return null
+  const date = new Date(year, month - 1, day)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null
+  return date
+}
+
+export function todayPromotionDateValue(now = new Date()) {
+  return toDateInputValue(now)
+}
+
+export function nextPromotionDateValue(value: string | null | undefined) {
+  const date = parseDateInputValue(value)
+  if (!date) return ''
+  date.setDate(date.getDate() + 1)
+  return toDateInputValue(date)
+}
+
+export function validatePromotionSchedule(promotion: Promotion, now = new Date()): string | null {
+  const startsAt = promotion.startsAt?.trim() || null
+  const endsAt = promotion.endsAt?.trim() || null
+  const today = todayPromotionDateValue(now)
+
+  if (!startsAt) return '请选择优惠开始日期。'
+  if (!endsAt) return '请选择优惠截止日期。'
+  if (startsAt < today) return '优惠开始日期不能早于今日。'
+  if (endsAt <= startsAt) return '优惠截止日期必须晚于开始日期。'
+
+  const dailyStartTime = promotion.dailyStartTime?.trim() || null
+  const dailyEndTime = promotion.dailyEndTime?.trim() || null
+  if (!dailyStartTime) return '请选择每日开始时间。'
+  if (!dailyEndTime) return '请选择每日截止时间。'
+  if (dailyStartTime === dailyEndTime) return '每日开始时间不能与截止时间相同。'
+
+  return null
+}
 
 export function defaultPromotionSchedule() {
   const startsAtDate = new Date()
@@ -80,6 +117,9 @@ export function PromotionEditorCard({
 }) {
   const finite = promotion.usageLimit !== null && promotion.usageLimit !== undefined
   const usageText = promotionUsageText(promotion)
+  const scheduleValidationMessage = validatePromotionSchedule(promotion)
+  const startMinDate = todayPromotionDateValue()
+  const endMinDate = nextPromotionDateValue(promotion.startsAt) || nextPromotionDateValue(startMinDate)
 
   return (
     <section
@@ -137,22 +177,26 @@ export function PromotionEditorCard({
         </div>
         <div className="space-y-1">
           <Label>开始日期</Label>
-          <PromotionDateInput value={promotion.startsAt} onChange={(value) => onChange(promotion.id, { startsAt: value })} />
+          <PromotionDateInput value={promotion.startsAt} min={startMinDate} onChange={(value) => onChange(promotion.id, { startsAt: value })} />
         </div>
         <div className="space-y-1">
-          <Label>结束日期</Label>
-          <PromotionDateInput value={promotion.endsAt} onChange={(value) => onChange(promotion.id, { endsAt: value })} />
+          <Label>截止日期</Label>
+          <PromotionDateInput value={promotion.endsAt} min={endMinDate} onChange={(value) => onChange(promotion.id, { endsAt: value })} />
         </div>
       </div>
+
+      {scheduleValidationMessage ? <p className="text-xs text-rose-600">{scheduleValidationMessage}</p> : null}
 
       <div className="grid gap-3 md:grid-cols-[1fr_1fr_9rem_8rem_13rem] md:items-end">
         <div className="space-y-1">
           <Label>每日开始时刻</Label>
           <Input type="time" value={promotion.dailyStartTime ?? ''} onChange={(event) => onChange(promotion.id, { dailyStartTime: event.target.value || null })} />
+          <p className="text-xs text-slate-500">若截止时间早于开始时间，将按次日截止计算。</p>
         </div>
         <div className="space-y-1">
-          <Label>每日结束时刻</Label>
+          <Label>每日截止时刻</Label>
           <Input type="time" value={promotion.dailyEndTime ?? ''} onChange={(event) => onChange(promotion.id, { dailyEndTime: event.target.value || null })} />
+          <p className="text-xs text-slate-500">开始时间不能与截止时间相同。</p>
         </div>
         <div className="space-y-1">
           <Label>次数</Label>

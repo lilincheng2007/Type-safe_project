@@ -110,7 +110,28 @@ frontend/src/pages/PageName/
 - 前端通过 `sendAPI(new XxxAPI(...))` 调用。
 - 允许静态资源例外：商户图片访问路由。
 
-## P6 — 文档/规则过时
+## P6 — Unsafe 组件与类型安全逃逸口
+
+### 风险
+
+`Unsafe` / `Unsfe` 组件、`dangerouslySetInnerHTML`、`eval`、`new Function`、`as any`、TS ignore 注释、后端 `unsafeRun*`、`Uri.unsafeFromString`、`asInstanceOf` 会绕过编译期类型与运行时解析安全，使契约审计通过但实际代码仍可注入不可信 DOM、跳过类型校验或在运行时崩溃。
+
+### 当前目标
+
+- 前端不出现名称包含 `Unsafe` / `Unsfe` 的组件、文件或导出。
+- 前端不使用 `dangerouslySetInnerHTML`、`eval(...)`、`new Function(...)`、`as any`、`@ts-ignore`、`@ts-expect-error`。
+- 后端不使用 `unsafeRun*`、`Uri.unsafeFromString`、`asInstanceOf`。
+- 必须用显式解析和 typed wrapper 替代 unsafe 调用，例如 `Uri.fromString(...).leftMap(... )` + `IO.fromEither(...)`。
+
+### 修复方式
+
+1. 将 Unsafe 组件替换为普通 typed component 或删除未使用组件。
+2. 将 `dangerouslySetInnerHTML` 改为 React 节点组合或白名单 sanitizer 后的显式 safe helper。
+3. 将 `as any` 改为精确 interface、类型守卫或泛型约束。
+4. 将 TS ignore 注释改为真实类型修复。
+5. 将后端 unsafe 解析改为 `Either` / `IO.fromEither`，并返回明确错误。
+
+## P7 — 文档/规则过时
 
 ### 风险
 

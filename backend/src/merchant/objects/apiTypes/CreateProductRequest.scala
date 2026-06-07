@@ -12,5 +12,7 @@ final case class CreateProductRequest(
     price: Double,
     remainingStock: Int,
     listingStatus: ListingStatus,
+    inventoryMode: Option[String] = None,
+    maxPerOrder: Option[Int] = None,
     bundleGroups: Option[List[ProductBundleGroup]] = None
 )

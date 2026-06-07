@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, ChevronDown, ChevronUp, RefreshCw, TicketPercent, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock3, DollarSign, RefreshCw, ReceiptText, TicketPercent, XCircle } from 'lucide-react'
 
+import { fetchAdminOrderMonitorIO } from '@/apis/admin/AdminOrderMonitorAPI'
 import { fetchAdminPlatformPromotionsIO } from '@/apis/admin/AdminPlatformPromotionsAPI'
 import { acceptRefundRequestIO } from '@/apis/admin/AdminRefundAcceptAPI'
 import { fetchAdminRefundRequestsIO } from '@/apis/admin/AdminRefundRequestsAPI'
@@ -21,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
 import type { StoreOnboardingRequest, StoreOnboardingStatus } from '@/objects/admin/StoreOnboardingRequest'
+import type { AdminOrderMonitorItem, AdminOrderMonitorResponse } from '@/objects/admin/apiTypes/AdminOrderMonitorResponse'
 import type { Order } from '@/objects/order/Order'
 import { RefundStatuses, type RefundStatus } from '@/objects/shared/ids'
 import type { Promotion } from '@/objects/shared/Promotion'
@@ -63,14 +65,49 @@ function formatDate(value: string | null | undefined) {
 
 const CollapsedListLimit = 3
 
+function formatElapsed(minutes: number) {
+  if (minutes < 60) return `${minutes} 分钟`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest > 0 ? `${hours} 小时 ${rest} 分钟` : `${hours} 小时`
+}
+
+function MonitorOrderList({ title, items, emptyText }: { title: string; items: AdminOrderMonitorItem[]; emptyText: string }) {
+  const displayedItems = items.slice(0, CollapsedListLimit)
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className="font-semibold text-slate-950">{title}</p>
+        <Badge variant={items.length > 0 ? 'outline' : 'secondary'}>{items.length}</Badge>
+      </div>
+      {items.length === 0 ? <p className="text-sm text-slate-500">{emptyText}</p> : null}
+      <div className="space-y-2">
+        {displayedItems.map((item) => (
+          <div key={`${title}-${item.order.id}`} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium text-slate-900">订单 {item.order.id}</span>
+              <Badge variant="outline">{item.order.status}</Badge>
+            </div>
+            <p className="mt-1 text-slate-600">{item.reason} · 已持续 {formatElapsed(item.elapsedMinutes)}</p>
+            <p className="mt-1 text-slate-500">顾客：{item.order.customerName} · 金额 ¥{item.order.payableAmount.toFixed(2)}</p>
+          </div>
+        ))}
+      </div>
+      {items.length > CollapsedListLimit ? <p className="mt-2 text-xs text-slate-400">仅展示前 {CollapsedListLimit} 条，更多可后续进入订单明细处理。</p> : null}
+    </div>
+  )
+}
+
 export default function AdminConsole() {
   const navigate = useNavigate()
   const { showNotice } = useAppChrome()
   const [requests, setRequests] = useState<StoreOnboardingRequest[]>([])
   const [refundRequests, setRefundRequests] = useState<Order[]>([])
+  const [orderMonitor, setOrderMonitor] = useState<AdminOrderMonitorResponse | null>(null)
   const [platformPromotions, setPlatformPromotions] = useState<Promotion[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [orderMonitorError, setOrderMonitorError] = useState<string | null>(null)
   const [platformPromotionsError, setPlatformPromotionsError] = useState<string | null>(null)
   const [rejectingRequest, setRejectingRequest] = useState<StoreOnboardingRequest | null>(null)
   const [reviewingRefund, setReviewingRefund] = useState<{ order: Order; action: 'accept' | 'reject' } | null>(null)
@@ -91,16 +128,20 @@ export default function AdminConsole() {
   const loadRequests = async () => {
     setIsLoading(true)
     setErrorMessage(null)
+    setOrderMonitorError(null)
     setPlatformPromotionsError(null)
     try {
-      const [response, refundResponse] = await Promise.all([
+      const [response, refundResponse, monitorResponse] = await Promise.all([
         runTask(fetchAdminStoreOnboardingRequestsIO()),
         runTask(fetchAdminRefundRequestsIO()),
+        runTask(fetchAdminOrderMonitorIO()),
       ])
       setRequests(response.requests)
       setRefundRequests(refundResponse.requests)
+      setOrderMonitor(monitorResponse)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '加载审核申请失败')
+      setOrderMonitorError(error instanceof Error ? error.message : '加载订单监控失败')
     } finally {
       setIsLoading(false)
     }
@@ -181,6 +222,62 @@ export default function AdminConsole() {
 
   return (
     <DeliveryPageShell>
+      <Card className="border-slate-200 bg-white/95 shadow-sm">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <ReceiptText className="size-5 text-orange-500" />
+              订单监控
+            </CardTitle>
+            <p className="mt-1 text-sm text-slate-500">实时汇总今日经营、待处理退款、异常与超时订单。</p>
+          </div>
+          <Button type="button" variant="outline" onClick={() => void loadRequests()} disabled={isLoading}>
+            <RefreshCw className="size-4" />
+            刷新
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {orderMonitorError ? <p className="text-sm text-rose-600">{orderMonitorError}</p> : null}
+          {isLoading && !orderMonitor ? <p className="text-sm text-slate-500">加载订单监控中…</p> : null}
+          {orderMonitor ? (
+            <>
+              <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+                <div className="rounded-2xl border border-orange-100 bg-orange-50/70 p-4">
+                  <p className="flex items-center gap-2 text-sm font-medium text-orange-700"><ReceiptText className="size-4" />今日订单数</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-orange-900">{orderMonitor.todayOrderCount}</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+                  <p className="flex items-center gap-2 text-sm font-medium text-emerald-700"><DollarSign className="size-4" />今日成交额</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-emerald-900">¥{orderMonitor.todayTurnover.toFixed(2)}</p>
+                </div>
+                <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
+                  <p className="flex items-center gap-2 text-sm font-medium text-amber-700"><Clock3 className="size-4" />待处理退款</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-amber-900">{orderMonitor.pendingRefunds.length}</p>
+                </div>
+                <div className="rounded-2xl border border-rose-100 bg-rose-50/70 p-4">
+                  <p className="flex items-center gap-2 text-sm font-medium text-rose-700"><AlertTriangle className="size-4" />异常订单</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-rose-900">{orderMonitor.abnormalOrders.length}</p>
+                </div>
+                <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+                  <p className="flex items-center gap-2 text-sm font-medium text-sky-700"><Clock3 className="size-4" />商家超时</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-sky-900">{orderMonitor.merchantTimeoutOrders.length}</p>
+                </div>
+                <div className="rounded-2xl border border-violet-100 bg-violet-50/70 p-4">
+                  <p className="flex items-center gap-2 text-sm font-medium text-violet-700"><Clock3 className="size-4" />骑手超时</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-violet-900">{orderMonitor.riderTimeoutOrders.length}</p>
+                </div>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <MonitorOrderList title="待处理退款" items={orderMonitor.pendingRefunds} emptyText="暂无待处理退款。" />
+                <MonitorOrderList title="异常订单" items={orderMonitor.abnormalOrders} emptyText="暂无异常订单。" />
+                <MonitorOrderList title="商家超时订单" items={orderMonitor.merchantTimeoutOrders} emptyText="暂无商家超时订单。" />
+                <MonitorOrderList title="骑手超时订单" items={orderMonitor.riderTimeoutOrders} emptyText="暂无骑手超时订单。" />
+              </div>
+            </>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <Card className="border-orange-100 bg-white/95">
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>

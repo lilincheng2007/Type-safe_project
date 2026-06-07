@@ -26,7 +26,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { PromotionEditorCard, createDefaultPromotion, defaultPromotionSchedule, promotionUsageText } from '@/components/PromotionEditorCard'
+import {
+  PromotionEditorCard,
+  createDefaultPromotion,
+  defaultPromotionSchedule,
+  nextPromotionDateValue,
+  promotionUsageText,
+  todayPromotionDateValue,
+  validatePromotionSchedule,
+} from '@/components/PromotionEditorCard'
 import { PromotionDateInput, PromotionEnableControl } from '@/components/PromotionControls'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
@@ -34,7 +42,7 @@ import { bundleOptionExtraPrice } from '@/lib/bundles'
 import { getLocalImageFileError } from '@/lib/local-image-file'
 import type { CreateProductRequest } from '@/objects/merchant/apiTypes/CreateProductRequest'
 import type { MerchantStoreProfile } from '@/objects/merchant/MerchantStoreProfile'
-import type { Product, ProductBundleGroup } from '@/objects/merchant/Product'
+import type { Product, ProductBundleGroup, ProductInventoryMode } from '@/objects/merchant/Product'
 import type { UpdateProductRequest } from '@/objects/merchant/apiTypes/UpdateProductRequest'
 import { ListingStatuses } from '@/objects/shared/ids'
 import type { ListingStatus, ProductId } from '@/objects/shared/ids'
@@ -63,6 +71,8 @@ type CreateProductFormState = {
   price: number
   remainingStock: number
   listingStatus: CreateProductRequest['listingStatus']
+  inventoryMode: ProductInventoryMode
+  maxPerOrder: number | null
   bundleGroups: ProductBundleGroup[]
 }
 
@@ -80,11 +90,18 @@ const initialCreateFormState: CreateProductFormState = {
   price: 0,
   remainingStock: 0,
   listingStatus: ListingStatuses.listed,
+  inventoryMode: 'finite',
+  maxPerOrder: null,
   bundleGroups: [],
 }
 
 const productCategoryName = (product: Pick<Product, 'categoryName'>) => product.categoryName?.trim() || '默认分类'
 const isBundleProduct = (product: Pick<Product, 'bundleGroups'>) => (product.bundleGroups ?? []).length > 0
+const inventoryModeOptions: Array<{ value: ProductInventoryMode; label: string }> = [
+  { value: 'unlimited', label: '无限库存' },
+  { value: 'finite', label: '今日库存数量' },
+  { value: 'soldOut', label: '售罄' },
+]
 const bundleGroupTypes: Array<{ value: ProductBundleGroup['selectionType']; label: string }> = [
   { value: 'fixed', label: '指定菜品' },
   { value: 'repeatable', label: '可选菜品，可重复' },
@@ -110,6 +127,11 @@ const maxBundleOptionPrice = (options: ProductBundleGroup['options'], products: 
 }
 
 const hasCustomBundleExtraPrice = (group: ProductBundleGroup) => group.options.some((option) => option.customExtraPrice || option.extraPrice > 0)
+const inventoryText = (product: Product) => {
+  if ((product.inventoryMode ?? 'finite') === 'unlimited') return '无限库存'
+  if ((product.inventoryMode ?? 'finite') === 'soldOut' || product.inventoryStatus === '售罄') return '已售罄'
+  return `今日库存：${product.remainingStock} 份`
+}
 
 const normalizeBundleOption = (option: ProductBundleGroup['options'][number]) => {
   const customExtraPrice = option.customExtraPrice ?? option.extraPrice > 0
@@ -484,8 +506,10 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
       imageUrl: editingProduct.imageUrl,
       categoryName: productCategoryName(editingProduct),
       price: editingProduct.price,
-      remainingStock: editingProduct.remainingStock,
+      remainingStock: editingProduct.inventoryMode === 'unlimited' ? 0 : editingProduct.remainingStock,
       listingStatus: editingProduct.listingStatus,
+      inventoryMode: editingProduct.inventoryMode ?? 'finite',
+      maxPerOrder: editingProduct.maxPerOrder ?? null,
       bundleGroups: editingProduct.bundleGroups ?? [],
     })
   }, [editingProduct])
@@ -508,6 +532,8 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
   const formNormalizedBundleGroups = sanitizeBundleGroups(formState?.bundleGroups ?? [], editBundleProducts)
   const createBundleIncomplete = createIsBundle && createNormalizedBundleGroups.length === 0
   const formBundleIncomplete = formIsBundle && formNormalizedBundleGroups.length === 0
+  const createInventoryStock = createFormState.inventoryMode === 'unlimited' ? 0 : createFormState.remainingStock
+  const formInventoryStock = formState?.inventoryMode === 'unlimited' ? 0 : (formState?.remainingStock ?? 0)
   const createSubmitDisabled = saving || !createFormState.name.trim() || createBundleIncomplete
   const formSubmitDisabled = !formState || saving || formBundleIncomplete
 
@@ -555,6 +581,9 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
         ...formState,
         description: formState.description.trim(),
         price: formState.price,
+        remainingStock: formInventoryStock,
+        inventoryMode: formState.inventoryMode,
+        maxPerOrder: formState.maxPerOrder,
         bundleGroups: normalizedBundleGroups,
       })
       setEditingProduct(null)
@@ -593,6 +622,9 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
         ...createFormState,
         description: createFormState.description.trim(),
         price: createFormState.price,
+        remainingStock: createInventoryStock,
+        inventoryMode: createFormState.inventoryMode,
+        maxPerOrder: createFormState.maxPerOrder,
         bundleGroups: normalizedBundleGroups,
       })
       if (createImageFile) {
@@ -692,6 +724,11 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
 
   const saveStorePromotionDraft = async () => {
     if (!storePromotionDialog || !selectedMerchantId) return false
+    const validationMessage = validatePromotionSchedule(storePromotionDialog.promotion)
+    if (validationMessage) {
+      showNotice(validationMessage, 'error')
+      return false
+    }
     const nextPromotions = storePromotionDialog.mode === 'add'
       ? [...promotions, storePromotionDialog.promotion]
       : promotions.map((promotion) => promotion.id === storePromotionDialog.promotion.id ? storePromotionDialog.promotion : promotion)
@@ -763,6 +800,8 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
   }
 
   const validateProductPromotion = (product: Product, promotion: Promotion): string | null => {
+    const scheduleValidationMessage = validatePromotionSchedule(promotion)
+    if (scheduleValidationMessage) return scheduleValidationMessage
     const currentPrice = productDiscountedPrice(product, promotion)
     if (currentPrice <= 0) return '优惠后价格必须大于 0 元。'
     if (currentPrice >= product.price) return '优惠后价格必须小于原价。'
@@ -913,7 +952,8 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
                                 <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-2">
                                 <p>{bundleProduct ? '套餐基础价' : '价格'}：¥{product.price.toFixed(2)} / 份</p>
                                 <p>金额：¥{product.price.toFixed(2)}</p>
-                                <p>剩余库存：{product.remainingStock}</p>
+                                <p>{inventoryText(product)}</p>
+                                <p>每单限购：{product.maxPerOrder ? `${product.maxPerOrder} 份` : '不限购'}</p>
                                 <p>月销量：{product.monthlySales}</p>
                               </div>
                             </div>
@@ -1045,6 +1085,8 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
               const currentPrice = productDiscountedPrice(discountProduct, productPromotionDraft)
               const discountRate = productDiscountRateText(discountProduct.price, currentPrice)
               const validationMessage = validateProductPromotion(discountProduct, productPromotionDraft)
+              const startMinDate = todayPromotionDateValue()
+              const endMinDate = nextPromotionDateValue(productPromotionDraft.startsAt) || nextPromotionDateValue(startMinDate)
               return (
                 <div
                   className={cn(
@@ -1084,11 +1126,11 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
                   <div className="grid gap-3 md:grid-cols-2 md:items-end">
                     <div className="space-y-1">
                       <Label>开始日期</Label>
-                      <PromotionDateInput value={productPromotionDraft.startsAt} onChange={(value) => updateProductPromotionDraft({ startsAt: value })} />
+                      <PromotionDateInput value={productPromotionDraft.startsAt} min={startMinDate} onChange={(value) => updateProductPromotionDraft({ startsAt: value })} />
                     </div>
                     <div className="space-y-1">
-                      <Label>结束日期</Label>
-                      <PromotionDateInput value={productPromotionDraft.endsAt} onChange={(value) => updateProductPromotionDraft({ endsAt: value })} />
+                      <Label>截止日期</Label>
+                      <PromotionDateInput value={productPromotionDraft.endsAt} min={endMinDate} onChange={(value) => updateProductPromotionDraft({ endsAt: value })} />
                     </div>
                   </div>
 
@@ -1096,10 +1138,12 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
                     <div className="space-y-1">
                       <Label>每日开始时刻</Label>
                       <Input type="time" value={productPromotionDraft.dailyStartTime ?? ''} onChange={(event) => updateProductPromotionDraft({ dailyStartTime: event.target.value || null })} />
+                      <p className="text-xs text-slate-500">若截止时间早于开始时间，将按次日截止计算。</p>
                     </div>
                     <div className="space-y-1">
-                      <Label>每日结束时刻</Label>
+                      <Label>每日截止时刻</Label>
                       <Input type="time" value={productPromotionDraft.dailyEndTime ?? ''} onChange={(event) => updateProductPromotionDraft({ dailyEndTime: event.target.value || null })} />
+                      <p className="text-xs text-slate-500">开始时间不能与截止时间相同。</p>
                     </div>
                     <div className="space-y-1">
                       <Label>次数</Label>
@@ -1238,16 +1282,47 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="create-product-stock">剩余库存</Label>
+                <Label>库存模式</Label>
+                <Select
+                  value={createFormState.inventoryMode}
+                  onValueChange={(value: ProductInventoryMode) => setCreateFormState({ ...createFormState, inventoryMode: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="请选择库存模式" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {inventoryModeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="create-product-stock">今日库存数量</Label>
                 <Input
                   id="create-product-stock"
                   type="number"
                   min="0"
                   step="1"
-                  value={createFormState.remainingStock === 0 ? '' : createFormState.remainingStock}
+                  disabled={createFormState.inventoryMode !== 'finite'}
+                  value={createFormState.inventoryMode !== 'finite' || createFormState.remainingStock === 0 ? '' : createFormState.remainingStock}
                   onChange={(event) =>
                     setCreateFormState({ ...createFormState, remainingStock: Number(event.target.value) || 0 })
                   }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="create-product-max-per-order">每单限购数量</Label>
+                <Input
+                  id="create-product-max-per-order"
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="留空表示不限购"
+                  value={createFormState.maxPerOrder ?? ''}
+                  onChange={(event) => setCreateFormState({ ...createFormState, maxPerOrder: event.target.value ? Math.max(1, Number(event.target.value) || 1) : null })}
                 />
               </div>
             </div>
@@ -1413,16 +1488,47 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="product-stock">剩余库存</Label>
+                  <Label>库存模式</Label>
+                  <Select
+                    value={formState.inventoryMode}
+                    onValueChange={(value: ProductInventoryMode) => setFormState({ ...formState, inventoryMode: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="请选择库存模式" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {inventoryModeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="product-stock">今日库存数量</Label>
                   <Input
                     id="product-stock"
                     type="number"
                     min="0"
                     step="1"
-                    value={formState.remainingStock === 0 ? '' : formState.remainingStock}
+                    disabled={formState.inventoryMode !== 'finite'}
+                    value={formState.inventoryMode !== 'finite' || formState.remainingStock === 0 ? '' : formState.remainingStock}
                     onChange={(event) =>
                       setFormState({ ...formState, remainingStock: Number(event.target.value) || 0 })
                     }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="product-max-per-order">每单限购数量</Label>
+                  <Input
+                    id="product-max-per-order"
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="留空表示不限购"
+                    value={formState.maxPerOrder ?? ''}
+                    onChange={(event) => setFormState({ ...formState, maxPerOrder: event.target.value ? Math.max(1, Number(event.target.value) || 1) : null })}
                   />
                 </div>
               </div>

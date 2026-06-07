@@ -16,9 +16,9 @@ object CatalogProductTable:
     """
       |INSERT INTO catalog_products (
       |  id, merchant_id, name, price, description, image_url, monthly_sales,
-      |  remaining_stock, listing_status, inventory_status, discount_text, category_name, bundle_config, updated_at
+      |  remaining_stock, listing_status, inventory_status, inventory_mode, max_per_order, discount_text, category_name, bundle_config, updated_at
       |)
-      |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
+      |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
       |ON CONFLICT (id) DO UPDATE SET
       |  merchant_id = EXCLUDED.merchant_id,
       |  name = EXCLUDED.name,
@@ -29,6 +29,8 @@ object CatalogProductTable:
       |  remaining_stock = EXCLUDED.remaining_stock,
       |  listing_status = EXCLUDED.listing_status,
       |  inventory_status = EXCLUDED.inventory_status,
+      |  inventory_mode = EXCLUDED.inventory_mode,
+      |  max_per_order = EXCLUDED.max_per_order,
       |  discount_text = EXCLUDED.discount_text,
       |  category_name = EXCLUDED.category_name,
       |  bundle_config = EXCLUDED.bundle_config,
@@ -48,14 +50,29 @@ object CatalogProductTable:
   private val listSql: String =
     """
       |SELECT id, merchant_id, name, price, description, image_url, monthly_sales,
-      |       remaining_stock, listing_status, inventory_status, discount_text, category_name, bundle_config
+      |       remaining_stock, listing_status, inventory_status, inventory_mode, max_per_order, discount_text, category_name, bundle_config
       |FROM catalog_products
       |ORDER BY category_name ASC, updated_at DESC
       |""".stripMargin
 
+  private val listForUpdateSql: String =
+    """
+      |SELECT id, merchant_id, name, price, description, image_url, monthly_sales,
+      |       remaining_stock, listing_status, inventory_status, inventory_mode, max_per_order, discount_text, category_name, bundle_config
+      |FROM catalog_products
+      |ORDER BY category_name ASC, updated_at DESC
+      |FOR UPDATE
+      |""".stripMargin
+
   def list(connection: Connection): IO[List[Product]] =
+    readProductList(connection, listSql)
+
+  def listForUpdate(connection: Connection): IO[List[Product]] =
+    readProductList(connection, listForUpdateSql)
+
+  private def readProductList(connection: Connection, sql: String): IO[List[Product]] =
     IO.blocking {
-      val statement = connection.prepareStatement(listSql)
+      val statement = connection.prepareStatement(sql)
       try
         val resultSet = statement.executeQuery()
         try
@@ -69,7 +86,7 @@ object CatalogProductTable:
   private val findByIdSql: String =
     """
       |SELECT id, merchant_id, name, price, description, image_url, monthly_sales,
-      |       remaining_stock, listing_status, inventory_status, discount_text, category_name, bundle_config
+      |       remaining_stock, listing_status, inventory_status, inventory_mode, max_per_order, discount_text, category_name, bundle_config
       |FROM catalog_products
       |WHERE id = ?
       |""".stripMargin
@@ -98,11 +115,15 @@ object CatalogProductTable:
     statement.setInt(8, product.remainingStock)
     statement.setString(9, product.listingStatus.toString)
     statement.setString(10, product.inventoryStatus.toString)
+    statement.setString(11, normalizedInventoryMode(product.inventoryMode))
+    product.maxPerOrder match
+      case Some(value) => statement.setInt(12, value)
+      case None        => statement.setNull(12, java.sql.Types.INTEGER)
     product.discountText match
-      case Some(value) => statement.setString(11, value)
-      case None        => statement.setNull(11, java.sql.Types.VARCHAR)
-    statement.setString(12, normalizedCategoryName(product.categoryName))
-    statement.setObject(13, jsonb(product.bundleGroups.asJson.noSpaces))
+      case Some(value) => statement.setString(13, value)
+      case None        => statement.setNull(13, java.sql.Types.VARCHAR)
+    statement.setString(14, normalizedCategoryName(product.categoryName))
+    statement.setObject(15, jsonb(product.bundleGroups.asJson.noSpaces))
 
   private def readProduct(resultSet: ResultSet): Product =
     Product(
@@ -116,6 +137,8 @@ object CatalogProductTable:
       remainingStock = resultSet.getInt("remaining_stock"),
       listingStatus = ListingStatus.fromString(resultSet.getString("listing_status")).getOrElse(ListingStatus.下架),
       inventoryStatus = InventoryStatus.fromString(resultSet.getString("inventory_status")).getOrElse(InventoryStatus.售罄),
+      inventoryMode = normalizedInventoryMode(Option(resultSet.getString("inventory_mode")).getOrElse("finite")),
+      maxPerOrder = Option(resultSet.getInt("max_per_order")).filter(_ => !resultSet.wasNull()),
       discountText = Option(resultSet.getString("discount_text")),
       categoryName = normalizedCategoryName(Option(resultSet.getString("category_name")).getOrElse("")),
       bundleGroups = Option(resultSet.getString("bundle_config")).flatMap(raw => decode[List[ProductBundleGroup]](raw).toOption).getOrElse(Nil)
@@ -124,6 +147,10 @@ object CatalogProductTable:
   private def normalizedCategoryName(raw: String): String =
     val trimmed = raw.trim
     if trimmed.isEmpty then "默认分类" else trimmed
+
+  private def normalizedInventoryMode(raw: String): String =
+    val trimmed = raw.trim
+    if Set("unlimited", "finite", "soldOut").contains(trimmed) then trimmed else "finite"
 
   private def jsonb(value: String): PGobject =
     val pg = PGobject()

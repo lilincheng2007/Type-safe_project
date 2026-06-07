@@ -31,10 +31,9 @@ export function isPromotionActive(promotion: Promotion, now = new Date()) {
     const current = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
     const start = promotion.dailyStartTime
     const end = promotion.dailyEndTime
-    if (start !== end) {
-      const inWindow = start < end ? current >= start && current < end : current >= start || current < end
-      if (!inWindow) return false
-    }
+    if (start === end) return false
+    const inWindow = start < end ? current >= start && current < end : current >= start || current < end
+    if (!inWindow) return false
   }
   return true
 }
@@ -88,7 +87,9 @@ export function promotionSummary(promotion: Promotion) {
     promotion.startsAt || promotion.endsAt
       ? `${promotion.startsAt ?? '不限'} 至 ${promotion.endsAt ?? '不限'}`
       : '不限时'
-  const daily = promotion.dailyStartTime && promotion.dailyEndTime ? ` · 每天 ${promotion.dailyStartTime}-${promotion.dailyEndTime}` : ''
+  const daily = promotion.dailyStartTime && promotion.dailyEndTime
+    ? ` · 每天 ${promotion.dailyStartTime}-${promotion.dailyEndTime}${promotion.dailyEndTime < promotion.dailyStartTime ? '（次日截止）' : ''}`
+    : ''
   return `${trigger} ${discount} · ${time}${daily}`
 }
 

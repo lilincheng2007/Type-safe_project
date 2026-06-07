@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 
 import { aiMerchantProductDescriptionsIO } from '@/apis/ai/AIMerchantProductDescriptionsAPI'
+import { updateMerchantBusinessHoursIO } from '@/apis/merchant/MerchantBusinessHoursAPI'
 import { aiMerchantStoreDescriptionIO } from '@/apis/ai/AIMerchantStoreDescriptionAPI'
 import { acceptMerchantOrderIO } from '@/apis/merchant/MerchantOrderAcceptAPI'
+import { delayMerchantOrderPrepIO } from '@/apis/merchant/MerchantOrderPrepDelayAPI'
 import { rejectMerchantOrderIO } from '@/apis/merchant/MerchantOrderRejectAPI'
 import { finishMerchantOrderCookingIO } from '@/apis/merchant/MerchantOrderReadyAPI'
 import { createMerchantProductIO } from '@/apis/merchant/MerchantCreateProductAPI'
@@ -20,6 +22,7 @@ import { runTask } from '@/apis/shared/client'
 import type { AIMerchantProductDescriptionsResponse } from '@/objects/ai/apiTypes/AIMerchantProductDescriptionsResponse'
 import type { AIMerchantStoreDescriptionResponse } from '@/objects/ai/apiTypes/AIMerchantStoreDescriptionResponse'
 import type { CreateProductRequest } from '@/objects/merchant/apiTypes/CreateProductRequest'
+import type { MerchantBusinessStatus, MerchantHolidayBusinessHour, MerchantWeeklyBusinessHour } from '@/objects/merchant/MerchantBusinessHours'
 import type { MerchantAccountPublic } from '@/objects/merchant/MerchantAccountPublic'
 import type { MerchantStoreProfile } from '@/objects/merchant/MerchantStoreProfile'
 import type { Product } from '@/objects/merchant/Product'
@@ -35,6 +38,7 @@ type MerchantConsoleStore = {
   bootstrapDone: boolean
   loadError: string | null
   merchantAccount: MerchantAccountPublic | null
+  sessionAccount: string | null
   activeTab: MerchantTab
   isStoreDialogOpen: boolean
   selectedStoreId: string | null
@@ -44,6 +48,7 @@ type MerchantConsoleStore = {
   stores: MerchantStoreProfile[]
   storeOnboardingRequests: StoreOnboardingRequest[]
   resetPage: () => void
+  prepareForSession: (account: string | null) => void
   setActiveTab: (tab: MerchantTab) => void
   setIsStoreDialogOpen: (open: boolean) => void
   setSelectedStoreId: (storeId: string | null) => void
@@ -53,15 +58,17 @@ type MerchantConsoleStore = {
   refreshMerchant: () => Promise<MerchantAccountPublic>
   bootstrap: () => Promise<void>
   createStore: () => Promise<string | null>
-  acceptOrder: (orderId: OrderId) => Promise<void>
+  acceptOrder: (orderId: OrderId, prepMinutes?: number) => Promise<void>
   rejectOrder: (orderId: OrderId) => Promise<void>
   finishCooking: (orderId: OrderId) => Promise<void>
+  delayPrep: (orderId: OrderId, extraMinutes: number, reason: string) => Promise<void>
   createProduct: (input: CreateProductRequest) => Promise<Product>
   updateProduct: (productId: string, input: UpdateProductRequest) => Promise<void>
   uploadProductImageFile: (productId: ProductId, file: File) => Promise<Product>
   generateStoreDescription: (merchantId: MerchantId, keywords: string) => Promise<AIMerchantStoreDescriptionResponse>
   saveStoreDescription: (merchantId: MerchantId, description: string) => Promise<void>
   saveStoreAnnouncement: (merchantId: MerchantId, announcement: string) => Promise<void>
+  saveBusinessHours: (input: { merchantId: MerchantId; businessStatus: MerchantBusinessStatus; weeklyBusinessHours: MerchantWeeklyBusinessHour[]; holidayBusinessHours: MerchantHolidayBusinessHour[] }) => Promise<void>
   saveStorePromotions: (merchantId: MerchantId, promotions: Promotion[]) => Promise<void>
   generateProductDescriptions: (merchantId: MerchantId, keywords: string) => Promise<AIMerchantProductDescriptionsResponse>
   saveProductDescriptions: (merchantId: MerchantId, descriptions: ProductDescriptionPatch[]) => Promise<void>
@@ -73,6 +80,7 @@ const initialState = {
   bootstrapDone: false,
   loadError: null as string | null,
   merchantAccount: null as MerchantAccountPublic | null,
+  sessionAccount: null as string | null,
   activeTab: 'products' as MerchantTab,
   isStoreDialogOpen: true,
   selectedStoreId: null as string | null,
@@ -86,6 +94,11 @@ const initialState = {
 export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get) => ({
   ...initialState,
   resetPage: () => set(initialState),
+  prepareForSession: (account) => {
+    if (get().sessionAccount !== account) {
+      set({ ...initialState, sessionAccount: account })
+    }
+  },
   setActiveTab: (activeTab) => set({ activeTab }),
   setIsStoreDialogOpen: (isStoreDialogOpen) => set({ isStoreDialogOpen }),
   setSelectedStoreId: (selectedStoreId) => set({ selectedStoreId }),
@@ -144,8 +157,8 @@ export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get)
     })
     return requestId
   },
-  acceptOrder: async (orderId) => {
-    await runTask(acceptMerchantOrderIO(orderId))
+  acceptOrder: async (orderId, prepMinutes) => {
+    await runTask(acceptMerchantOrderIO(orderId, prepMinutes))
     await get().refreshMerchant()
   },
   rejectOrder: async (orderId) => {
@@ -154,6 +167,10 @@ export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get)
   },
   finishCooking: async (orderId) => {
     await runTask(finishMerchantOrderCookingIO(orderId))
+    await get().refreshMerchant()
+  },
+  delayPrep: async (orderId, extraMinutes, reason) => {
+    await runTask(delayMerchantOrderPrepIO(orderId, extraMinutes, reason))
     await get().refreshMerchant()
   },
   createProduct: async (input) => {
@@ -230,6 +247,10 @@ export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get)
   },
   saveStoreAnnouncement: async (merchantId, announcement) => {
     await runTask(updateMerchantStoreAnnouncementIO(merchantId, announcement))
+    await get().refreshMerchant()
+  },
+  saveBusinessHours: async (input) => {
+    await runTask(updateMerchantBusinessHoursIO(input))
     await get().refreshMerchant()
   },
   saveStorePromotions: async (merchantId, promotions) => {

@@ -1,6 +1,7 @@
 package delivery.rider.api
 
 import cats.effect.IO
+import delivery.order.api.OrderStatusTransitionService
 import delivery.order.tables.order.OrderTable
 import delivery.rider.tables.rideraccount.RiderAccountTable
 import delivery.rider.tables.riderassignment.RiderAssignmentTable
@@ -26,11 +27,16 @@ final case class RiderGrabOrderAPIMessage(orderId: OrderId) extends APIWithRoleM
         case None        => IO.raiseError(HttpApiError.BadRequest("未找到订单"))
       }
       _ <-
-        if !RiderAPIMessageSupport.isAvailableOrder(order.status) || order.riderId.nonEmpty then IO.raiseError(HttpApiError.BadRequest("该订单暂不可抢或已被其他骑手抢走"))
+        if order.riderId.nonEmpty then IO.raiseError(HttpApiError.BadRequest("该订单已被其他骑手抢走"))
         else IO.unit
-      updatedOrder = order.copy(riderId = Some(account.profile.rider.id), status = OrderStatus.配送中)
+      updatedOrder <- OrderStatusTransitionService.transition(
+        connection,
+        order,
+        OrderStatus.配送中,
+        actorRole = "rider",
+        patch = _.copy(riderId = Some(account.profile.rider.id))
+      )
       updatedRider = account.profile.rider.copy(status = RiderStatus.配送中, totalOrders = account.profile.rider.totalOrders + 1)
-      _ <- OrderTable.upsert(connection, updatedOrder)
       _ <- RiderAccountTable.upsert(connection, account.copy(profile = account.profile.copy(rider = updatedRider)))
       _ <- RiderAssignmentTable.upsert(connection, updatedRider.id, updatedOrder.id, updatedOrder.status)
     yield OkResponse(ok = true)
