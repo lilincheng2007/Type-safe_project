@@ -56,7 +56,7 @@ type MerchantConsoleStore = {
   acceptOrder: (orderId: OrderId) => Promise<void>
   rejectOrder: (orderId: OrderId) => Promise<void>
   finishCooking: (orderId: OrderId) => Promise<void>
-  createProduct: (input: CreateProductRequest) => Promise<void>
+  createProduct: (input: CreateProductRequest) => Promise<Product>
   updateProduct: (productId: string, input: UpdateProductRequest) => Promise<void>
   uploadProductImageFile: (productId: ProductId, file: File) => Promise<Product>
   generateStoreDescription: (merchantId: MerchantId, keywords: string) => Promise<AIMerchantStoreDescriptionResponse>
@@ -157,8 +157,9 @@ export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get)
     await get().refreshMerchant()
   },
   createProduct: async (input) => {
-    await runTask(createMerchantProductIO(input))
+    const created = await runTask(createMerchantProductIO(input))
     await get().refreshMerchant()
+    return created
   },
   updateProduct: async (productId, input) => {
     const updated = await runTask(updateMerchantProductIO(productId, input))

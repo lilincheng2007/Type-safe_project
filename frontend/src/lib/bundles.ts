@@ -3,20 +3,15 @@ import type { CheckoutBundleSelection } from '@/objects/order/CheckoutLine'
 
 export const isBundleProduct = (product: Pick<Product, 'bundleGroups'>) => (product.bundleGroups ?? []).length > 0
 
-export const bundleGroupMinPrice = (group: ProductBundleGroup, products: Product[]) => {
-  const prices = group.options
-    .map((option) => products.find((product) => product.id === option.productId)?.price)
-    .filter((price): price is number => typeof price === 'number' && Number.isFinite(price))
-  return prices.length > 0 ? Math.min(...prices) : 0
+export const bundleOptionExtraPrice = (group: ProductBundleGroup, optionProduct: Product) => {
+  const matched = group.options.find((option) => option.productId === optionProduct.id)
+  if (!matched) return 0
+  if (matched.customExtraPrice || matched.extraPrice > 0) return Math.max(0, matched.extraPrice)
+  const includedPrice = group.includedPrice ?? 0
+  return includedPrice > 0 ? Math.max(0, optionProduct.price - includedPrice) : 0
 }
 
-export const bundleBasePrice = (product: Product) => {
-  if (!isBundleProduct(product)) return product.price
-  return product.price
-}
-
-export const bundleOptionExtraPrice = (group: ProductBundleGroup, optionProduct: Product, products: Product[]) =>
-  Math.max(0, optionProduct.price - bundleGroupMinPrice(group, products))
+export const bundleBasePrice = (product: Product) => product.price
 
 export const bundleLineUnitPrice = (
   product: Product,
@@ -26,12 +21,11 @@ export const bundleLineUnitPrice = (
   if (!isBundleProduct(product)) return product.price
   const basePrice = bundleBasePrice(product)
   const extraPrice = (product.bundleGroups ?? []).reduce((sum, group) => {
-    const minPrice = bundleGroupMinPrice(group, products)
     const groupExtra = (selections ?? [])
       .filter((selection) => selection.groupId === group.id)
       .reduce((groupSum, selection) => {
         const selectedProduct = products.find((item) => item.id === selection.productId)
-        return groupSum + (selectedProduct ? Math.max(0, selectedProduct.price - minPrice) * selection.quantity : 0)
+        return groupSum + (selectedProduct ? bundleOptionExtraPrice(group, selectedProduct) * selection.quantity : 0)
       }, 0)
     return sum + groupExtra
   }, 0)

@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { Check, ImageIcon, PackageSearch, Plus, Store, TicketPercent, Trash2, Upload } from 'lucide-react'
+import { ArrowLeft, Check, ImageIcon, PackageSearch, Plus, Save, Store, TicketPercent, Trash2, Upload } from 'lucide-react'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { PromotionEditorCard, createDefaultPromotion, defaultPromotionSchedule, promotionUsageText } from '@/components/PromotionEditorCard'
 import { PromotionDateInput, PromotionEnableControl } from '@/components/PromotionControls'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
@@ -29,13 +40,14 @@ import { ListingStatuses } from '@/objects/shared/ids'
 import type { ListingStatus, ProductId } from '@/objects/shared/ids'
 import type { Promotion } from '@/objects/shared/Promotion'
 import { promotionSummary, roundMoney } from '@/lib/promotions'
+import { cn } from '@/lib/utils'
 import { useMerchantConsoleStore } from '@/stores/pages/use-merchant-console-store'
 
 import { MerchantAICopywritingCard } from './MerchantAICopywritingCard'
 
 type ProductsTabProps = {
   selectedStore: MerchantStoreProfile | null
-  onCreateProduct: (input: CreateProductRequest) => Promise<void>
+  onCreateProduct: (input: CreateProductRequest) => Promise<Product>
   onEditProduct: (productId: ProductId, input: UpdateProductRequest) => Promise<void>
   onUploadProductImage: (productId: ProductId, file: File) => Promise<Product>
 }
@@ -54,6 +66,12 @@ type CreateProductFormState = {
   bundleGroups: ProductBundleGroup[]
 }
 
+type StorePromotionDialogState = {
+  mode: 'add' | 'edit'
+  promotion: Promotion
+  original: Promotion | null
+}
+
 const initialCreateFormState: CreateProductFormState = {
   name: '',
   description: '',
@@ -67,34 +85,77 @@ const initialCreateFormState: CreateProductFormState = {
 
 const productCategoryName = (product: Pick<Product, 'categoryName'>) => product.categoryName?.trim() || '默认分类'
 const isBundleProduct = (product: Pick<Product, 'bundleGroups'>) => (product.bundleGroups ?? []).length > 0
-const bundleGroupsBasePrice = (groups: ProductBundleGroup[], products: Product[]) =>
-  roundMoney(groups.reduce((sum, group) => {
-    const optionPrices = group.options
-      .map((option) => products.find((product) => product.id === option.productId)?.price)
-      .filter((price): price is number => typeof price === 'number' && Number.isFinite(price))
-    const minPrice = optionPrices.length > 0 ? Math.min(...optionPrices) : 0
-    return sum + minPrice * Math.max(1, Math.floor(group.quantity || 1))
-  }, 0))
+const bundleGroupTypes: Array<{ value: ProductBundleGroup['selectionType']; label: string }> = [
+  { value: 'fixed', label: '指定菜品' },
+  { value: 'repeatable', label: '可选菜品，可重复' },
+  { value: 'nonRepeatable', label: '可选菜品，不可重复' },
+]
+
+const serializePromotion = (promotion: Promotion | null) => JSON.stringify(promotion)
 
 const createBundleGroup = (): ProductBundleGroup => ({
   id: `bundle-group-${Date.now()}-${Math.random().toString(16).slice(2)}`,
   name: '套餐类别',
   quantity: 1,
+  selectionType: 'repeatable',
+  includedPrice: 0,
   options: [],
 })
 
-const sanitizeBundleGroups = (groups: ProductBundleGroup[]) =>
+const maxBundleOptionPrice = (options: ProductBundleGroup['options'], products: Product[]) => {
+  const prices = options
+    .map((option) => products.find((item) => item.id === option.productId)?.price)
+    .filter((price): price is number => typeof price === 'number' && Number.isFinite(price))
+  return prices.length > 0 ? Math.max(...prices) : 0
+}
+
+const hasCustomBundleExtraPrice = (group: ProductBundleGroup) => group.options.some((option) => option.customExtraPrice || option.extraPrice > 0)
+
+const normalizeBundleOption = (option: ProductBundleGroup['options'][number]) => {
+  const customExtraPrice = option.customExtraPrice ?? option.extraPrice > 0
+  return {
+    productId: option.productId,
+    recommended: option.recommended ?? false,
+    extraPrice: customExtraPrice ? Math.max(0, Number.isFinite(option.extraPrice) ? option.extraPrice : 0) : 0,
+    customExtraPrice,
+  }
+}
+
+const sanitizeBundleGroups = (groups: ProductBundleGroup[], products: Product[]) =>
   groups
-    .map((group) => ({
-      ...group,
-      name: group.name.trim() || '套餐类别',
-      quantity: Math.max(1, Math.floor(group.quantity || 1)),
-      options: group.options.filter((option, index, list) => option.productId && list.findIndex((item) => item.productId === option.productId) === index),
-    }))
+    .map((group) => {
+      const selectionType = group.selectionType ?? 'repeatable'
+      const uniqueOptions = group.options.filter((option, index, list) => option.productId && list.findIndex((item) => item.productId === option.productId) === index)
+      const normalizedOptions = uniqueOptions.map(normalizeBundleOption)
+      const hasCustomExtraPrice = normalizedOptions.some((option) => option.customExtraPrice)
+      const defaultIncludedPrice = maxBundleOptionPrice(normalizedOptions, products)
+      const includedPrice = Number.isFinite(group.includedPrice) && group.includedPrice > 0 ? group.includedPrice : defaultIncludedPrice
+      return {
+        ...group,
+        name: group.name.trim() || '套餐类别',
+        quantity: selectionType === 'fixed' ? Math.max(1, normalizedOptions.length) : Math.max(1, Math.floor(group.quantity || 1)),
+        selectionType,
+        includedPrice: hasCustomExtraPrice ? 0 : Math.max(0, includedPrice),
+        options: normalizedOptions,
+      }
+    })
     .filter((group) => group.options.length > 0)
+
+const validateBundleGroups = (groups: ProductBundleGroup[], products: Product[]) => {
+  const invalidGroup = groups.find((group) => !group.options.some((option) => {
+    const product = products.find((item) => item.id === option.productId)
+    return product ? bundleOptionExtraPrice(group, product) <= 0 : false
+  }))
+  return invalidGroup ? `${invalidGroup.name}至少需要包含一个不加价菜品，请调整包含价或加价金额。` : null
+}
 
 function productDiscountedPrice(product: Product, promotion: Promotion) {
   return roundMoney(product.price - promotion.discountValue)
+}
+
+function productDiscountRateText(originalPrice: number, currentPrice: number) {
+  if (originalPrice <= 0 || currentPrice <= 0 || !Number.isFinite(currentPrice)) return '—'
+  return `${(currentPrice / originalPrice * 10).toFixed(1)}折`
 }
 
 function BundleGroupsEditor({
@@ -107,17 +168,91 @@ function BundleGroupsEditor({
   onChange: (groups: ProductBundleGroup[]) => void
 }) {
   const normalProducts = products.filter((product) => !isBundleProduct(product))
+  const [selectionDraft, setSelectionDraft] = useState<{ group: ProductBundleGroup; productIds: string[] } | null>(null)
 
   const updateGroup = (groupId: string, patch: Partial<ProductBundleGroup>) => {
     onChange(groups.map((group) => group.id === groupId ? { ...group, ...patch } : group))
   }
 
-  const toggleOption = (group: ProductBundleGroup, product: Product) => {
-    const exists = group.options.some((option) => option.productId === product.id)
+  const upsertGroup = (nextGroup: ProductBundleGroup) => {
+    const exists = groups.some((group) => group.id === nextGroup.id)
+    onChange(exists ? groups.map((group) => group.id === nextGroup.id ? nextGroup : group) : [...groups, nextGroup])
+  }
+
+  const openSelectionPage = (group: ProductBundleGroup) => {
+    setSelectionDraft({ group, productIds: group.options.map((option) => option.productId) })
+  }
+
+  const handleAddGroup = () => {
+    const group = createBundleGroup()
+    onChange([...groups, group])
+    openSelectionPage(group)
+  }
+
+  const toggleDraftProduct = (productId: string) => {
+    setSelectionDraft((draft) => {
+      if (!draft) return draft
+      const selected = draft.productIds.includes(productId)
+      return {
+        ...draft,
+        productIds: selected ? draft.productIds.filter((id) => id !== productId) : [...draft.productIds, productId],
+      }
+    })
+  }
+
+  const confirmSelection = () => {
+    if (!selectionDraft) return
+    const currentGroup = groups.find((group) => group.id === selectionDraft.group.id) ?? selectionDraft.group
+    const previousOptions = currentGroup.options
+    const nextOptions = selectionDraft.productIds.map((productId) => {
+      const existing = previousOptions.find((option) => option.productId === productId)
+      return existing ?? { productId, recommended: false, extraPrice: 0, customExtraPrice: false }
+    })
+    const hasCustomExtraPrice = nextOptions.some((option) => option.customExtraPrice)
+    const defaultIncludedPrice = maxBundleOptionPrice(nextOptions, normalProducts)
+    const includedPrice = hasCustomExtraPrice ? 0 : (currentGroup.includedPrice > 0 ? currentGroup.includedPrice : defaultIncludedPrice)
+    const normalizedOptions = nextOptions.map((option) => ({
+      ...option,
+      extraPrice: option.customExtraPrice ? Math.max(0, option.extraPrice || 0) : 0,
+    }))
+    const selectionType = currentGroup.selectionType ?? 'repeatable'
+    upsertGroup({
+      ...currentGroup,
+      selectionType,
+      includedPrice,
+      quantity: selectionType === 'fixed' ? Math.max(1, normalizedOptions.length) : currentGroup.quantity,
+      options: normalizedOptions,
+    })
+    setSelectionDraft(null)
+  }
+
+  const updateOption = (group: ProductBundleGroup, productId: string, patch: Partial<ProductBundleGroup['options'][number]>) => {
     updateGroup(group.id, {
-      options: exists
-        ? group.options.filter((option) => option.productId !== product.id)
-        : [...group.options, { productId: product.id }],
+      options: group.options.map((option) => option.productId === productId ? { ...option, ...patch } : option),
+    })
+  }
+
+  const removeOption = (group: ProductBundleGroup, productId: string) => {
+    const nextOptions = group.options.filter((option) => option.productId !== productId)
+    const hasCustomExtraPrice = nextOptions.some((option) => option.customExtraPrice)
+    updateGroup(group.id, {
+      options: nextOptions,
+      includedPrice: hasCustomExtraPrice ? 0 : group.includedPrice,
+      quantity: group.selectionType === 'fixed' ? Math.max(1, nextOptions.length) : group.quantity,
+    })
+  }
+
+  const updateIncludedPrice = (group: ProductBundleGroup, includedPrice: number) => {
+    updateGroup(group.id, {
+      includedPrice: Math.max(0, includedPrice),
+      options: group.options.map((option) => ({ ...option, extraPrice: 0, customExtraPrice: false })),
+    })
+  }
+
+  const updateOptionExtraPrice = (group: ProductBundleGroup, productId: string, extraPrice: number) => {
+    updateGroup(group.id, {
+      includedPrice: 0,
+      options: group.options.map((option) => option.productId === productId ? { ...option, extraPrice: Math.max(0, extraPrice), customExtraPrice: true } : option),
     })
   }
 
@@ -126,68 +261,165 @@ function BundleGroupsEditor({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-slate-900">套餐类别</p>
-          <p className="text-xs text-slate-500">每个类别可设置顾客需选择几件商品，可重复选择。</p>
+          <p className="text-xs text-slate-500">添加类别后进入菜品选择页，确认后在套餐中展示并可继续编辑。</p>
         </div>
-        <Button type="button" size="sm" variant="outline" onClick={() => onChange([...groups, createBundleGroup()])}>
+        <Button type="button" size="sm" variant="outline" onClick={handleAddGroup}>
           <Plus className="size-4" />
           添加类别
         </Button>
       </div>
       {groups.length === 0 ? (
         <p className="rounded-xl border border-dashed border-orange-200 bg-white/70 px-3 py-3 text-sm text-slate-500">
-          还没有套餐类别，添加类别后选择已有菜品组成套餐。
+          还没有套餐类别，点击添加类别后选择已有菜品组成套餐。
         </p>
       ) : null}
-      {groups.map((group) => (
-        <div key={group.id} className="space-y-3 rounded-xl border border-orange-100 bg-white p-3">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-end">
-            <div className="space-y-1">
-              <Label>类别名称</Label>
-              <Input value={group.name} onChange={(event) => updateGroup(group.id, { name: event.target.value })} />
+      {groups.map((group) => {
+        const hasCustomExtraPrice = hasCustomBundleExtraPrice(group)
+        const includedPrice = Number.isFinite(group.includedPrice) ? group.includedPrice : 0
+        return (
+          <div key={group.id} className="space-y-3 rounded-xl border border-orange-100 bg-white p-3">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[18rem] flex-1 space-y-1">
+                  <Label>类别名称</Label>
+                  <Input value={group.name} onChange={(event) => updateGroup(group.id, { name: event.target.value })} />
+                </div>
+                <Button type="button" variant="outline" className="text-rose-600" onClick={() => onChange(groups.filter((item) => item.id !== group.id))}>
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[12rem_8rem_10rem] sm:items-end">
+                <div className="space-y-1">
+                  <Label>类别类型</Label>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={group.selectionType ?? 'repeatable'}
+                    onChange={(event) => {
+                      const selectionType = event.target.value as ProductBundleGroup['selectionType']
+                      updateGroup(group.id, { selectionType, quantity: selectionType === 'fixed' ? Math.max(1, group.options.length) : group.quantity })
+                    }}
+                  >
+                    {bundleGroupTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label>{group.selectionType === 'fixed' ? '指定件数' : '可选件数'}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    disabled={group.selectionType === 'fixed'}
+                    value={group.selectionType === 'fixed' ? Math.max(1, group.options.length) : group.quantity}
+                    onChange={(event) => updateGroup(group.id, { quantity: Number(event.target.value) || 1 })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>包含价</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder={hasCustomExtraPrice ? '输入后替换加价' : undefined}
+                    value={hasCustomExtraPrice ? '' : includedPrice}
+                    onChange={(event) => updateIncludedPrice(group, Number(event.target.value) || 0)}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>可选件数</Label>
-              <Input
-                type="number"
-                min="1"
-                step="1"
-                value={group.quantity}
-                onChange={(event) => updateGroup(group.id, { quantity: Number(event.target.value) || 1 })}
-              />
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium text-slate-700">已添加菜品 {group.options.length} 个</p>
+              <Button type="button" size="sm" variant="outline" onClick={() => openSelectionPage(group)}>
+                {group.options.length > 0 ? '添加/编辑菜品' : '添加菜品'}
+              </Button>
             </div>
-            <Button type="button" variant="outline" className="text-rose-600" onClick={() => onChange(groups.filter((item) => item.id !== group.id))}>
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {normalProducts.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-orange-100 px-3 py-3 text-sm text-slate-500">暂无可选择的普通菜品。</p>
+
+            {group.options.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-orange-100 px-3 py-3 text-sm text-slate-500">还没有选择菜品。</p>
             ) : null}
-            {normalProducts.map((product) => {
-              const checked = group.options.some((option) => option.productId === product.id)
-              const extraPrice = checked ? bundleOptionExtraPrice(group, product, normalProducts) : null
-              return (
-                <button
-                  key={product.id}
-                  type="button"
-                  className={`flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
-                    checked ? 'border-orange-300 bg-orange-50 text-orange-800' : 'border-slate-200 bg-white text-slate-700 hover:border-orange-200'
-                  }`}
-                  onClick={() => toggleOption(group, product)}
-                >
-                  <span className={`flex size-5 shrink-0 items-center justify-center rounded-full border ${checked ? 'border-orange-400 bg-orange-400 text-white' : 'border-slate-300'}`}>
-                    {checked ? <Check className="size-3.5" /> : null}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{product.name}</span>
-                  <span className="shrink-0 text-xs text-slate-500">
-                    {extraPrice === null ? `¥${product.price.toFixed(2)}` : `+¥${extraPrice.toFixed(2)}`}
-                  </span>
-                </button>
-              )
-            })}
+
+            <div className="grid gap-2 md:grid-cols-2">
+              {group.options.map((option) => {
+                const product = normalProducts.find((item) => item.id === option.productId)
+                if (!product) return null
+                const extraPrice = bundleOptionExtraPrice(group, product)
+                return (
+                  <div key={option.productId} className="space-y-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <div className="min-w-0 space-y-1">
+                        <p className="truncate font-medium text-slate-900">{product.name}</p>
+                        <p className="text-xs text-slate-500">原价 ¥{product.price.toFixed(2)}</p>
+                      </div>
+                      <Button type="button" size="sm" variant="outline" className="shrink-0 text-rose-600" onClick={() => removeOption(group, product.id)}>
+                        删除
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Label className="text-xs">加价</Label>
+                      <Input
+                        className="h-8 w-28"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={extraPrice}
+                        onChange={(event) => updateOptionExtraPrice(group, product.id, Number(event.target.value) || 0)}
+                      />
+                      <span className="text-xs text-slate-500">{extraPrice <= 0 ? '不加价' : `+¥${extraPrice.toFixed(2)}`}</span>
+                      <label className="ml-auto flex shrink-0 items-center gap-1 text-xs text-slate-600">
+                        <input
+                          type="checkbox"
+                          className="size-3.5 accent-orange-500"
+                          checked={option.recommended ?? false}
+                          onChange={(event) => updateOption(group, product.id, { recommended: event.target.checked })}
+                        />
+                        推荐
+                      </label>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
+
+      <Dialog open={Boolean(selectionDraft)} onOpenChange={(open) => !open && setSelectionDraft(null)}>
+        <DialogContent className="flex max-h-[min(42rem,calc(100vh-2rem))] max-w-3xl flex-col overflow-hidden rounded-2xl border border-orange-100 bg-white p-0">
+          <DialogHeader className="shrink-0 border-b border-orange-100 px-6 py-4">
+            <DialogTitle>选择类别菜品</DialogTitle>
+            <DialogDescription>选择要添加到该类别的菜品，确认后会显示在套餐中。</DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-4">
+            {normalProducts.length === 0 ? <p className="text-sm text-slate-500">暂无可选择的普通菜品。</p> : null}
+            <div className="grid gap-2 md:grid-cols-2">
+              {normalProducts.map((product) => {
+                const checked = selectionDraft?.productIds.includes(product.id) ?? false
+                return (
+                  <button
+                    key={product.id}
+                    type="button"
+                    className={cn(
+                      'flex min-w-0 items-center gap-2 rounded-xl border px-3 py-3 text-left text-sm transition-colors',
+                      checked ? 'border-orange-300 bg-orange-50 text-orange-800' : 'border-slate-200 bg-white text-slate-700 hover:border-orange-200',
+                    )}
+                    onClick={() => toggleDraftProduct(product.id)}
+                  >
+                    <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-full border', checked ? 'border-orange-400 bg-orange-400 text-white' : 'border-slate-300')}>
+                      {checked ? <Check className="size-3.5" /> : null}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{product.name}</span>
+                    <span className="shrink-0 text-xs text-slate-500">¥{product.price.toFixed(2)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <DialogFooter className="shrink-0 border-t border-orange-100 px-6 py-4">
+            <Button type="button" variant="outline" onClick={() => setSelectionDraft(null)}>取消</Button>
+            <Button type="button" onClick={confirmSelection} disabled={!selectionDraft || selectionDraft.productIds.length === 0}>确认添加</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -211,12 +443,16 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
     [merchantProducts],
   )
   const productFileInputRef = useRef<HTMLInputElement>(null)
+  const createProductFileInputRef = useRef<HTMLInputElement>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [discountProduct, setDiscountProduct] = useState<Product | null>(null)
   const [productPromotionDraft, setProductPromotionDraft] = useState<Promotion | null>(null)
+  const [storePromotionDialog, setStorePromotionDialog] = useState<StorePromotionDialogState | null>(null)
+  const [storePromotionExitPromptOpen, setStorePromotionExitPromptOpen] = useState(false)
   const [formState, setFormState] = useState<ProductFormState | null>(null)
   const [createFormState, setCreateFormState] = useState<CreateProductFormState>(initialCreateFormState)
+  const [createImageFile, setCreateImageFile] = useState<File | null>(null)
   const [promotionsDraft, setPromotionsDraft] = useState<{ merchantId: string | null; promotions: Promotion[] }>({
     merchantId: null,
     promotions: [],
@@ -254,21 +490,6 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
     })
   }, [editingProduct])
 
-  useEffect(() => {
-    if (!promotionsDraft.merchantId) return
-    const timer = window.setTimeout(() => {
-      const invalidProductPromotion = promotionsDraft.promotions.find((promotion) => {
-        if (promotion.discountType !== 'productAmount') return false
-        const product = merchantProducts.find((item) => (promotion.productIds ?? []).includes(item.id))
-        return !product || validateProductPromotion(product, promotion) !== null
-      })
-      if (invalidProductPromotion) return
-      void saveStorePromotions(promotionsDraft.merchantId!, promotionsDraft.promotions).catch((error) => {
-        showNotice(error instanceof Error ? error.message : '自动保存优惠失败', 'error')
-      })
-    }, 800)
-    return () => window.clearTimeout(timer)
-  }, [merchantProducts, promotionsDraft, saveStorePromotions, showNotice])
 
   if (!selectedStore) {
     return (
@@ -278,23 +499,62 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
     )
   }
 
-  const createBundlePrice = bundleGroupsBasePrice(createFormState.bundleGroups, merchantProducts)
   const editBundleProducts = merchantProducts.filter((product) => product.id !== editingProduct?.id)
-  const formBundlePrice = formState ? bundleGroupsBasePrice(formState.bundleGroups ?? [], editBundleProducts) : 0
   const createIsBundle = createFormState.bundleGroups.length > 0
   const formIsBundle = (formState?.bundleGroups ?? []).length > 0
+  const createSelectableProducts = merchantProducts.filter((product) => !isBundleProduct(product))
+  const editSelectableProducts = editBundleProducts.filter((product) => !isBundleProduct(product))
+  const createNormalizedBundleGroups = sanitizeBundleGroups(createFormState.bundleGroups, merchantProducts)
+  const formNormalizedBundleGroups = sanitizeBundleGroups(formState?.bundleGroups ?? [], editBundleProducts)
+  const createBundleIncomplete = createIsBundle && createNormalizedBundleGroups.length === 0
+  const formBundleIncomplete = formIsBundle && formNormalizedBundleGroups.length === 0
+  const createSubmitDisabled = saving || !createFormState.name.trim() || createBundleIncomplete
+  const formSubmitDisabled = !formState || saving || formBundleIncomplete
+
+  const openCreateProductDialog = () => {
+    setCreateImageFile(null)
+    setCreateFormState({ ...initialCreateFormState, bundleGroups: [] })
+    setIsCreateDialogOpen(true)
+  }
+
+  const openCreateBundleDialog = () => {
+    setCreateImageFile(null)
+    setCreateFormState({ ...initialCreateFormState, categoryName: '精选套餐', bundleGroups: [createBundleGroup()] })
+    setIsCreateDialogOpen(true)
+  }
+
+  const closeCreateDialog = () => {
+    setCreateImageFile(null)
+    setCreateFormState({ ...initialCreateFormState, bundleGroups: [] })
+    setIsCreateDialogOpen(false)
+  }
 
   const handleSave = async () => {
     if (!editingProduct || !formState) {
       return
     }
 
-    const normalizedBundleGroups = sanitizeBundleGroups(formState.bundleGroups ?? [])
+    const normalizedBundleGroups = sanitizeBundleGroups(formState.bundleGroups ?? [], editBundleProducts)
+    if (formIsBundle && editSelectableProducts.length === 0) {
+      showNotice('请先保留至少一个普通菜品，再把商品设置为套餐。', 'error')
+      return
+    }
+    if (formIsBundle && normalizedBundleGroups.length === 0) {
+      showNotice('请至少添加一个套餐类别，并在类别中选择已有菜品。', 'error')
+      return
+    }
+    const bundleValidationMessage = validateBundleGroups(normalizedBundleGroups, editBundleProducts)
+    if (formIsBundle && bundleValidationMessage) {
+      showNotice(bundleValidationMessage, 'error')
+      return
+    }
+
     setSaving(true)
     try {
       await onEditProduct(editingProduct.id, {
         ...formState,
-        price: normalizedBundleGroups.length > 0 ? bundleGroupsBasePrice(normalizedBundleGroups, editBundleProducts) : formState.price,
+        description: formState.description.trim(),
+        price: formState.price,
         bundleGroups: normalizedBundleGroups,
       })
       setEditingProduct(null)
@@ -307,24 +567,57 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
     if (!selectedStore) {
       return
     }
-    if (!createFormState.name.trim() || !createFormState.description.trim()) {
+    if (!createFormState.name.trim()) {
       return
     }
 
-    const normalizedBundleGroups = sanitizeBundleGroups(createFormState.bundleGroups)
+    const normalizedBundleGroups = sanitizeBundleGroups(createFormState.bundleGroups, merchantProducts)
+    if (createIsBundle && createSelectableProducts.length === 0) {
+      showNotice('请先创建普通菜品，再创建套餐。', 'error')
+      return
+    }
+    if (createIsBundle && normalizedBundleGroups.length === 0) {
+      showNotice('请至少添加一个套餐类别，并在类别中选择已有菜品。', 'error')
+      return
+    }
+    const bundleValidationMessage = validateBundleGroups(normalizedBundleGroups, merchantProducts)
+    if (createIsBundle && bundleValidationMessage) {
+      showNotice(bundleValidationMessage, 'error')
+      return
+    }
+
     setSaving(true)
     try {
-      await onCreateProduct({
+      const created = await onCreateProduct({
         merchantId: selectedStore.merchant.id,
         ...createFormState,
-        price: normalizedBundleGroups.length > 0 ? bundleGroupsBasePrice(normalizedBundleGroups, merchantProducts) : createFormState.price,
+        description: createFormState.description.trim(),
+        price: createFormState.price,
         bundleGroups: normalizedBundleGroups,
       })
-      setCreateFormState(initialCreateFormState)
-      setIsCreateDialogOpen(false)
+      if (createImageFile) {
+        await onUploadProductImage(created.id, createImageFile)
+      }
+      closeCreateDialog()
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleCreateProductFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) {
+      return
+    }
+
+    const fileError = getLocalImageFileError(file)
+    if (fileError) {
+      showNotice(fileError, 'error')
+      return
+    }
+
+    setCreateImageFile(file)
   }
 
   const handleProductFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -362,49 +655,88 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
   const normalizePromotionPatch = (promotion: Promotion, patch: Partial<Promotion>): Promotion => {
     const next = { ...promotion, ...patch }
     const usageLimit = next.usageLimit === null || next.usageLimit === undefined ? null : Math.max(1, Math.floor(next.usageLimit))
+    const triggerType = next.discountType === 'productAmount' ? 'none' : (next.triggerType === 'items' ? 'items' : 'amount')
+    const defaultTriggerValue = triggerType === 'items' ? 2 : 50
     return {
       ...next,
+      triggerType,
+      triggerValue: triggerType === 'none' ? 0 : Math.max(1, Number(next.triggerValue) || defaultTriggerValue),
       usageLimit,
       remainingUses: usageLimit === null ? null : Math.min(next.remainingUses ?? usageLimit, usageLimit),
       productIds: next.discountType === 'productAmount' ? (next.productIds ?? []) : [],
     }
   }
 
-  const updatePromotion = (id: string, patch: Partial<Promotion>) => {
-    setPromotionsDraft({
-      merchantId: selectedMerchantId,
-      promotions: promotions.map((promotion) => promotion.id === id ? normalizePromotionPatch(promotion, patch) : promotion),
-    })
+  const openStorePromotionDialog = (promotion: Promotion) => {
+    setStorePromotionDialog({ mode: 'edit', promotion, original: promotion })
   }
 
   const handleAddPromotion = () => {
-    setPromotionsDraft({
-      merchantId: selectedMerchantId,
-      promotions: [
-        ...promotions,
-        {
-          id: `merchant-promo-${Date.now()}`,
-          title: '新优惠',
-          discountType: 'amount',
-          discountValue: 5,
-          triggerType: 'none',
-          triggerValue: 0,
-          startsAt: null,
-          endsAt: null,
-          dailyStartTime: null,
-          dailyEndTime: null,
-          productIds: [],
-          usageLimit: null,
-          remainingUses: null,
-          enabled: false,
-        },
-      ],
-    })
+    const promotion = createDefaultPromotion('merchant-promo', '新优惠')
+    setStorePromotionDialog({ mode: 'add', promotion, original: null })
+  }
+
+  const updateStorePromotionDraft = (patch: Partial<Promotion>) => {
+    setStorePromotionDialog((current) => current ? { ...current, promotion: normalizePromotionPatch(current.promotion, patch) } : current)
+  }
+
+  const storePromotionDirty = storePromotionDialog ? serializePromotion(storePromotionDialog.promotion) !== serializePromotion(storePromotionDialog.original) : false
+
+  const requestCloseStorePromotionDialog = () => {
+    if (storePromotionDirty) {
+      setStorePromotionExitPromptOpen(true)
+      return
+    }
+    setStorePromotionDialog(null)
+  }
+
+  const saveStorePromotionDraft = async () => {
+    if (!storePromotionDialog || !selectedMerchantId) return false
+    const nextPromotions = storePromotionDialog.mode === 'add'
+      ? [...promotions, storePromotionDialog.promotion]
+      : promotions.map((promotion) => promotion.id === storePromotionDialog.promotion.id ? storePromotionDialog.promotion : promotion)
+    try {
+      await saveStorePromotions(selectedMerchantId, nextPromotions)
+      setPromotionsDraft({ merchantId: selectedMerchantId, promotions: nextPromotions })
+      showNotice('店铺优惠已提交保存。', 'success')
+      setStorePromotionDialog({ ...storePromotionDialog, original: storePromotionDialog.promotion })
+      return true
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : '保存店铺优惠失败', 'error')
+      return false
+    }
+  }
+
+  const saveAndCloseStorePromotionDialog = async () => {
+    const saved = await saveStorePromotionDraft()
+    if (saved) {
+      setStorePromotionExitPromptOpen(false)
+      setStorePromotionDialog(null)
+    }
+  }
+
+  const discardAndCloseStorePromotionDialog = () => {
+    setStorePromotionExitPromptOpen(false)
+    setStorePromotionDialog(null)
+  }
+
+  const removeStorePromotion = async (promotionId: string) => {
+    if (!selectedMerchantId) return
+    const nextPromotions = promotions.filter((promotion) => promotion.id !== promotionId)
+    try {
+      await saveStorePromotions(selectedMerchantId, nextPromotions)
+      setPromotionsDraft({ merchantId: selectedMerchantId, promotions: nextPromotions })
+      showNotice('店铺优惠已删除。', 'success')
+      setStorePromotionDialog(null)
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : '删除店铺优惠失败', 'error')
+    }
   }
 
   const handleOpenProductPromotion = (product: Product) => {
     const existing = productPromotionFor(product.id)
     const maxDiscount = Math.max(0.01, roundMoney(product.price - 0.01))
+    const schedule = defaultPromotionSchedule()
     const draft = existing ?? {
       id: `product-promo-${product.id}-${Date.now()}`,
       title: `${product.name}专属优惠`,
@@ -412,10 +744,10 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
       discountValue: Math.min(1, maxDiscount),
       triggerType: 'none',
       triggerValue: 0,
-      startsAt: null,
-      endsAt: null,
-      dailyStartTime: null,
-      dailyEndTime: null,
+      startsAt: schedule.startsAt,
+      endsAt: schedule.endsAt,
+      dailyStartTime: schedule.dailyStartTime,
+      dailyEndTime: schedule.dailyEndTime,
       productIds: [product.id],
       usageLimit: null,
       remainingUses: null,
@@ -423,12 +755,6 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
     }
     setDiscountProduct(product)
     setProductPromotionDraft(draft)
-    if (!existing) {
-      setPromotionsDraft({
-        merchantId: selectedMerchantId,
-        promotions: [...promotions, draft],
-      })
-    }
   }
 
   const closeProductPromotionDialog = () => {
@@ -437,45 +763,63 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
   }
 
   const validateProductPromotion = (product: Product, promotion: Promotion): string | null => {
-    if (promotion.discountValue <= 0) return '菜品优惠金额必须大于 0 元。'
-    if (productDiscountedPrice(product, promotion) <= 0) return '优惠后的菜品价格必须大于 0 元。'
+    const currentPrice = productDiscountedPrice(product, promotion)
+    if (currentPrice <= 0) return '优惠后价格必须大于 0 元。'
+    if (currentPrice >= product.price) return '优惠后价格必须小于原价。'
     return null
   }
 
   const updateProductPromotionDraft = (patch: Partial<Promotion>) => {
     if (!discountProduct || !productPromotionDraft) return
-    const maxDiscount = Math.max(0.01, roundMoney(discountProduct.price - 0.01))
-    const nextDraft = {
+    const nextDiscountValue = patch.discountValue === undefined
+      ? productPromotionDraft.discountValue
+      : (Number.isFinite(patch.discountValue) ? roundMoney(patch.discountValue) : 0)
+    const normalizedPromotion: Promotion = {
       ...productPromotionDraft,
       ...patch,
-      discountValue: patch.discountValue === undefined ? productPromotionDraft.discountValue : Math.min(maxDiscount, Math.max(0.01, roundMoney(patch.discountValue))),
-    }
-    const normalizedPromotion: Promotion = {
-      ...nextDraft,
+      title: `${discountProduct.name}专属优惠`,
       discountType: 'productAmount',
       productIds: [discountProduct.id],
-      discountValue: roundMoney(nextDraft.discountValue),
+      discountValue: nextDiscountValue,
       triggerType: 'none',
       triggerValue: 0,
     }
     setProductPromotionDraft(normalizedPromotion)
-
-    setPromotionsDraft({
-      merchantId: selectedMerchantId,
-      promotions: [
-        ...promotions.filter((promotion) => !(promotion.discountType === 'productAmount' && (promotion.productIds ?? []).includes(discountProduct.id)) && promotion.id !== normalizedPromotion.id),
-        normalizedPromotion,
-      ],
-    })
   }
 
-  const handleRemoveProductPromotion = () => {
-    if (!discountProduct) return
-    setPromotionsDraft({
-      merchantId: selectedMerchantId,
-      promotions: promotions.filter((promotion) => !(promotion.discountType === 'productAmount' && (promotion.productIds ?? []).includes(discountProduct.id))),
-    })
-    closeProductPromotionDialog()
+  const handleSubmitProductPromotion = async () => {
+    if (!discountProduct || !productPromotionDraft || !selectedMerchantId) return
+    const validationMessage = validateProductPromotion(discountProduct, productPromotionDraft)
+    if (validationMessage) {
+      showNotice(validationMessage, 'error')
+      return
+    }
+
+    const nextPromotions = [
+      ...promotions.filter((promotion) => !(promotion.discountType === 'productAmount' && (promotion.productIds ?? []).includes(discountProduct.id)) && promotion.id !== productPromotionDraft.id),
+      productPromotionDraft,
+    ]
+    try {
+      await saveStorePromotions(selectedMerchantId, nextPromotions)
+      setPromotionsDraft({ merchantId: selectedMerchantId, promotions: nextPromotions })
+      showNotice('菜品优惠已提交保存。', 'success')
+      closeProductPromotionDialog()
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : '保存菜品优惠失败', 'error')
+    }
+  }
+
+  const handleRemoveProductPromotion = async () => {
+    if (!discountProduct || !selectedMerchantId) return
+    const nextPromotions = promotions.filter((promotion) => !(promotion.discountType === 'productAmount' && (promotion.productIds ?? []).includes(discountProduct.id)))
+    try {
+      await saveStorePromotions(selectedMerchantId, nextPromotions)
+      setPromotionsDraft({ merchantId: selectedMerchantId, promotions: nextPromotions })
+      showNotice('菜品优惠已删除。', 'success')
+      closeProductPromotionDialog()
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : '删除菜品优惠失败', 'error')
+    }
   }
 
   return (
@@ -508,9 +852,12 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
                 <PackageSearch className="size-5 text-orange-500" />
                 商品管理
               </CardTitle>
-              <CardDescription>可新建菜品，或通过编辑统一修改菜品名称、描述、库存、上/下架状态和价格</CardDescription>
+              <CardDescription>可新建菜品和套餐，或通过编辑统一修改商品名称、描述、库存、上/下架状态和价格</CardDescription>
             </div>
-            <Button onClick={() => setIsCreateDialogOpen(true)}>新建菜品</Button>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button onClick={openCreateProductDialog}>新建菜品</Button>
+              <Button variant="secondary" onClick={openCreateBundleDialog}>新建套餐</Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -564,7 +911,7 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
                                 ) : null}
                               </div>
                                 <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-2">
-                                <p>{bundleProduct ? '默认最低价' : '价格'}：¥{product.price.toFixed(2)} / 份</p>
+                                <p>{bundleProduct ? '套餐基础价' : '价格'}：¥{product.price.toFixed(2)} / 份</p>
                                 <p>金额：¥{product.price.toFixed(2)}</p>
                                 <p>剩余库存：{product.remainingStock}</p>
                                 <p>月销量：{product.monthlySales}</p>
@@ -592,138 +939,149 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
       </Card>
 
       <Card className="border-orange-100 bg-white/95">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TicketPercent className="size-5 text-orange-500" />
-            店铺优惠
-          </CardTitle>
-          <CardDescription>仅当前店铺可用；顾客按优惠后付款，商家收入也按优惠后结算。</CardDescription>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <TicketPercent className="size-5 text-orange-500" />
+              店铺优惠
+            </CardTitle>
+            <CardDescription>首页仅展示只读优惠信息；进入管理后可编辑并提交保存。</CardDescription>
+          </div>
+          <Button type="button" variant="outline" onClick={handleAddPromotion}>
+            <Plus className="size-4" />
+            新增优惠
+          </Button>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-2">
           {storePromotions.length === 0 ? <p className="text-sm text-slate-500">当前未设置店铺优惠。</p> : null}
           {storePromotions.map((promotion) => {
-            const finite = promotion.usageLimit !== null && promotion.usageLimit !== undefined
+            const usageText = promotionUsageText(promotion)
             return (
-              <div key={promotion.id} className="space-y-3 rounded-xl border border-orange-100 bg-orange-50/50 p-3">
-                <div className="grid gap-3 md:grid-cols-[1fr_11rem_8rem]">
-                  <div className="space-y-1">
-                    <Label>优惠名称</Label>
-                    <Input value={promotion.title} onChange={(event) => updatePromotion(promotion.id, { title: event.target.value })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>优惠类型</Label>
-                    <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={promotion.discountType} onChange={(event) => updatePromotion(promotion.id, { discountType: event.target.value as Promotion['discountType'] })}>
-                      <option value="amount">减xx元</option>
-                      <option value="percent">xx折</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>{promotion.discountType === 'percent' ? '折扣' : '金额'}</Label>
-                    <Input type="number" min="0" step="0.1" value={promotion.discountValue} onChange={(event) => updatePromotion(promotion.id, { discountValue: Number(event.target.value) })} />
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-[9rem_8rem_1fr_1fr] md:items-end">
-                  <div className="space-y-1">
-                    <Label>触发条件</Label>
-                    <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={promotion.triggerType} onChange={(event) => updatePromotion(promotion.id, { triggerType: event.target.value as Promotion['triggerType'], triggerValue: event.target.value === 'none' ? 0 : promotion.triggerValue })}>
-                      <option value="none">无条件</option>
-                      <option value="amount">满xx元</option>
-                      <option value="items">满xx件</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>门槛</Label>
-                    <Input type="number" min="0" step="1" value={promotion.triggerValue} disabled={promotion.triggerType === 'none'} onChange={(event) => updatePromotion(promotion.id, { triggerValue: Number(event.target.value) })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>开始日期</Label>
-                    <PromotionDateInput value={promotion.startsAt} onChange={(value) => updatePromotion(promotion.id, { startsAt: value })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>结束日期</Label>
-                    <PromotionDateInput value={promotion.endsAt} onChange={(value) => updatePromotion(promotion.id, { endsAt: value })} />
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-[1fr_1fr_9rem_8rem_auto] md:items-end">
-                  <div className="space-y-1">
-                    <Label>每日开始时刻</Label>
-                    <Input type="time" value={promotion.dailyStartTime ?? ''} onChange={(event) => updatePromotion(promotion.id, { dailyStartTime: event.target.value || null })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>每日结束时刻</Label>
-                    <Input type="time" value={promotion.dailyEndTime ?? ''} onChange={(event) => updatePromotion(promotion.id, { dailyEndTime: event.target.value || null })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>次数</Label>
-                    <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={finite ? 'finite' : 'infinite'} onChange={(event) => updatePromotion(promotion.id, { usageLimit: event.target.value === 'finite' ? (promotion.usageLimit ?? 10) : null, remainingUses: event.target.value === 'finite' ? (promotion.remainingUses ?? promotion.usageLimit ?? 10) : null })}>
-                      <option value="infinite">无限次</option>
-                      <option value="finite">有限次数</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>可用次数</Label>
-                    <Input type="number" min="1" step="1" value={promotion.usageLimit ?? ''} disabled={!finite} onChange={(event) => updatePromotion(promotion.id, { usageLimit: Number(event.target.value) || 1, remainingUses: Number(event.target.value) || 1 })} />
-                  </div>
-                  <Button type="button" variant="outline" className="text-rose-600" onClick={() => setPromotionsDraft({ merchantId: selectedMerchantId, promotions: promotions.filter((item) => item.id !== promotion.id) })}>
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <p className="min-w-0 break-words text-xs text-orange-700">
-                    {promotion.enabled
-                      ? `预览：${promotionSummary(promotion)} · ${finite ? `${promotion.remainingUses ?? promotion.usageLimit}张优惠券` : '优惠'}`
-                      : '已禁用：顾客端、结算和商品展示中不会显示该优惠'}
-                  </p>
-                  <PromotionEnableControl enabled={promotion.enabled} onChange={(enabled) => updatePromotion(promotion.id, { enabled })} />
-                </div>
+              <div
+                key={promotion.id}
+                className={cn(
+                  'flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2 text-sm',
+                  promotion.enabled ? 'border-orange-100 bg-orange-50/60 text-orange-800' : 'border-slate-200 bg-slate-100 text-slate-500',
+                )}
+              >
+                <Badge variant={promotion.enabled ? 'default' : 'outline'} className="shrink-0">
+                  {promotion.enabled ? '启用' : '停用'}
+                </Badge>
+                <span className="shrink-0 font-semibold">{promotion.title}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {promotionSummary(promotion)}{usageText ? ` · ${usageText}` : ''}
+                </span>
+                <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={() => openStorePromotionDialog(promotion)}>
+                  管理优惠
+                </Button>
               </div>
             )
           })}
-          <div className="flex flex-wrap justify-start gap-2">
-            <Button type="button" variant="outline" onClick={handleAddPromotion}>
-              <Plus className="size-4" />
-              添加优惠
-            </Button>
-          </div>
         </CardContent>
       </Card>
+
+      <Dialog open={Boolean(storePromotionDialog)} onOpenChange={(open) => !open && requestCloseStorePromotionDialog()}>
+        <DialogContent showCloseButton={false} className="flex max-h-[min(42rem,calc(100vh-2rem))] max-w-4xl flex-col overflow-hidden rounded-2xl border border-orange-100 bg-white p-0">
+          <DialogHeader className="shrink-0 border-b border-orange-100 px-6 py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <Button type="button" variant="outline" size="sm" onClick={requestCloseStorePromotionDialog}>
+                  <ArrowLeft className="size-4" />
+                  返回
+                </Button>
+                <div>
+                  <DialogTitle>{storePromotionDialog?.mode === 'add' ? '添加店铺优惠' : '管理店铺优惠'}</DialogTitle>
+                  <DialogDescription>修改优惠内容或启停状态后，点击右上角提交才会保存。</DialogDescription>
+                </div>
+              </div>
+              <Button type="button" onClick={() => void saveStorePromotionDraft()} disabled={!storePromotionDirty}>
+                <Save className="size-4" />
+                提交
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+            {storePromotionDialog ? (
+              <PromotionEditorCard
+                promotion={storePromotionDialog.promotion}
+                onChange={(_, patch) => updateStorePromotionDraft(patch)}
+                onRemove={(id) => void removeStorePromotion(id)}
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={storePromotionExitPromptOpen} onOpenChange={setStorePromotionExitPromptOpen}>
+        <AlertDialogContent>
+          <AlertDialogCancel className="mb-1 w-fit border-0 px-0 text-slate-500 shadow-none hover:bg-transparent" onClick={() => setStorePromotionExitPromptOpen(false)}>
+            <ArrowLeft className="size-4" />
+            返回优惠管理
+          </AlertDialogCancel>
+          <AlertDialogHeader>
+            <AlertDialogTitle>有未提交的优惠修改</AlertDialogTitle>
+            <AlertDialogDescription>离开前请确认是否保存。本次修改只有点击“提交”后才会生效。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction className="bg-slate-700 hover:bg-slate-800" onClick={discardAndCloseStorePromotionDialog}>
+              不保存并退出
+            </AlertDialogAction>
+            <AlertDialogAction onClick={() => void saveAndCloseStorePromotionDialog()}>
+              保存并退出
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={Boolean(discountProduct)} onOpenChange={(open) => !open && closeProductPromotionDialog()}>
         <DialogContent className="flex max-h-[min(36rem,calc(100vh-2rem))] w-[calc(100vw-2rem)] max-w-2xl flex-col overflow-hidden rounded-2xl border border-orange-100 bg-white p-0">
           <DialogHeader className="shrink-0 px-6 pt-6">
             <DialogTitle>{discountProduct ? `${discountProduct.name}优惠` : '菜品优惠'}</DialogTitle>
-            <DialogDescription>为当前菜品单独设置优惠金额，优惠后的菜品价格必须大于 0 元。</DialogDescription>
+            <DialogDescription>为当前菜品输入优惠后的现在金额，提交时会校验必须小于原价。</DialogDescription>
           </DialogHeader>
           {discountProduct && productPromotionDraft ? (
             (() => {
               const finite = productPromotionDraft.usageLimit !== null && productPromotionDraft.usageLimit !== undefined
+              const currentPrice = productDiscountedPrice(discountProduct, productPromotionDraft)
+              const discountRate = productDiscountRateText(discountProduct.price, currentPrice)
+              const validationMessage = validateProductPromotion(discountProduct, productPromotionDraft)
               return (
-                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-4">
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_11rem_8rem]">
+                <div
+                  className={cn(
+                    'min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-4 transition-colors',
+                    !productPromotionDraft.enabled && 'bg-slate-50 text-slate-500',
+                  )}
+                >
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem_8rem_8rem]">
                     <div className="space-y-1">
-                      <Label>优惠名称</Label>
-                      <Input value={productPromotionDraft.title} onChange={(event) => updateProductPromotionDraft({ title: event.target.value })} />
+                      <Label>当前菜品</Label>
+                      <Input value={discountProduct.name} disabled />
                     </div>
                     <div className="space-y-1">
-                      <Label>优惠类型</Label>
-                      <Input value="针对当前菜品减xx元" disabled />
+                      <Label>原价</Label>
+                      <Input value={`¥${discountProduct.price.toFixed(2)}`} disabled />
                     </div>
                     <div className="space-y-1">
-                      <Label>金额</Label>
+                      <Label>现在金额</Label>
                       <Input
                         type="number"
                         min="0.01"
                         step="0.01"
-                        value={productPromotionDraft.discountValue}
-                        onChange={(event) => updateProductPromotionDraft({ discountValue: Number(event.target.value) })}
+                        value={Number.isFinite(currentPrice) ? currentPrice : ''}
+                        onChange={(event) => {
+                          const nextPrice = Number(event.target.value)
+                          updateProductPromotionDraft({ discountValue: roundMoney(discountProduct.price - (Number.isFinite(nextPrice) ? nextPrice : 0)) })
+                        }}
                       />
                     </div>
+                    <div className="space-y-1">
+                      <Label>当前折扣</Label>
+                      <Input value={discountRate} disabled />
+                    </div>
                   </div>
+                  {validationMessage ? <p className="text-xs text-rose-600">{validationMessage}</p> : null}
 
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem] md:items-end">
+                  <div className="grid gap-3 md:grid-cols-2 md:items-end">
                     <div className="space-y-1">
                       <Label>开始日期</Label>
                       <PromotionDateInput value={productPromotionDraft.startsAt} onChange={(value) => updateProductPromotionDraft({ startsAt: value })} />
@@ -731,10 +1089,6 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
                     <div className="space-y-1">
                       <Label>结束日期</Label>
                       <PromotionDateInput value={productPromotionDraft.endsAt} onChange={(value) => updateProductPromotionDraft({ endsAt: value })} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>优惠后价格</Label>
-                      <Input value={`¥${productDiscountedPrice(discountProduct, productPromotionDraft).toFixed(2)}`} disabled />
                     </div>
                   </div>
 
@@ -760,16 +1114,11 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <Label>适用菜品</Label>
-                    <Input value={discountProduct.name} disabled />
-                  </div>
-
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                    <p className="min-w-0 break-words text-xs text-orange-700">
+                    <p className={cn('min-w-0 break-words text-xs', productPromotionDraft.enabled ? 'text-orange-700' : 'text-slate-500')}>
                       {productPromotionDraft.enabled
-                        ? `预览：${promotionSummary(productPromotionDraft)} · ${finite ? `${productPromotionDraft.remainingUses ?? productPromotionDraft.usageLimit}张优惠券` : '优惠'} · 原价 ¥${discountProduct.price.toFixed(2)}，优惠后 ¥${productDiscountedPrice(discountProduct, productPromotionDraft).toFixed(2)}`
-                        : '已禁用：商家端菜品卡片、顾客端和结算中不会显示或使用该优惠'}
+                        ? `预览：${discountProduct.name} 原价 ¥${discountProduct.price.toFixed(2)}，现在 ¥${currentPrice.toFixed(2)}，${discountRate} · ${finite ? `${productPromotionDraft.remainingUses ?? productPromotionDraft.usageLimit}张优惠券` : '优惠'}`
+                        : '已停用：商家端菜品卡片、顾客端和结算中不会显示或使用该优惠'}
                     </p>
                     <PromotionEnableControl enabled={productPromotionDraft.enabled} onChange={(enabled) => updateProductPromotionDraft({ enabled })} />
                   </div>
@@ -784,18 +1133,28 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
               </Button>
             ) : null}
             <Button type="button" variant="outline" onClick={closeProductPromotionDialog}>取消</Button>
+            <Button type="button" onClick={() => void handleSubmitProductPromotion()}>提交优惠</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={(open) => (open ? setIsCreateDialogOpen(true) : closeCreateDialog())}>
         <DialogContent className="flex max-h-[min(42rem,calc(100vh-2rem))] max-w-2xl flex-col overflow-hidden rounded-2xl border border-orange-100 bg-white p-0">
           <DialogHeader className="shrink-0 px-6 pt-6">
-            <DialogTitle>新建商品</DialogTitle>
-            <DialogDescription>可创建普通菜品，也可开启套餐并选择已有菜品组成套餐。</DialogDescription>
+            <DialogTitle>{createIsBundle ? '新建套餐' : '新建商品'}</DialogTitle>
+            <DialogDescription>
+              {createIsBundle ? '选择当前店铺已有普通菜品组成套餐，并设置套餐基础价。' : '创建普通菜品后，可继续用它组成套餐。'}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+            <input
+              ref={createProductFileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp"
+              className="sr-only"
+              onChange={handleCreateProductFileChange}
+            />
             {createFormState.imageUrl.trim() ? (
               <div className="aspect-video w-full overflow-hidden rounded-xl border border-orange-100 bg-orange-50">
                 <img
@@ -807,24 +1166,39 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
             ) : null}
 
             <div className="space-y-2">
-              <Label htmlFor="create-product-name">商品名称</Label>
+              <Label htmlFor="create-product-name">{createIsBundle ? '套餐名称' : '商品名称'}</Label>
               <Input
                 id="create-product-name"
+                placeholder={createIsBundle ? '例如：双人精选套餐' : '例如：招牌牛肉饭'}
                 value={createFormState.name}
                 onChange={(event) => setCreateFormState({ ...createFormState, name: event.target.value })}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="create-product-image-url">商品图片链接</Label>
+              <Label htmlFor="create-product-image-url">{createIsBundle ? '套餐图片' : '菜品图片'}</Label>
               <Input
                 id="create-product-image-url"
                 type="text"
                 inputMode="url"
-                placeholder="https://example.com/product.jpg"
+                placeholder="可粘贴 https://example.com/product.jpg，或选择本地图片"
                 value={createFormState.imageUrl}
                 onChange={(event) => setCreateFormState({ ...createFormState, imageUrl: event.target.value })}
               />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={saving}
+                  onClick={() => createProductFileInputRef.current?.click()}
+                >
+                  <Upload className="size-4" />
+                  {createIsBundle ? '上传本地套餐图' : '上传本地菜品图'}
+                </Button>
+                {createImageFile ? (
+                  <span className="text-xs text-slate-500">已选择：{createImageFile.name}，创建后自动上传。</span>
+                ) : null}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -848,19 +1222,19 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="create-product-price">{createIsBundle ? '套餐默认最低价' : '价格'}</Label>
+                <Label htmlFor="create-product-price">{createIsBundle ? '套餐自定义价格' : '价格'}</Label>
                 <Input
                   id="create-product-price"
-                  type={createIsBundle ? 'text' : 'number'}
+                  type="number"
                   min="0"
                   step="0.01"
-                  disabled={createIsBundle}
-                  value={createIsBundle ? `¥${createBundlePrice.toFixed(2)}` : (createFormState.price === 0 ? '' : createFormState.price)}
-                  onChange={(event) =>
-                    setCreateFormState({ ...createFormState, price: Number(event.target.value) || 0 })
-                  }
+                  value={createFormState.price === 0 ? '' : createFormState.price}
+                  onChange={(event) => {
+                    const price = Number(event.target.value) || 0
+                    setCreateFormState((current) => ({ ...current, price }))
+                  }}
                 />
-                {createIsBundle ? <p className="text-xs text-slate-500">根据每个套餐类别中价格最低的已选菜品自动计算。</p> : null}
+                {createIsBundle ? <p className="text-xs text-slate-500">顾客支付套餐价，加上各类别中超出包含价的菜品加价。</p> : null}
               </div>
 
               <div className="space-y-2">
@@ -907,11 +1281,21 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
                 />
                 这是一个套餐商品
               </label>
+              {createIsBundle && createSelectableProducts.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-orange-200 bg-white/70 px-3 py-3 text-sm text-orange-700">
+                  请先创建至少一个普通菜品，再回来选择已有菜品组成套餐。
+                </p>
+              ) : null}
+              {createIsBundle && createSelectableProducts.length > 0 && createBundleIncomplete ? (
+                <p className="rounded-xl border border-dashed border-orange-200 bg-white/70 px-3 py-3 text-sm text-orange-700">
+                  请至少保留一个套餐类别，并在类别中选择已有普通菜品。
+                </p>
+              ) : null}
               {createFormState.bundleGroups.length > 0 ? (
                 <BundleGroupsEditor
                   groups={createFormState.bundleGroups}
                   products={merchantProducts}
-                  onChange={(bundleGroups) => setCreateFormState({ ...createFormState, bundleGroups })}
+                  onChange={(bundleGroups) => setCreateFormState((current) => ({ ...current, bundleGroups }))}
                 />
               ) : null}
             </div>
@@ -920,19 +1304,16 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
           <DialogFooter className="shrink-0 border-t border-orange-100 px-6 py-4">
             <Button
               variant="outline"
-              onClick={() => {
-                setCreateFormState(initialCreateFormState)
-                setIsCreateDialogOpen(false)
-              }}
+              onClick={closeCreateDialog}
               disabled={saving}
             >
               取消
             </Button>
             <Button
               onClick={() => void handleCreate()}
-              disabled={saving || !createFormState.name.trim() || !createFormState.description.trim()}
+              disabled={createSubmitDisabled}
             >
-              创建商品
+              {createIsBundle ? '创建套餐' : '创建商品'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1002,7 +1383,7 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
                 onClick={() => productFileInputRef.current?.click()}
               >
                 <Upload className="size-4" />
-                从本地上传菜品图
+                从本地上传商品图
               </Button>
 
               <div className="space-y-2">
@@ -1016,19 +1397,19 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="product-price">{formIsBundle ? '套餐默认最低价' : '价格'}</Label>
+                  <Label htmlFor="product-price">{formIsBundle ? '套餐自定义价格' : '价格'}</Label>
                   <Input
                     id="product-price"
-                    type={formIsBundle ? 'text' : 'number'}
+                    type="number"
                     min="0"
                     step="0.01"
-                    disabled={formIsBundle}
-                    value={formIsBundle ? `¥${formBundlePrice.toFixed(2)}` : (formState.price === 0 ? '' : formState.price)}
-                    onChange={(event) =>
-                      setFormState({ ...formState, price: Number(event.target.value) || 0 })
-                    }
+                    value={formState.price === 0 ? '' : formState.price}
+                    onChange={(event) => {
+                      const price = Number(event.target.value) || 0
+                      setFormState((current) => current ? { ...current, price } : current)
+                    }}
                   />
-                  {formIsBundle ? <p className="text-xs text-slate-500">根据每个套餐类别中价格最低的已选菜品自动计算。</p> : null}
+                  {formIsBundle ? <p className="text-xs text-slate-500">顾客支付套餐价，加上各类别中超出包含价的菜品加价。</p> : null}
                 </div>
 
                 <div className="space-y-2">
@@ -1071,15 +1452,25 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
                     type="checkbox"
                     className="size-4 accent-orange-500"
                     checked={(formState.bundleGroups ?? []).length > 0}
-                    onChange={(event) => setFormState({ ...formState, bundleGroups: event.target.checked ? [createBundleGroup()] : [] })}
+                    onChange={(event) => setFormState((current) => current ? { ...current, bundleGroups: event.target.checked ? [createBundleGroup()] : [] } : current)}
                   />
                   这是一个套餐商品
                 </label>
+                {formIsBundle && editSelectableProducts.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-orange-200 bg-white/70 px-3 py-3 text-sm text-orange-700">
+                    请先保留至少一个普通菜品，再把商品设置为套餐。
+                  </p>
+                ) : null}
+                {formIsBundle && editSelectableProducts.length > 0 && formBundleIncomplete ? (
+                  <p className="rounded-xl border border-dashed border-orange-200 bg-white/70 px-3 py-3 text-sm text-orange-700">
+                    请至少保留一个套餐类别，并在类别中选择已有普通菜品。
+                  </p>
+                ) : null}
                 {(formState.bundleGroups ?? []).length > 0 ? (
                   <BundleGroupsEditor
                     groups={formState.bundleGroups ?? []}
                     products={editBundleProducts}
-                    onChange={(bundleGroups) => setFormState({ ...formState, bundleGroups })}
+                    onChange={(bundleGroups) => setFormState((current) => current ? { ...current, bundleGroups } : current)}
                   />
                 ) : null}
               </div>
@@ -1090,7 +1481,7 @@ export function ProductsTab({ selectedStore, onCreateProduct, onEditProduct, onU
             <Button variant="outline" onClick={() => setEditingProduct(null)} disabled={saving}>
               取消
             </Button>
-            <Button onClick={() => void handleSave()} disabled={!formState || saving}>
+            <Button onClick={() => void handleSave()} disabled={formSubmitDisabled}>
               保存修改
             </Button>
           </DialogFooter>

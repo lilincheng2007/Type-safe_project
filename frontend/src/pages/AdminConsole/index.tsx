@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, ChevronDown, ChevronUp, Plus, RefreshCw, TicketPercent, Trash2, XCircle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { CheckCircle2, ChevronDown, ChevronUp, RefreshCw, TicketPercent, XCircle } from 'lucide-react'
 
 import { fetchAdminPlatformPromotionsIO } from '@/apis/admin/AdminPlatformPromotionsAPI'
-import { updateAdminPlatformPromotionsIO } from '@/apis/admin/AdminPlatformPromotionsUpdateAPI'
 import { acceptRefundRequestIO } from '@/apis/admin/AdminRefundAcceptAPI'
 import { fetchAdminRefundRequestsIO } from '@/apis/admin/AdminRefundRequestsAPI'
 import { rejectRefundRequestIO } from '@/apis/admin/AdminRefundRejectAPI'
@@ -18,15 +18,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { PromotionDateInput, PromotionEnableControl } from '@/components/PromotionControls'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
 import type { StoreOnboardingRequest, StoreOnboardingStatus } from '@/objects/admin/StoreOnboardingRequest'
 import type { Order } from '@/objects/order/Order'
 import { RefundStatuses, type RefundStatus } from '@/objects/shared/ids'
 import type { Promotion } from '@/objects/shared/Promotion'
-import { promotionDisplayName, promotionSummary } from '@/lib/promotions'
-import { Input } from '@/components/ui/input'
+import { promotionUsageText } from '@/components/PromotionEditorCard'
+import { promotionSummary } from '@/lib/promotions'
+import { cn } from '@/lib/utils'
 
 const statusLabels: Record<StoreOnboardingStatus, string> = {
   pending: '待审核',
@@ -64,6 +64,7 @@ function formatDate(value: string | null | undefined) {
 const CollapsedListLimit = 3
 
 export default function AdminConsole() {
+  const navigate = useNavigate()
   const { showNotice } = useAppChrome()
   const [requests, setRequests] = useState<StoreOnboardingRequest[]>([])
   const [refundRequests, setRefundRequests] = useState<Order[]>([])
@@ -178,146 +179,47 @@ export default function AdminConsole() {
     }
   }
 
-  const updatePromotion = (id: string, patch: Partial<Promotion>) => {
-    setPlatformPromotions((current) => current.map((promotion) => promotion.id === id ? { ...promotion, ...patch } : promotion))
-  }
-
-  const handleAddPromotion = () => {
-    setPlatformPromotions((current) => [
-      ...current,
-      {
-        id: `platform-promo-${Date.now()}`,
-        title: '平台优惠',
-        discountType: 'amount',
-        discountValue: 5,
-        triggerType: 'none',
-        triggerValue: 0,
-        startsAt: null,
-        endsAt: null,
-        dailyStartTime: null,
-        dailyEndTime: null,
-        usageLimit: null,
-        remainingUses: null,
-        enabled: false,
-      },
-    ])
-  }
-
-  const handleSavePlatformPromotions = async () => {
-    try {
-      await runTask(updateAdminPlatformPromotionsIO(platformPromotions))
-      showNotice('平台优惠已保存，顾客结算时会自动生效。', 'success')
-      await loadRequests()
-    } catch (error) {
-      showNotice(error instanceof Error ? error.message : '保存平台优惠失败', 'error')
-    }
-  }
-
   return (
     <DeliveryPageShell>
       <Card className="border-orange-100 bg-white/95">
-        <CardHeader>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
               <TicketPercent className="size-5 text-orange-500" />
               平台优惠
             </CardTitle>
-            <p className="mt-1 text-sm text-slate-500">对所有商家可用；顾客按优惠后付款，商家收入仍按优惠前结算。</p>
+            <p className="mt-1 text-sm text-slate-500">首页仅展示只读优惠信息；进入管理页后可新增、编辑并提交保存。</p>
           </div>
+          <Button type="button" onClick={() => navigate('/delivery/admin/promotions')}>
+            管理优惠
+          </Button>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-2">
           {platformPromotionsError ? <p className="text-sm text-rose-600">{platformPromotionsError}</p> : null}
           {platformPromotions.length === 0 ? <p className="text-sm text-slate-500">当前未设置平台优惠。</p> : null}
           {platformPromotions.map((promotion) => {
-            const finite = promotion.usageLimit !== null && promotion.usageLimit !== undefined
+            const usageText = promotionUsageText(promotion)
             return (
-              <div key={promotion.id} className="space-y-3 rounded-xl border border-orange-100 bg-orange-50/50 p-3">
-                <div className="grid gap-3 md:grid-cols-[1fr_11rem_8rem]">
-                  <div className="space-y-1">
-                    <Label>优惠名称</Label>
-                    <Input value={promotion.title} onChange={(event) => updatePromotion(promotion.id, { title: event.target.value })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>优惠类型</Label>
-                    <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={promotion.discountType} onChange={(event) => updatePromotion(promotion.id, { discountType: event.target.value as Promotion['discountType'] })}>
-                      <option value="amount">减xx元</option>
-                      <option value="percent">xx折</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>{promotion.discountType === 'percent' ? '折扣' : '金额'}</Label>
-                    <Input type="number" min="0" step="0.1" value={promotion.discountValue} onChange={(event) => updatePromotion(promotion.id, { discountValue: Number(event.target.value) })} />
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-[9rem_8rem_1fr_1fr] md:items-end">
-                  <div className="space-y-1">
-                    <Label>触发条件</Label>
-                    <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={promotion.triggerType} onChange={(event) => updatePromotion(promotion.id, { triggerType: event.target.value as Promotion['triggerType'], triggerValue: event.target.value === 'none' ? 0 : promotion.triggerValue })}>
-                      <option value="none">无条件</option>
-                      <option value="amount">满xx元</option>
-                      <option value="items">满xx件</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>门槛</Label>
-                    <Input type="number" min="0" step="1" value={promotion.triggerValue} disabled={promotion.triggerType === 'none'} onChange={(event) => updatePromotion(promotion.id, { triggerValue: Number(event.target.value) })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>开始日期</Label>
-                    <PromotionDateInput value={promotion.startsAt} onChange={(value) => updatePromotion(promotion.id, { startsAt: value })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>结束日期</Label>
-                    <PromotionDateInput value={promotion.endsAt} onChange={(value) => updatePromotion(promotion.id, { endsAt: value })} />
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-[1fr_1fr_9rem_8rem_auto] md:items-end">
-                  <div className="space-y-1">
-                    <Label>每日开始时刻</Label>
-                    <Input type="time" value={promotion.dailyStartTime ?? ''} onChange={(event) => updatePromotion(promotion.id, { dailyStartTime: event.target.value || null })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>每日结束时刻</Label>
-                    <Input type="time" value={promotion.dailyEndTime ?? ''} onChange={(event) => updatePromotion(promotion.id, { dailyEndTime: event.target.value || null })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>次数</Label>
-                    <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={finite ? 'finite' : 'infinite'} onChange={(event) => updatePromotion(promotion.id, { usageLimit: event.target.value === 'finite' ? (promotion.usageLimit ?? 10) : null, remainingUses: event.target.value === 'finite' ? (promotion.remainingUses ?? promotion.usageLimit ?? 10) : null })}>
-                      <option value="infinite">无限次</option>
-                      <option value="finite">有限次数</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>可用次数</Label>
-                    <Input type="number" min="1" step="1" value={promotion.usageLimit ?? ''} disabled={!finite} onChange={(event) => updatePromotion(promotion.id, { usageLimit: Number(event.target.value) || 1, remainingUses: Number(event.target.value) || 1 })} />
-                  </div>
-                  <Button type="button" variant="outline" className="text-rose-600" onClick={() => setPlatformPromotions((current) => current.filter((item) => item.id !== promotion.id))}>
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <p className="min-w-0 break-words text-xs text-orange-700">
-                    {promotion.enabled
-                      ? `预览：${promotionSummary(promotion)} · ${finite ? `${promotion.remainingUses ?? promotion.usageLimit}张优惠券` : promotionDisplayName(promotion)}`
-                      : '已禁用：顾客端、结算和通知中不会显示该优惠'}
-                  </p>
-                  <PromotionEnableControl enabled={promotion.enabled} onChange={(enabled) => updatePromotion(promotion.id, { enabled })} />
-                </div>
+              <div
+                key={promotion.id}
+                className={cn(
+                  'flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2 text-sm',
+                  promotion.enabled ? 'border-orange-100 bg-orange-50/60 text-orange-800' : 'border-slate-200 bg-slate-100 text-slate-500',
+                )}
+              >
+                <Badge variant={promotion.enabled ? 'default' : 'outline'} className="shrink-0">
+                  {promotion.enabled ? '启用' : '停用'}
+                </Badge>
+                <span className="shrink-0 font-semibold">{promotion.title}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {promotionSummary(promotion)}{usageText ? ` · ${usageText}` : ''}
+                </span>
+                <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={() => navigate('/delivery/admin/promotions')}>
+                  管理优惠
+                </Button>
               </div>
             )
           })}
-          <div className="flex flex-wrap justify-between gap-2">
-            <Button type="button" variant="outline" onClick={handleAddPromotion}>
-              <Plus className="size-4" />
-              添加优惠
-            </Button>
-            <Button type="button" onClick={() => void handleSavePlatformPromotions()}>
-              保存平台优惠
-            </Button>
-          </div>
         </CardContent>
       </Card>
 

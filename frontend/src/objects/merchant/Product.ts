@@ -1,14 +1,20 @@
 import type { InventoryStatus, ListingStatus, MerchantId, ProductId } from '@/objects/shared/ids'
 
+export type ProductBundleGroupSelectionType = 'fixed' | 'repeatable' | 'nonRepeatable'
+
 export interface ProductBundleOption {
   productId: ProductId
-  recommended?: boolean
+  recommended: boolean
+  extraPrice: number
+  customExtraPrice?: boolean
 }
 
 export interface ProductBundleGroup {
   id: string
   name: string
   quantity: number
+  selectionType: ProductBundleGroupSelectionType
+  includedPrice: number
   options: ProductBundleOption[]
 }
 

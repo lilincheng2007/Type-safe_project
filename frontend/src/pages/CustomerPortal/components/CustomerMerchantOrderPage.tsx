@@ -29,6 +29,8 @@ type MerchantPane = 'menu' | 'reviews'
 
 const productCategoryName = (product: { categoryName?: string | null }) => product.categoryName?.trim() || '默认分类'
 const isBundleProduct = (product: { bundleGroups?: unknown[] | null }) => (product.bundleGroups ?? []).length > 0
+const discountRateText = (originalPrice: number, currentPrice: number) =>
+  originalPrice > 0 && currentPrice > 0 ? `${(currentPrice / originalPrice * 10).toFixed(1)}折` : '优惠价'
 
 const bundleLineKey = (line: { merchantId: string; productId: string; bundleSelections?: CheckoutBundleSelection[] }) =>
   `${line.merchantId}::${line.productId}::${JSON.stringify(line.bundleSelections ?? [])}`
@@ -826,6 +828,7 @@ export default function CustomerMerchantOrderPage() {
                     const lineKey = bundleLineKey(line)
                     const selectionSummary = bundleSelectionSummary(product, line.bundleSelections, products)
                     const unitPrice = bundleLineUnitPrice(product, line.bundleSelections, products)
+                    const linePromotion = productPromotionForDisplay(product.id, unitPrice)
                     return (
                       <div
                         key={lineKey}
@@ -834,7 +837,15 @@ export default function CustomerMerchantOrderPage() {
                         <div className="min-w-0 space-y-0.5">
                           <p className="truncate font-medium text-foreground">{product.name}</p>
                           {selectionSummary ? <p className="line-clamp-2 text-xs text-amber-600">{selectionSummary}</p> : null}
-                          <p className="text-xs text-muted-foreground">¥{unitPrice.toFixed(1)}</p>
+                          {linePromotion ? (
+                            <p className="text-xs text-muted-foreground">
+                              <span className="line-through">原价 ¥{unitPrice.toFixed(2)}</span>
+                              <span className="ml-2 font-semibold text-rose-600">现价 ¥{linePromotion.currentPrice.toFixed(2)}</span>
+                              <span className="ml-2 text-rose-500">{discountRateText(unitPrice, linePromotion.currentPrice)}</span>
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">¥{unitPrice.toFixed(1)}</p>
+                          )}
                         </div>
                         <div className="flex shrink-0 items-center gap-1.5">
                           <Button

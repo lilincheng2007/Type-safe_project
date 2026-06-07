@@ -2,12 +2,14 @@ package delivery.merchant.objects
 
 import delivery.shared.objects.{InventoryStatus, ListingStatus, MerchantId, ProductId}
 
-final case class ProductBundleOption(productId: ProductId, recommended: Boolean = false)
+final case class ProductBundleOption(productId: ProductId, recommended: Boolean = false, extraPrice: Double = 0, customExtraPrice: Boolean = false)
 
 final case class ProductBundleGroup(
     id: String,
     name: String,
     quantity: Int,
+    selectionType: String = "repeatable",
+    includedPrice: Double = 0,
     options: List[ProductBundleOption] = Nil
 )
 

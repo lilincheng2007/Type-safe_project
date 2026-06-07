@@ -85,8 +85,50 @@ object ApiJsonCodecs:
   given Codec[CustomerWalletTopUpResponse] = deriveCodec
   given Codec[Voucher] = deriveCodec
   given Codec[Promotion] = deriveCodec
-  given Codec[ProductBundleOption] = deriveCodec
-  given Codec[ProductBundleGroup] = deriveCodec
+
+  private val productBundleOptionDecoder: Decoder[ProductBundleOption] = Decoder.instance { c =>
+    for
+      productId <- c.downField("productId").as[ProductId]
+      recommended <- c.downField("recommended").as[Option[Boolean]]
+      extraPrice <- c.downField("extraPrice").as[Option[Double]]
+      customExtraPrice <- c.downField("customExtraPrice").as[Option[Boolean]]
+    yield ProductBundleOption(productId, recommended.getOrElse(false), math.max(0.0, extraPrice.getOrElse(0.0)), customExtraPrice.getOrElse(false))
+  }
+
+  private val productBundleOptionEncoder: Encoder[ProductBundleOption] = Encoder.instance { option =>
+    Json.obj(
+      "productId" -> option.productId.asJson,
+      "recommended" -> option.recommended.asJson,
+      "extraPrice" -> option.extraPrice.asJson,
+      "customExtraPrice" -> option.customExtraPrice.asJson
+    )
+  }
+
+  given Codec[ProductBundleOption] = Codec.from(productBundleOptionDecoder, productBundleOptionEncoder)
+
+  private val productBundleGroupDecoder: Decoder[ProductBundleGroup] = Decoder.instance { c =>
+    for
+      id <- c.downField("id").as[String]
+      name <- c.downField("name").as[String]
+      quantity <- c.downField("quantity").as[Int]
+      selectionType <- c.downField("selectionType").as[Option[String]]
+      includedPrice <- c.downField("includedPrice").as[Option[Double]]
+      options <- c.downField("options").as[Option[List[ProductBundleOption]]]
+    yield ProductBundleGroup(id, name, quantity, selectionType.getOrElse("repeatable"), math.max(0.0, includedPrice.getOrElse(0.0)), options.getOrElse(Nil))
+  }
+
+  private val productBundleGroupEncoder: Encoder[ProductBundleGroup] = Encoder.instance { group =>
+    Json.obj(
+      "id" -> group.id.asJson,
+      "name" -> group.name.asJson,
+      "quantity" -> group.quantity.asJson,
+      "selectionType" -> group.selectionType.asJson,
+      "includedPrice" -> group.includedPrice.asJson,
+      "options" -> group.options.asJson
+    )
+  }
+
+  given Codec[ProductBundleGroup] = Codec.from(productBundleGroupDecoder, productBundleGroupEncoder)
   given Codec[OrderItem] = deriveCodec
 
   private val orderDecoder0: Decoder[Order] = Decoder.instance { c =>

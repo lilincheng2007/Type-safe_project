@@ -54,12 +54,12 @@ export function bestPromotion(promotions: Promotion[] | undefined, amount: numbe
           ? promotion.discountValue
           : promotion.discountType === 'percent'
             ? amount * (10 - promotion.discountValue) / 10
-            : Math.min(
-                promotion.discountValue,
-                lines
-                  .filter((line) => (promotion.productIds ?? []).includes(line.productId))
-                  .reduce((sum, line) => sum + line.unitPrice * line.quantity, 0),
-              )
+            : (() => {
+                const eligibleLines = lines.filter((line) => (promotion.productIds ?? []).includes(line.productId))
+                const eligibleAmount = eligibleLines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0)
+                const eligibleQuantity = eligibleLines.reduce((sum, line) => sum + line.quantity, 0)
+                return Math.min(promotion.discountValue * eligibleQuantity, eligibleAmount)
+              })()
       return {
         promotion,
         discountAmount: roundMoney(Math.max(0, Math.min(rawDiscount, amount))),

@@ -32,11 +32,10 @@ object PromotionPricing:
             case "amount"  => math.min(promotion.discountValue, amount)
             case "percent" => math.max(0, amount * (10 - promotion.discountValue) / 10)
             case "productAmount" =>
-              val eligibleAmount = items
-                .filter(item => promotion.productIds.contains(item.productId))
-                .map(item => item.unitPrice * item.quantity)
-                .sum
-              if eligibleAmount > 0 then math.min(promotion.discountValue, eligibleAmount) else 0
+              val eligibleItems = items.filter(item => promotion.productIds.contains(item.productId))
+              val eligibleAmount = eligibleItems.map(item => item.unitPrice * item.quantity).sum
+              val eligibleQuantity = eligibleItems.map(_.quantity).sum
+              if eligibleAmount > 0 then math.min(promotion.discountValue * eligibleQuantity, eligibleAmount) else 0
             case _         => 0
         if discount > 0 then Some(AppliedPromotion(promotion, roundMoney(discount))) else None
       }

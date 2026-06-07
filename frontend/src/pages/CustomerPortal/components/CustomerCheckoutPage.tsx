@@ -23,6 +23,8 @@ import { DeliveryContactAddDialog } from './DeliveryContactAddDialog'
 
 const checkoutLineKey = (line: { merchantId: string; productId: string; bundleSelections?: CheckoutBundleSelection[] }) =>
   `${line.merchantId}::${line.productId}::${JSON.stringify(line.bundleSelections ?? [])}`
+const discountRateText = (originalPrice: number, currentPrice: number) =>
+  originalPrice > 0 && currentPrice > 0 ? `${(currentPrice / originalPrice * 10).toFixed(1)}折` : '优惠价'
 
 export default function CustomerCheckoutPage() {
   const [searchParams] = useSearchParams()
@@ -336,7 +338,16 @@ export default function CustomerCheckoutPage() {
               const merchant = merchants.find((m) => m.id === line.merchantId)
               if (!product || !merchant) return null
               const unitPrice = bundleLineUnitPrice(product, line.bundleSelections, products)
+              const productPromotion = bestPromotion(
+                (merchant.promotions ?? []).filter((promotion) => promotion.discountType === 'productAmount' && (promotion.productIds ?? []).includes(product.id)),
+                unitPrice * line.quantity,
+                line.quantity,
+                [{ productId: product.id, unitPrice, quantity: line.quantity }],
+              )
+              const unitDiscount = productPromotion ? productPromotion.discountAmount / line.quantity : 0
+              const currentUnitPrice = roundMoney(unitPrice - unitDiscount)
               const subtotal = unitPrice * line.quantity
+              const currentSubtotal = currentUnitPrice * line.quantity
               const selectionSummary = bundleSelectionSummary(product, line.bundleSelections, products)
               return (
                 <div
@@ -354,8 +365,18 @@ export default function CustomerCheckoutPage() {
                     </Badge>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-                    <span>单价 ¥{unitPrice.toFixed(1)}</span>
-                    <span className="font-semibold tabular-nums text-primary">小计 ¥{subtotal.toFixed(1)}</span>
+                    {productPromotion ? (
+                      <span>
+                        <span className="line-through">原价 ¥{unitPrice.toFixed(2)}</span>
+                        <span className="ml-2 font-semibold text-rose-600">现价 ¥{currentUnitPrice.toFixed(2)}</span>
+                        <span className="ml-2 text-rose-500">{discountRateText(unitPrice, currentUnitPrice)}</span>
+                      </span>
+                    ) : (
+                      <span>单价 ¥{unitPrice.toFixed(1)}</span>
+                    )}
+                    <span className="font-semibold tabular-nums text-primary">
+                      小计 ¥{(productPromotion ? currentSubtotal : subtotal).toFixed(1)}
+                    </span>
                   </div>
                 </div>
               )

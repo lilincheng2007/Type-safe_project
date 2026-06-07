@@ -157,9 +157,12 @@ export default function MerchantConsole() {
             selectedStore={selectedStore}
             onCreateProduct={(input) =>
               createProduct(input)
-                .then(() => showNotice('新菜品已创建。', 'success'))
+                .then((product) => {
+                  showNotice((input.bundleGroups ?? []).length > 0 ? '新套餐已创建。' : '新菜品已创建。', 'success')
+                  return product
+                })
                 .catch((error) => {
-                  showNotice(error instanceof Error ? error.message : '创建菜品失败', 'error')
+                  showNotice(error instanceof Error ? error.message : ((input.bundleGroups ?? []).length > 0 ? '创建套餐失败' : '创建菜品失败'), 'error')
                   throw error
                 })
             }

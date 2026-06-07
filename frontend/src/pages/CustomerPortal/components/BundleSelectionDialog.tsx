@@ -1,5 +1,5 @@
 import { Check, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,8 @@ type BundleSelectionDialogProps = {
 }
 
 const selectionKey = (groupId: string, productId: string) => `${groupId}::${productId}`
+const discountRateText = (originalPrice: number, currentPrice: number) =>
+  originalPrice > 0 && currentPrice > 0 ? `${(currentPrice / originalPrice * 10).toFixed(1)}折` : '优惠价'
 
 export function BundleSelectionDialog({
   product,
@@ -72,6 +74,20 @@ export function BundleSelectionDialog({
   const unitPrice = product ? bundleLineUnitPrice(product, selections, products) : 0
   const productPromotion = product && productPromotionForDisplay ? productPromotionForDisplay(product.id, unitPrice) : null
 
+  const defaultSelectionCounts = (bundleProduct: Product | null) =>
+    (bundleProduct?.bundleGroups ?? []).reduce<Record<string, number>>((counts, group) => {
+      if (group.selectionType === 'fixed') {
+        group.options.forEach((option) => {
+          counts[selectionKey(group.id, option.productId)] = 1
+        })
+      }
+      return counts
+    }, {})
+
+  useEffect(() => {
+    setSelectionCounts(open ? defaultSelectionCounts(product) : {})
+  }, [open, product])
+
   const close = (nextOpen: boolean) => {
     if (!nextOpen) {
       setSelectionCounts({})
@@ -79,18 +95,25 @@ export function BundleSelectionDialog({
     onOpenChange(nextOpen)
   }
 
-  const chooseOption = (groupId: string, productId: string, groupQuantity: number) => {
+  const chooseOption = (groupId: string, productId: string, groupQuantity: number, selectionType: string | undefined) => {
     const key = selectionKey(groupId, productId)
     const selectedCount = selectedCountForGroup(groupId)
     const currentCount = selectionCounts[key] ?? 0
 
     setSelectionCounts((current) => {
+      if (selectionType === 'fixed') {
+        return current
+      }
       if (groupQuantity === 1) {
         const next = { ...current }
         Object.keys(next).forEach((itemKey) => {
           if (itemKey.startsWith(`${groupId}::`)) delete next[itemKey]
         })
         return currentCount > 0 ? next : { ...next, [key]: 1 }
+      }
+
+      if (selectionType === 'nonRepeatable' && currentCount > 0) {
+        return { ...current, [key]: 0 }
       }
 
       if (selectedCount < groupQuantity) {
@@ -152,7 +175,7 @@ export function BundleSelectionDialog({
                       <h3 className="text-xl font-semibold text-slate-950 sm:text-2xl">{group.name}</h3>
                       <span className="text-base text-slate-400">
                         <span className="mx-1 text-slate-200">|</span>
-                        可选{group.quantity}份，已选{selectedCount}份
+                        {group.selectionType === 'fixed' ? '指定菜品' : group.selectionType === 'nonRepeatable' ? `可选${group.quantity}份，不可重复` : `可选${group.quantity}份，可重复`}，已选{selectedCount}份
                       </span>
                     </div>
 
@@ -169,8 +192,8 @@ export function BundleSelectionDialog({
 
                         const key = selectionKey(group.id, option.productId)
                         const count = selectionCounts[key] ?? 0
-                        const unavailable = selectedCount >= group.quantity && count === 0
-                        const extraPrice = bundleOptionExtraPrice(group, optionProduct, products)
+                        const unavailable = group.selectionType === 'fixed' || (selectedCount >= group.quantity && count === 0)
+                        const extraPrice = bundleOptionExtraPrice(group, optionProduct)
 
                         return (
                           <button
@@ -184,7 +207,7 @@ export function BundleSelectionDialog({
                                 : 'border-slate-100 shadow-sm',
                               unavailable ? 'opacity-45 grayscale' : 'cursor-pointer hover:border-yellow-200 active:scale-[0.99]',
                             )}
-                            onClick={() => chooseOption(group.id, option.productId, group.quantity)}
+                            onClick={() => chooseOption(group.id, option.productId, group.quantity, group.selectionType)}
                           >
                             <div className="relative aspect-[1.05] overflow-hidden bg-slate-100">
                               {optionProduct.imageUrl?.trim() ? (
@@ -253,8 +276,8 @@ export function BundleSelectionDialog({
                   {productPromotion ? (
                     <div className="space-y-1">
                       <p className="text-sm text-white/50 line-through">原价 ¥{unitPrice.toFixed(2)}</p>
-                      <p className="text-3xl font-bold tabular-nums text-rose-300">¥{productPromotion.currentPrice.toFixed(2)}</p>
-                      <p className="text-sm text-yellow-300">已优惠 ¥{productPromotion.discountAmount.toFixed(2)}</p>
+                      <p className="text-3xl font-bold tabular-nums text-rose-300">现价 ¥{productPromotion.currentPrice.toFixed(2)}</p>
+                      <p className="text-sm text-yellow-300">{discountRateText(unitPrice, productPromotion.currentPrice)} · 已优惠 ¥{productPromotion.discountAmount.toFixed(2)}</p>
                     </div>
                   ) : (
                     <p className="text-3xl font-bold tabular-nums">¥{unitPrice.toFixed(1)}</p>

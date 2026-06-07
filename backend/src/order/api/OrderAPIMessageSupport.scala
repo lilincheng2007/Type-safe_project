@@ -174,8 +174,10 @@ object OrderAPIMessageSupport:
         val selectedCount = selected.map(selection => math.max(0, selection.quantity)).sum
         val allowedIds = group.options.map(_.productId).toSet
         val invalid = selected.exists(selection => !allowedIds.contains(selection.productId) || productsById.get(selection.productId).forall(_.merchantId != product.merchantId))
+        val duplicated = selected.exists(selection => selection.quantity > 1)
         if selectedCount != group.quantity then Some(s"${product.name}的${group.name}需要选择${group.quantity}件")
         else if invalid then Some(s"${product.name}的${group.name}包含不可选菜品")
+        else if group.selectionType == "nonRepeatable" && duplicated then Some(s"${product.name}的${group.name}不可重复选择同一菜品")
         else None
       }.headOption
 
@@ -197,15 +199,23 @@ object OrderAPIMessageSupport:
       }.mkString("；")
       if summary.isEmpty then product.name else s"${product.name}（$summary）"
 
+  private def bundleOptionExtraPrice(group: delivery.merchant.objects.ProductBundleGroup, option: delivery.merchant.objects.ProductBundleOption, optionProduct: Product): Double =
+    if option.customExtraPrice || option.extraPrice > 0 then math.max(0, option.extraPrice)
+    else if group.includedPrice > 0 then math.max(0, optionProduct.price - group.includedPrice)
+    else 0
+
   private def bundleLinePrice(product: Product, line: CheckoutLine, productsById: Map[ProductId, Product]): Double =
     if product.bundleGroups.isEmpty then product.price
     else
       val extra = product.bundleGroups.map { group =>
-        val optionPrices = group.options.flatMap(option => productsById.get(option.productId).map(_.price))
-        val minPrice = if optionPrices.isEmpty then 0.0 else optionPrices.min
         line.bundleSelections
           .filter(_.groupId == group.id)
-          .flatMap(selection => productsById.get(selection.productId).map(selected => math.max(0, selected.price - minPrice) * selection.quantity))
+          .flatMap { selection =>
+            for
+              option <- group.options.find(_.productId == selection.productId)
+              optionProduct <- productsById.get(selection.productId)
+            yield bundleOptionExtraPrice(group, option, optionProduct) * selection.quantity
+          }
           .sum
       }.sum
       roundMoney(product.price + extra)
