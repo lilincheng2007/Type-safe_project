@@ -1,6 +1,6 @@
 # Delivery Backend
 
-`backend/` 是外卖平台的 Scala 后端服务。服务以单进程方式启动，监听 `8787` 端口，对外提供统一 `APIMessage` 网关，并连接 PostgreSQL 持久化业务数据。后端覆盖顾客、商家、骑手和 AI 模块，负责鉴权、订单流转、结算、优惠券、钱包、骑手配送和 AI 调用。
+`backend/` 是外卖平台的 Scala 后端服务。服务以单进程方式启动，监听 `8787` 端口，对外提供统一 `APIMessage` 网关，并连接 PostgreSQL 持久化业务数据。后端覆盖顾客、商家、骑手、管理员、评价和 AI 模块，负责鉴权、订单状态机、结算、优惠、库存、营业时间、钱包、退款、聊天、通知已读、骑手配送和 AI 调用。
 
 ## 技术栈
 
@@ -10,7 +10,7 @@
 - Circe JSON
 - HikariCP + PostgreSQL JDBC
 - JWT 鉴权
-- OpenAI Chat Completions API
+- OpenAI Chat Completions 兼容接口
 
 ## 启动
 
@@ -37,6 +37,8 @@ cd backend
 sbt run
 ```
 
+根目录 `npm run dev:backend` 会在未设置 `JAVA_HOME` 时优先使用 Homebrew `openjdk@21`，并自动启动数据库。
+
 启动成功后监听：
 
 ```text
@@ -47,7 +49,13 @@ http://localhost:8787
 
 ```bash
 cd backend
-sbt compile
+sbt -batch compile
+```
+
+也可以在仓库根目录运行类型安全与结构审计：
+
+```bash
+.codebuddy/skills/type-safety-audit/scripts/check-type-safety.sh /Users/leonli/Desktop/Type-safe_project
 ```
 
 ## 目录结构
@@ -60,19 +68,21 @@ backend/
 │   └── init-databases.sql
 └── src/
     ├── Main.scala                 # 服务入口，监听 0.0.0.0:8787
-    ├── DeliveryRoutes.scala       # API 网关和公开静态路由汇总
-    ├── ai/                        # AI 搜索、周报、订单文案、商家文案
-    ├── user/                      # 登录注册、顾客资料、钱包、优惠券、收货联系人
-    ├── merchant/                  # 商家账号、店铺、商品、目录、图片、订单处理
-    ├── order/                     # 下单、订单查询、取消、确认完成、优惠券结算
-    ├── rider/                     # 骑手资料、可抢单、抢单、送达、能量/免责卡
-    └── shared/                    # API 网关、JWT、数据库、JSON codec、种子数据、共享对象
+    ├── DeliveryRoutes.scala       # API 网关和公开静态图片路由汇总
+    ├── admin/                     # 入驻审核、退款仲裁、订单监控、平台优惠
+    ├── ai/                        # AI 搜索、周报、订单文案、评价摘要、商家文案/建议
+    ├── merchant/                  # 商家账号、店铺、商品、目录、营业时间、优惠、订单处理
+    ├── order/                     # 下单、订单查询、聊天、退款、通知已读、状态机、价格快照
+    ├── review/                    # 顾客评价、商家回复、投票、图片
+    ├── rider/                     # 骑手资料、可抢单、抢单、配送、能量/免责卡
+    ├── shared/                    # API 网关、JWT、数据库、JSON codec、种子数据、静态图片
+    └── user/                      # 登录注册、顾客资料、钱包、优惠券、收货联系人
 ```
 
 每个业务模块通常包含：
 
 ```text
-api/                 # 一 API 一个 XxxAPIMessage.scala
+api/                 # 一 API 一个 XxxAPIMessage.scala，可配 support/rules/helper
 objects/             # 领域对象
 objects/apiTypes/    # API Request / Response 包装类型
 tables/              # 表初始化与数据库访问
@@ -88,9 +98,9 @@ utils/               # 模块内工具
   - 执行表初始化和种子数据。
   - 开启 CORS。
 - `src/DeliveryRoutes.scala`
-  - 汇总 `UserRoutes`、`MerchantRoutes`、`OrderRoutes`、`RiderRoutes`、`AIRoutes`。
+  - 汇总 `UserRoutes`、`MerchantRoutes`、`OrderRoutes`、`RiderRoutes`、`AdminRoutes`、`ReviewRoutes`、`AIRoutes`。
   - 注册 `/api` APIMessage 网关。
-  - 注册商家店铺图片公开路由。
+  - 注册商家店铺图、商品图、订单退款/聊天图、评价图公开路由。
 
 主 API：
 
@@ -98,10 +108,13 @@ utils/               # 模块内工具
 POST /api/{apiName}
 ```
 
-公开店铺图片：
+公开图片路由：
 
 ```text
 GET /api/merchant/store-images/{fileName}
+GET /api/merchant/product-images/{fileName}
+GET /api/orders/refund-images/{fileName}
+GET /api/reviews/images/{fileName}
 ```
 
 ## APIMessage 网关
@@ -114,7 +127,7 @@ GET /api/merchant/store-images/{fileName}
   - `RegisteredAPIMessage`
   - `APIMessageRouter`
 - `src/shared/json/ApiJsonCodecs.scala`：Circe Codec 注册。
-- 各模块 `routes/*Routes.scala`：使用 `api` 或 `apiWithRole` 注册消息。
+- 各模块 `routes/*Routes.scala`：使用 `api`、`apiWithRole` 或 `apiWithRoles` 注册消息。
 
 `apiName` 由后端 `*APIMessage` 类名推导。例如：
 
@@ -123,7 +136,7 @@ AISearchAPIMessage -> POST /api/aisearchapi
 CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 ```
 
-需要登录的 API 使用 `APIWithRoleMessage` 注册，并通过 `Authorization: Bearer <token>` 校验角色。
+需要登录的 API 使用 `APIWithRoleMessage` / `apiWithRoles` 注册，并通过 `Authorization: Bearer <token>` 校验角色。
 
 ## API 清单
 
@@ -146,13 +159,24 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 | `merchantmeapi` | merchant | `MerchantMeResponse` |
 | `merchantprofileapi` | merchant | `OkResponse` |
 | `merchantstoreapi` | merchant | `String` |
+| `merchantstoreonboardingrequestsapi` | merchant | `StoreOnboardingRequestsResponse` |
 | `merchantstoredescriptionapi` | merchant | `OkResponse` |
+| `merchantstoreannouncementapi` | merchant | `OkResponse` |
+| `merchantbusinesshoursapi` | merchant | `OkResponse` |
+| `merchantstorepromotionsapi` | merchant | `OkResponse` |
 | `merchantstoreimageapi` | merchant | `OkResponse` |
 | `merchantstoreimagefileapi` | merchant | `String` |
 | `merchantcreateproductapi` | merchant | `Product` |
 | `merchantproductapi` | merchant | `Product` |
+| `merchantproductimagefileapi` | merchant | `Product` |
 | `merchantproductdescriptionsapi` | merchant | `OkResponse` |
+| `merchantorderacceptapi` | merchant | `OkResponse` |
+| `merchantorderrejectapi` | merchant | `OkResponse` |
 | `merchantorderreadyapi` | merchant | `OkResponse` |
+| `merchantorderprepdelayapi` | merchant | `OkResponse` |
+| `merchantrefundrequestsapi` | merchant | `MerchantRefundRequestsResponse` |
+| `merchantrefundacceptapi` | merchant | `OkResponse` |
+| `merchantrefundrejectapi` | merchant | `OkResponse` |
 
 ### Order API
 
@@ -162,6 +186,24 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 | `orderdetailapi` | customer | `Order` |
 | `ordercancelapi` | customer | `OrderCancelResponse` |
 | `ordercompleteapi` | customer | `Order` |
+| `orderrefundrequestapi` | customer | `OrderRefundRequestResponse` |
+| `orderrefundappealapi` | customer | `OrderRefundRequestResponse` |
+| `customerrefundimagefileapi` | customer | `String` |
+| `customerorderimagefileapi` | customer | `String` |
+| `merchantorderimagefileapi` | merchant | `String` |
+| `riderorderimagefileapi` | rider | `String` |
+| `customerorderchatmessagesapi` | customer | `OrderChatMessagesResponse` |
+| `customersendorderchatmessageapi` | customer | `OrderChatMessagesResponse` |
+| `customerorderchatunreadcountsapi` | customer | `OrderChatUnreadCountsResponse` |
+| `merchantorderchatmessagesapi` | merchant | `OrderChatMessagesResponse` |
+| `merchantsendorderchatmessageapi` | merchant | `OrderChatMessagesResponse` |
+| `merchantorderchatunreadcountsapi` | merchant | `OrderChatUnreadCountsResponse` |
+| `riderorderchatmessagesapi` | rider | `OrderChatMessagesResponse` |
+| `ridersendorderchatmessageapi` | rider | `OrderChatMessagesResponse` |
+| `riderorderchatunreadcountsapi` | rider | `OrderChatUnreadCountsResponse` |
+| `notificationreadstatesapi` | customer/merchant/rider/admin | `NotificationReadStatesResponse` |
+| `notificationmarkreadapi` | customer/merchant/rider/admin | `OkResponse` |
+| `notificationmarkallreadapi` | customer/merchant/rider/admin | `OkResponse` |
 | `checkoutapi` | customer | `CheckoutResponse` |
 
 ### Rider API
@@ -175,6 +217,30 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 | `riderredeemtimeoutcardapi` | rider | `RiderTimeoutCardRedeemResponse` |
 | `riderusetimeoutcardapi` | rider | `RiderUseTimeoutCardResponse` |
 
+### Admin API
+
+| apiName | 角色 | 响应 |
+|---|---|---|
+| `adminstoreonboardingrequestsapi` | admin | `StoreOnboardingRequestsResponse` |
+| `adminstoreonboardingacceptapi` | admin | `OkResponse` |
+| `adminstoreonboardingrejectapi` | admin | `OkResponse` |
+| `adminrefundrequestsapi` | admin | `AdminRefundRequestsResponse` |
+| `adminrefundacceptapi` | admin | `OkResponse` |
+| `adminrefundrejectapi` | admin | `OkResponse` |
+| `adminordermonitorapi` | admin | `AdminOrderMonitorResponse` |
+| `adminplatformpromotionsapi` | admin | `PlatformPromotionsResponse` |
+| `adminplatformpromotionsupdateapi` | admin | `OkResponse` |
+
+### Review API
+
+| apiName | 角色 | 响应 |
+|---|---|---|
+| `merchantreviewsapi` | 公开 | `MerchantReviewsResponse` |
+| `customersubmitorderreviewapi` | customer | `OkResponse` |
+| `customerreviewvoteapi` | customer | `OkResponse` |
+| `merchantreviewreplyapi` | merchant | `OkResponse` |
+| `customerreviewimagefileapi` | customer | `String` |
+
 ### AI API
 
 | apiName | 角色 | 响应 |
@@ -182,12 +248,14 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 | `aisearchapi` | customer | `AISearchResponse` |
 | `aidietweeklyreportapi` | customer | `AIDietWeeklyReportResponse` |
 | `aiorderprogressnarrativesapi` | customer | `AIOrderProgressNarrativesResponse` |
+| `aireviewsummaryapi` | customer | `AIReviewSummaryResponse` |
+| `aimerchantbusinesssuggestionsapi` | merchant | `AIMerchantBusinessSuggestionsResponse` |
 | `aimerchantstoredescriptionapi` | merchant | `AIMerchantStoreDescriptionResponse` |
 | `aimerchantproductdescriptionsapi` | merchant | `AIMerchantProductDescriptionsResponse` |
 
 ## 数据库结构
 
-表初始化入口：`src/shared/db/DeliveryStateStore.scala`。各模块通过 `*TableInitializer.scala` 创建表和索引。
+表初始化入口：`src/shared/db/DeliveryStateStore.scala`。各模块通过 `*TableInitializer.scala` 创建表、索引和兼容性迁移。
 
 ### user 模块
 
@@ -211,24 +279,33 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 主要表：
 
 - `merchant_accounts`：商家账号与 profile JSON。
-- `merchant_stores`：店铺资料、描述、图片。
+- `merchant_stores`：店铺资料、描述、公告、图片、营业状态和营业时间。
 - `catalog_merchants`：目录商家快照。
-- `catalog_products`：目录商品、库存、上下架状态。
+- `catalog_products`：目录商品、套餐、库存、上下架、优惠和图片。
 
 重点字段：
 
 - `merchant_stores.description`
+- `merchant_stores.announcement`
 - `merchant_stores.image_url`
+- `merchant_stores.business_status`
+- `merchant_stores.weekly_business_hours JSONB`
+- `merchant_stores.holiday_business_hours JSONB`
 - `catalog_products.listing_status`
-- `catalog_products.inventory_status`
+- `catalog_products.inventory_mode`
+- `catalog_products.max_per_order`
+- `catalog_products.bundle_groups JSONB`
+- `catalog_products.promotion JSONB`
 
 ### order 模块
 
 主要表：
 
-- `orders`：订单主表。
+- `orders`：订单主表、金额、状态、退款、时间线、价格快照。
 - `order_items`：订单项。
 - `checkout_requests`：结算请求记录。
+- `order_chat_messages`：订单聊天文字/图片/系统消息。
+- `notification_read_states`：通知已读状态。
 
 重点字段：
 
@@ -236,7 +313,13 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 - `orders.discount_amount`
 - `orders.payable_amount`
 - `orders.used_voucher JSONB`
-- `orders.points_awarded`
+- `orders.price_snapshot JSONB`
+- `orders.price_breakdown JSONB`
+- `orders.status_timeline JSONB`
+- `orders.estimated_prep_minutes`
+- `orders.estimated_ready_at`
+- `orders.prep_delay_reason`
+- `orders.refund_status`
 
 订单查询性能索引：
 
@@ -266,6 +349,15 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 - `rider_assignments.timeout_card_used`
 - `rider_assignments.overtime_seconds`
 
+### admin / review / shared 模块
+
+- `store_onboarding_requests`：店铺入驻申请和审核状态。
+- `platform_promotions`：平台优惠配置和排期。
+- `merchant_reviews`：商家评价、商家回复、图片和 AI 摘要来源。
+- `merchant_review_votes`：顾客对评价的投票状态。
+- `rider_reviews`：骑手评价。
+- `stored_images`：店铺图、商品图、订单图、评价图等上传资源元数据。
+
 ## 主要对象结构
 
 ### shared objects
@@ -282,13 +374,23 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 
 ### merchant objects
 
-- root：`Merchant`、`Product`、`MerchantProfile`、`MerchantStoreProfile`、`MerchantAccountPublic`、`ProductDescriptionPatch`
+- root：`Merchant`、`Product`、`ProductBundleGroup`、`MerchantBusinessHours`、`MerchantProfile`、`MerchantStoreProfile`、`MerchantAccountPublic`、`ProductDescriptionPatch`
 - `apiTypes/`：`MerchantMeResponse`、`CatalogResponse`、`CreateStoreRequest`、`CreateProductRequest`、`UpdateProductRequest`、`UpdateStoreImageRequest`
 
 ### order objects
 
-- root：`Order`、`OrderItem`、`CheckoutLine`
-- `apiTypes/`：`CheckoutRequest`、`CheckoutResponse`、`CustomerOrdersResponse`、`OrderCancelResponse`
+- root：`Order`、`OrderItem`、`CheckoutLine`、`OrderTimelineEvent`、`OrderPriceSnapshot`、`OrderPriceBreakdown`、`OrderChatMessage`
+- `apiTypes/`：`CheckoutRequest`、`CheckoutResponse`、`CustomerOrdersResponse`、`OrderCancelResponse`、`OrderRefundRequestResponse`、`OrderChatMessagesResponse`、`OrderChatUnreadCountsResponse`、`NotificationReadStatesResponse`
+
+### admin objects
+
+- root：`StoreOnboardingRequest`
+- `apiTypes/`：`StoreOnboardingRequestsResponse`、`AdminRefundRequestsResponse`、`AdminOrderMonitorResponse`、`PlatformPromotionsResponse`
+
+### review objects
+
+- root：`MerchantReview`、`RiderReview`、`ReviewSummary`
+- `apiTypes/`：`MerchantReviewsResponse`、`CustomerSubmitOrderReviewRequest` 等评价请求/响应对象
 
 ### rider objects
 
@@ -298,7 +400,7 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 ### ai objects
 
 - root：`AIGeneratedProductDescription`
-- `apiTypes/`：`AISearchRequest` / `AISearchResponse`、`AIDietWeeklyReportRequest` / `AIDietWeeklyReportResponse`、`AIOrderProgressNarrativesRequest` / `AIOrderProgressNarrativesResponse`、`AIMerchantStoreDescriptionRequest` / `AIMerchantStoreDescriptionResponse`、`AIMerchantProductDescriptionsRequest` / `AIMerchantProductDescriptionsResponse`
+- `apiTypes/`：`AISearchRequest` / `AISearchResponse`、`AIDietWeeklyReportRequest` / `AIDietWeeklyReportResponse`、`AIOrderProgressNarrativesRequest` / `AIOrderProgressNarrativesResponse`、`AIReviewSummaryResponse`、`AIMerchantBusinessSuggestionsResponse`、`AIMerchantStoreDescriptionResponse`、`AIMerchantProductDescriptionsResponse`
 
 ## 关键业务规则
 
@@ -318,13 +420,37 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 - 至少需要一组联系人。
 - 必须且只能有一组默认联系人。
 
-### 订单与结算
+### 商家、商品、营业时间与优惠
 
-- 结算会创建订单、订单项并扣减钱包余额。
-- 取消订单会退回实付金额。
-- 商家完成出餐后，订单进入骑手可抢单流程。
-- 骑手抢单后更新订单 rider 与配送分配记录。
-- 顾客确认完成后沉淀历史订单和积分。
+- 商家只能操作自己拥有的店铺与商品。
+- 店铺资料支持描述、公告、图片、营业状态、每周营业时间、节假日特殊营业时间。
+- 顾客下单时后端通过 `MerchantBusinessHoursSupport` 校验店铺是否可接单。
+- 商品支持普通菜品和套餐；套餐配置由 `ProductBundleGroup` 描述，并在创建/更新时校验选项归属。
+- 商品支持上下架、库存模式、每单限购、图片上传。
+- 店铺优惠、菜品优惠、平台优惠均有排期和启停状态；结算时以后端计算为准。
+
+### 订单、结算与状态机
+
+- 结算会创建订单、订单项、价格快照和结构化价格明细，并扣减钱包余额。
+- 下单时锁定商品行校验上下架、营业状态、售罄、库存不足和每单限购，并扣减有限库存。
+- 取消订单和退款通过后会退回实付金额。
+- 订单状态流转集中在 `OrderStatusTransitionService.scala`，规则在 `OrderStatusTransitionRules.scala`。
+- 状态变化通过 `OrderStatusTimelineSupport.scala` 追加时间线事件。
+- 商家接单可设置预计备餐时间；商家可主动延迟备餐并通知顾客。
+- 商家出餐、骑手送达等状态变化会自动写入系统聊天消息。
+
+### 订单聊天、通知与图片
+
+- 顾客、商家、骑手使用分角色聊天 API，消息持久化到 `order_chat_messages`。
+- 聊天图片、退款图片、评价图片走 `StoredImageRoutes` 和 `stored_images` 元数据表。
+- 全局通知中心的已读状态通过 `notification_read_states` 持久化，支持单条已读和全部已读。
+
+### 评价与退款
+
+- 顾客可对完成订单提交商家/骑手评价并上传图片。
+- 商家可回复评价，顾客可对评价投票。
+- 退款可以由商家处理，也可进入管理员仲裁。
+- 管理员监控 API 会聚合待退款、异常订单、商家超时和骑手超时订单。
 
 ### 订单查询性能
 
@@ -339,14 +465,6 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 
 这些方法减少全表扫描和订单项 N+1 查询。
 
-### 商家能力
-
-- 店铺描述可由商家手动保存或 AI 生成后保存。
-- 菜品描述可批量 AI 生成并确认保存。
-- 店铺图片支持 URL 保存和文件上传。
-- 商品支持上下架、库存数量和库存状态。
-- 商家只能操作自己拥有的店铺与商品。
-
 ### 骑手能力
 
 - 同一骑手最多同时配送 5 单。
@@ -358,15 +476,17 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 
 ### AI 能力
 
-`src/ai/utils/OpenAIClient.scala` 负责 OpenAI 兼容接口调用，支持超时与重试。
+`src/ai/utils/OpenAIClient.scala` 负责 OpenAI 兼容接口调用，支持超时与重试，并避免使用 unsafe URI 构造。
 
 AI 功能包括：
 
 - 顾客 AI 搜索：根据自然语言需求推荐商家与菜品。
 - 顾客 AI 饮食周报：基于近 7 天订单生成分析。
 - 顾客 AI 订单进度叙事：按订单状态生成展示文案。
+- 顾客 AI 评价摘要：聚合评价内容生成摘要。
 - 商家 AI 店铺描述：根据店铺与商品生成描述。
 - 商家 AI 菜品描述：批量生成菜品卖点文案。
+- 商家 AI 经营建议：基于经营数据生成建议。
 
 ## 配置
 
@@ -412,7 +532,7 @@ export OPENAI_MODEL=gpt-4o-mini
 
 ## 演示数据
 
-种子数据位于 `src/shared/bootstrap/SeedData.scala` 和 `src/shared/bootstrap/SeedBootstrap.scala`，包含默认顾客、商家、菜品、骑手与初始订单。
+种子数据位于 `src/shared/bootstrap/SeedData.scala` 和 `src/shared/bootstrap/SeedBootstrap.scala`，包含默认顾客、商家、菜品、骑手、管理员与初始订单。
 
 演示账号：
 
@@ -421,20 +541,23 @@ export OPENAI_MODEL=gpt-4o-mini
 | 顾客 | `customer_demo` | `123456` |
 | 商家 | `merchant_demo` | `123456` |
 | 骑手 | `rider_demo` | `123456` |
+| 管理员 | `admin` | `123456` |
 
 ## 新增后端 API 的推荐步骤
 
-1. 在对应模块 `objects/` 新增请求/响应或领域对象。
-2. 在对应模块 `api/` 新增 `*APIMessage`。
-3. 在 `routes/` 中使用 `api` 或 `apiWithRole` 注册。
-4. 在 `src/shared/json/ApiJsonCodecs.scala` 注册 Codec。
-5. 同步前端 `frontend/src/apis/*` 与 `frontend/src/objects/*` 的契约。
-6. 运行 `sbt compile` 验证。
+1. 在对应模块 `objects/` 新增领域对象；请求/响应 wrapper 放入 `objects/apiTypes/`。
+2. 在对应模块 `api/` 新增单个 `*APIMessage.scala`，文件名与 case class 一致。
+3. 如逻辑较复杂，将可复用逻辑拆到同模块 `Support`、`Rules` 或 helper 文件，保留 APIMessage 入口简洁。
+4. 在 `routes/` 中使用 `api`、`apiWithRole` 或 `apiWithRoles` 注册。
+5. 在 `src/shared/json/ApiJsonCodecs.scala` 注册 Codec。
+6. 同步前端 `frontend/src/apis/*/XxxAPI.ts` 与 `frontend/src/objects/*` 的契约。
+7. 运行 `sbt -batch compile`、前端 `npm run typecheck --prefix frontend` 和类型安全审计脚本验证。
 
 ## 代码约定
 
 - 后端 Scala 新代码使用 `val`，避免新增 `var`。
 - 业务 API 优先走 `APIMessage` 网关，不新增零散字符串路由；静态资源等特殊场景除外。
-- 需要鉴权的业务操作必须使用 `APIWithRoleMessage` 并声明角色。
+- 需要鉴权的业务操作必须使用 `APIWithRoleMessage` / `apiWithRoles` 并声明角色。
 - 业务数据以后端数据库为准，不依赖前端本地状态作为真实数据源。
 - 修改 API 或对象时，保持前后端契约字段语义一致。
+- 禁止新增 `unsafeRun`、`unsafeFromString`、`asInstanceOf` 等类型安全逃逸口；需要解析失败时返回 `Either` / `IO.fromEither` 或业务错误。
