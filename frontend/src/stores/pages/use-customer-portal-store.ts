@@ -10,7 +10,6 @@ import { uploadOrderImageFileIO } from '@/apis/order/CustomerOrderImageFileAPI'
 import { completeOrderIO } from '@/apis/order/OrderCompleteAPI'
 import { checkoutIO, type CheckoutDeliverySnapshot } from '@/apis/order/CheckoutAPI'
 import type { OrderMerchantNote } from '@/objects/order/apiTypes/CheckoutRequest'
-import type { CheckoutBundleSelection } from '@/objects/order/CheckoutLine'
 import { fetchOrderDetailIO } from '@/apis/order/OrderDetailAPI'
 import { appealOrderRefundIO } from '@/apis/order/OrderRefundAppealAPI'
 import { requestOrderRefundIO } from '@/apis/order/OrderRefundRequestAPI'
@@ -23,179 +22,17 @@ import { fetchCustomerMeIO } from '@/apis/user/CustomerMeAPI'
 import { patchCustomerProfileIO } from '@/apis/user/CustomerProfilePatchAPI'
 import { rechargeCustomerWalletIO } from '@/apis/user/CustomerRechargeAPI'
 import { discardCustomerVoucherIO } from '@/apis/user/CustomerVoucherDiscardAPI'
-import type { Merchant } from '@/objects/merchant/Merchant'
-import type { Product } from '@/objects/merchant/Product'
-import type { Order } from '@/objects/order/Order'
-import type { Promotion } from '@/objects/shared/Promotion'
-import type { MerchantId } from '@/objects/shared/ids'
-import type { OrderId } from '@/objects/shared/ids'
-import type { ProductId } from '@/objects/shared/ids'
-import type { VoucherId } from '@/objects/shared/ids'
-import type { AIDietWeeklyReportResponse } from '@/objects/ai/apiTypes/AIDietWeeklyReportResponse'
-import type { AIOrderProgressNarrativesResponse } from '@/objects/ai/apiTypes/AIOrderProgressNarrativesResponse'
+import type { MerchantId, VoucherId } from '@/objects/shared/ids'
 import { validateDeliveryContacts } from '@/lib/deliveryContacts'
 import { bundleLineUnitPrice } from '@/lib/bundles'
 import { bestPromotion, roundMoney } from '@/lib/promotions'
 import { cartLineKey, maxCartLineQuantity, normalizeCartLines, productAvailable } from '@/lib/cart-inventory'
-import type { CustomerAccountPublic } from '@/objects/user/CustomerAccountPublic'
-import type { CustomerDeliveryContact } from '@/objects/user/CustomerDeliveryContact'
-import type { MerchantReviewsResponse } from '@/objects/review/apiTypes/MerchantReviewsResponse'
+import { getLocalDateKey, resolveSelectedMerchantId, toggleCustomerFavorite } from './customerPortal/helpers'
+import { initialState } from './customerPortal/initialState'
+import type { CartLine, CustomerFavorites, CustomerPortalStore, CustomerTab, FavoriteKind } from './customerPortal/types'
+import { writeStoredFavorites } from './customerPortal/favoritesStorage'
 
-export type CustomerTab = 'home' | 'cart' | 'profile'
-
-export interface CartLine {
-  merchantId: MerchantId
-  productId: ProductId
-  quantity: number
-  bundleSelections?: CheckoutBundleSelection[]
-}
-
-export type FavoriteKind = 'merchant' | 'product'
-
-export interface CustomerFavorites {
-  merchantIds: MerchantId[]
-  productIds: ProductId[]
-}
-
-type CustomerPortalStore = {
-  bootstrapDone: boolean
-  loadError: string | null
-  customerAccount: CustomerAccountPublic | null
-  merchants: Merchant[]
-  products: Product[]
-  platformPromotions: Promotion[]
-  activeTab: CustomerTab
-  selectedMerchantId: MerchantId
-  cartLines: CartLine[]
-  walletBalance: number
-  pendingOrders: Order[]
-  historyOrders: Order[]
-  isRechargeOpen: boolean
-  rechargeAmountInput: string
-  selectedOrder: Order | null
-  reviewTargetOrder: Order | null
-  aiDietReport: AIDietWeeklyReportResponse | null
-  aiDietReportLoading: boolean
-  aiDietReportError: string | null
-  aiOrderProgressNarratives: AIOrderProgressNarrativesResponse | null
-  aiOrderProgressNarrativesLoading: boolean
-  aiOrderProgressNarrativesError: string | null
-  favorites: CustomerFavorites
-  resetPage: () => void
-  refreshPortal: () => Promise<void>
-  ensureAIOrderProgressNarratives: () => Promise<void>
-  bootstrap: () => Promise<void>
-  setActiveTab: (tab: CustomerTab) => void
-  setSelectedMerchantId: (merchantId: MerchantId) => void
-  toggleFavorite: (kind: FavoriteKind, id: MerchantId | ProductId) => void
-  reorderOrder: (orderId: OrderId) => { ok: true; addedCount: number } | { ok: false; message: string }
-  addProductToCart: (merchantId: MerchantId, productId: ProductId) => void
-  addBundleToCart: (merchantId: MerchantId, productId: ProductId, bundleSelections: CheckoutBundleSelection[]) => void
-  changeQuantity: (merchantId: MerchantId, productId: ProductId, nextQuantity: number) => void
-  changeCartLineQuantity: (lineKey: string, nextQuantity: number) => void
-  setIsRechargeOpen: (open: boolean) => void
-  setRechargeAmountInput: (value: string) => void
-  setSelectedOrder: (order: Order | null) => void
-  setReviewTargetOrder: (order: Order | null) => void
-  openOrderDetail: (orderId: OrderId) => Promise<{ ok: true } | { ok: false; message: string }>
-  cancelOrder: (orderId: OrderId) => Promise<{ ok: true } | { ok: false; message: string }>
-  completeOrder: (orderId: OrderId) => Promise<{ ok: true } | { ok: false; message: string }>
-  uploadRefundImage: (file: File) => Promise<{ ok: true; imageUrl: string } | { ok: false; message: string }>
-  uploadOrderImage: (file: File) => Promise<{ ok: true; imageUrl: string } | { ok: false; message: string }>
-  requestRefund: (input: {
-    orderId: OrderId
-    reason: string
-    imageUrl: string | null
-  }) => Promise<{ ok: true } | { ok: false; message: string }>
-  appealRefund: (orderId: OrderId) => Promise<{ ok: true } | { ok: false; message: string }>
-  uploadReviewImage: (file: File) => Promise<{ ok: true; imageUrl: string } | { ok: false; message: string }>
-  submitReview: (input: {
-    orderId: OrderId
-    merchantRating: number
-    merchantDescription: string
-    merchantImageUrl: string | null
-    riderRating: number | null
-  }) => Promise<{ ok: true } | { ok: false; message: string }>
-  fetchMerchantReviews: (merchantId: MerchantId) => Promise<MerchantReviewsResponse>
-  voteMerchantReview: (reviewId: string, vote: 'up' | 'down' | 'none') => Promise<{ ok: true } | { ok: false; message: string }>
-  checkout: (options?: {
-    merchantId?: MerchantId
-    delivery?: CheckoutDeliverySnapshot
-    voucherId?: VoucherId
-    merchantNotes?: OrderMerchantNote[]
-  }) => Promise<{ ok: true; createdCount: number } | { ok: false; message: string }>
-  recharge: () => Promise<{ ok: true; amount: number } | { ok: false; message: string }>
-  discardExpiredVoucher: (voucherId: VoucherId) => Promise<{ ok: true } | { ok: false; message: string }>
-  saveDeliveryContacts: (
-    contacts: CustomerDeliveryContact[],
-  ) => Promise<{ ok: true } | { ok: false; message: string }>
-  generateAIDietReport: () => Promise<{ ok: true } | { ok: false; message: string }>
-}
-
-const getLocalDateKey = () => {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = `${now.getMonth() + 1}`.padStart(2, '0')
-  const day = `${now.getDate()}`.padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-const CustomerFavoritesStorageKey = 'delivery-customer-favorites'
-
-const readStoredFavorites = (): CustomerFavorites => {
-  if (typeof window === 'undefined') {
-    return { merchantIds: [], productIds: [] }
-  }
-
-  try {
-    const raw = window.localStorage.getItem(CustomerFavoritesStorageKey)
-    if (!raw) {
-      return { merchantIds: [], productIds: [] }
-    }
-
-    const parsed = JSON.parse(raw) as Partial<CustomerFavorites>
-    return {
-      merchantIds: Array.isArray(parsed.merchantIds) ? (parsed.merchantIds as MerchantId[]) : [],
-      productIds: Array.isArray(parsed.productIds) ? (parsed.productIds as ProductId[]) : [],
-    }
-  } catch {
-    return { merchantIds: [], productIds: [] }
-  }
-}
-
-const writeStoredFavorites = (favorites: CustomerFavorites) => {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.localStorage.setItem(CustomerFavoritesStorageKey, JSON.stringify(favorites))
-}
-
-const initialState = {
-  bootstrapDone: false,
-  loadError: null as string | null,
-  customerAccount: null as CustomerAccountPublic | null,
-  merchants: [] as Merchant[],
-  products: [] as Product[],
-  platformPromotions: [] as Promotion[],
-  activeTab: 'home' as CustomerTab,
-  selectedMerchantId: '' as MerchantId,
-  cartLines: [] as CartLine[],
-  walletBalance: 0,
-  pendingOrders: [] as Order[],
-  historyOrders: [] as Order[],
-  isRechargeOpen: false,
-  rechargeAmountInput: '',
-  selectedOrder: null as Order | null,
-  reviewTargetOrder: null as Order | null,
-  aiDietReport: null as AIDietWeeklyReportResponse | null,
-  aiDietReportLoading: false,
-  aiDietReportError: null as string | null,
-  aiOrderProgressNarratives: null as AIOrderProgressNarrativesResponse | null,
-  aiOrderProgressNarrativesLoading: false,
-  aiOrderProgressNarrativesError: null as string | null,
-  favorites: readStoredFavorites(),
-}
+export type { CartLine, CustomerFavorites, CustomerTab, FavoriteKind }
 
 let refreshPortalInFlight: Promise<void> | null = null
 
@@ -214,10 +51,7 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
         runTask(fetchCustomerOrdersIO()),
       ])
       const currentSelectedMerchantId = get().selectedMerchantId
-      const nextSelectedMerchantId =
-        currentSelectedMerchantId && catalog.merchants.some((merchant) => merchant.id === currentSelectedMerchantId)
-          ? currentSelectedMerchantId
-          : (catalog.merchants[0]?.id ?? '')
+      const nextSelectedMerchantId = resolveSelectedMerchantId(currentSelectedMerchantId, catalog.merchants)
       const nextCartLines = normalizeCartLines(get().cartLines, catalog.products)
 
       set({
@@ -272,21 +106,7 @@ export const useCustomerPortalStore = create<CustomerPortalStore>()((set, get) =
   setSelectedMerchantId: (selectedMerchantId) => set({ selectedMerchantId }),
   toggleFavorite: (kind, id) =>
     set((state) => {
-      const nextFavorites =
-        kind === 'merchant'
-          ? {
-              ...state.favorites,
-              merchantIds: state.favorites.merchantIds.includes(id as MerchantId)
-                ? state.favorites.merchantIds.filter((merchantId) => merchantId !== id)
-                : [...state.favorites.merchantIds, id as MerchantId],
-            }
-          : {
-              ...state.favorites,
-              productIds: state.favorites.productIds.includes(id as ProductId)
-                ? state.favorites.productIds.filter((productId) => productId !== id)
-                : [...state.favorites.productIds, id as ProductId],
-            }
-
+      const nextFavorites = toggleCustomerFavorite(state.favorites, kind, id)
       writeStoredFavorites(nextFavorites)
       return { favorites: nextFavorites }
     }),

@@ -21,82 +21,18 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
-import type { StoreOnboardingRequest, StoreOnboardingStatus } from '@/objects/admin/StoreOnboardingRequest'
-import type { AdminOrderMonitorItem, AdminOrderMonitorResponse } from '@/objects/admin/apiTypes/AdminOrderMonitorResponse'
+import type { StoreOnboardingRequest } from '@/objects/admin/StoreOnboardingRequest'
+import type { AdminOrderMonitorResponse } from '@/objects/admin/apiTypes/AdminOrderMonitorResponse'
 import type { Order } from '@/objects/order/Order'
-import { RefundStatuses, type RefundStatus } from '@/objects/shared/ids'
+import { RefundStatuses } from '@/objects/shared/ids'
 import type { Promotion } from '@/objects/shared/Promotion'
 import { promotionUsageText } from '@/components/PromotionEditorCard'
 import { promotionSummary } from '@/lib/promotions'
 import { cn } from '@/lib/utils'
 
-const statusLabels: Record<StoreOnboardingStatus, string> = {
-  pending: '待审核',
-  accepted: '已通过',
-  rejected: '已驳回',
-}
-
-const refundStatusLabels: Record<RefundStatus, string> = {
-  [RefundStatuses.pending]: '待商家处理',
-  [RefundStatuses.legacyPending]: '待商家处理',
-  [RefundStatuses.merchantRejected]: '商家已驳回',
-  [RefundStatuses.adminPending]: '待管理员仲裁',
-  [RefundStatuses.accepted]: '已通过',
-  [RefundStatuses.rejected]: '已驳回',
-}
-
-function statusBadgeVariant(status: StoreOnboardingStatus) {
-  if (status === 'accepted') return 'default'
-  if (status === 'rejected') return 'destructive'
-  return 'outline'
-}
-
-function refundStatusBadgeVariant(status: RefundStatus | null | undefined) {
-  if (status === RefundStatuses.accepted) return 'default'
-  if (status === RefundStatuses.rejected || status === RefundStatuses.merchantRejected) return 'destructive'
-  return 'outline'
-}
-
-function formatDate(value: string | null | undefined) {
-  if (!value) return '暂无'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
-}
-
-const CollapsedListLimit = 3
-
-function formatElapsed(minutes: number) {
-  if (minutes < 60) return `${minutes} 分钟`
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
-  return rest > 0 ? `${hours} 小时 ${rest} 分钟` : `${hours} 小时`
-}
-
-function MonitorOrderList({ title, items, emptyText }: { title: string; items: AdminOrderMonitorItem[]; emptyText: string }) {
-  const displayedItems = items.slice(0, CollapsedListLimit)
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <p className="font-semibold text-slate-950">{title}</p>
-        <Badge variant={items.length > 0 ? 'outline' : 'secondary'}>{items.length}</Badge>
-      </div>
-      {items.length === 0 ? <p className="text-sm text-slate-500">{emptyText}</p> : null}
-      <div className="space-y-2">
-        {displayedItems.map((item) => (
-          <div key={`${title}-${item.order.id}`} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-medium text-slate-900">订单 {item.order.id}</span>
-              <Badge variant="outline">{item.order.status}</Badge>
-            </div>
-            <p className="mt-1 text-slate-600">{item.reason} · 已持续 {formatElapsed(item.elapsedMinutes)}</p>
-            <p className="mt-1 text-slate-500">顾客：{item.order.customerName} · 金额 ¥{item.order.payableAmount.toFixed(2)}</p>
-          </div>
-        ))}
-      </div>
-      {items.length > CollapsedListLimit ? <p className="mt-2 text-xs text-slate-400">仅展示前 {CollapsedListLimit} 条，更多可后续进入订单明细处理。</p> : null}
-    </div>
-  )
-}
+import { MonitorOrderList } from './components/MonitorOrderList'
+import { CollapsedListLimit, formatDate } from './functions/adminFormatters'
+import { refundStatusBadgeVariant, refundStatusLabels, statusBadgeVariant, statusLabels } from './functions/statusBadges'
 
 export default function AdminConsole() {
   const navigate = useNavigate()

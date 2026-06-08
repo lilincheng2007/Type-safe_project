@@ -1,8 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Bike, CheckCircle2, ChefHat, ChevronDown, ChevronUp, Clock3, Workflow, XCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,69 +17,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import type { Order } from '@/objects/order/Order'
-import type { MerchantStoreProfile } from '@/objects/merchant/MerchantStoreProfile'
-import { OrderStatuses, type OrderId } from '@/objects/shared/ids'
+import { OrderStatuses } from '@/objects/shared/ids'
 import { useOrderChatUnreadCounts } from '@/hooks/useOrderChatUnreadCounts'
 
-type OrdersTabProps = {
-  selectedStore: MerchantStoreProfile | null
-  onAcceptOrder: (orderId: OrderId, prepMinutes?: number) => void
-  onRejectOrder: (orderId: OrderId) => void
-  onFinishCooking: (orderId: OrderId) => void
-  onDelayPrep: (orderId: OrderId, extraMinutes: number, reason: string) => void
-}
-
-const CollapsedListLimit = 3
-
-function orderItemSummary(order: Order): string {
-  return order.items.map((item) => `${item.name}×${item.quantity}`).join('、')
-}
-
-const prepTimeOptions = [10, 15, 20, 30]
-
-function statusHint(order: Order): string {
-  if (order.status === OrderStatuses.waitingForMerchantAcceptance) {
-    return '顾客已付款，等待商家确认是否接单。'
-  }
-  if (order.status === OrderStatuses.cooking) {
-    return '已接单，后厨制作完成后可标记出餐。'
-  }
-  if (order.status === OrderStatuses.waitingForRiderAcceptance) {
-    return '已出餐，正在等待骑手接单取餐。'
-  }
-  if (order.status === OrderStatuses.delivering) {
-    return '骑手已接单，餐品正在配送途中。'
-  }
-  if (order.status === OrderStatuses.canceled) {
-    return '订单已取消，款项已按规则退回顾客钱包。'
-  }
-  return '订单已进入历史记录。'
-}
-
-function OrderCard({ order, children, onOpen }: { order: Order; children?: ReactNode; onOpen: () => void }) {
-  return (
-    <div
-      className="cursor-pointer rounded-xl border border-orange-100 bg-white/90 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-200 hover:bg-orange-50/60 hover:shadow-md"
-      onClick={onOpen}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <p className="truncate font-medium text-slate-900">订单 {order.id}</p>
-        <Badge variant="outline" className="shrink-0 border-orange-200 bg-orange-50 text-orange-700">
-          {order.status}
-        </Badge>
-      </div>
-      <p className="mt-1 text-sm text-slate-600">{statusHint(order)}</p>
-      {order.estimatedReadyAt ? <p className="mt-1 text-xs font-medium text-orange-600">预计出餐：{order.estimatedReadyAt}</p> : null}
-      {order.prepDelayReason ? <p className="mt-1 text-xs font-medium text-amber-600">延迟原因：{order.prepDelayReason}</p> : null}
-      <p className="mt-2 line-clamp-2 text-sm text-slate-500">{orderItemSummary(order)}</p>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
-        <span className="text-slate-500">下单时间 {order.placedAt}</span>
-        <span className="font-semibold text-orange-600">应收 ¥{(order.merchantReceivableAmount ?? order.payableAmount).toFixed(2)}</span>
-      </div>
-      {children ? <div className="mt-3 flex flex-wrap gap-2">{children}</div> : null}
-    </div>
-  )
-}
+import { CollapsedListLimit, prepTimeOptions, statusHint } from '../functions/merchantOrderDisplay'
+import type { OrdersTabProps } from '../objects/merchantOrderView'
+import { MerchantOrderCard } from './orders/MerchantOrderCard'
 
 export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinishCooking, onDelayPrep }: OrdersTabProps) {
   const navigate = useNavigate()
@@ -172,7 +114,7 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
             <p className="text-sm text-slate-500">当前暂无待确认订单。</p>
           ) : (
             displayedAwaitingMerchantOrders.map((order) => (
-              <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
+              <MerchantOrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
                 {renderContactActions(order)}
                 <div className="flex w-full flex-wrap items-end gap-2 rounded-lg border border-orange-100 bg-orange-50/60 p-2" onClick={(event) => event.stopPropagation()}>
                   <div className="min-w-40 flex-1 space-y-1">
@@ -227,7 +169,7 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
                   <XCircle className="mr-1 size-4" />
                   拒收
                 </Button>
-              </OrderCard>
+              </MerchantOrderCard>
             ))
           )}
           {!showAllAwaitingMerchantOrders && awaitingMerchantOrders.length > CollapsedListLimit ? (
@@ -258,7 +200,7 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
             <p className="text-sm text-slate-500">当前暂无待出餐订单。</p>
           ) : (
             displayedCookingOrders.map((order) => (
-              <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
+              <MerchantOrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
                 {renderContactActions(order)}
                 <div className="flex w-full flex-wrap items-end gap-2 rounded-lg border border-amber-100 bg-amber-50/60 p-2" onClick={(event) => event.stopPropagation()}>
                   <div className="w-28 space-y-1">
@@ -304,7 +246,7 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
                 >
                   出餐完成
                 </Button>
-              </OrderCard>
+              </MerchantOrderCard>
             ))
           )}
           {!showAllCookingOrders && activeCookingOrders.length > CollapsedListLimit ? (
@@ -335,9 +277,9 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
             <p className="text-sm text-slate-500">当前暂无履约中订单。</p>
           ) : (
             displayedFulfillmentOrders.map((order) => (
-              <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
+              <MerchantOrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
                 {renderContactActions(order)}
-              </OrderCard>
+              </MerchantOrderCard>
             ))
           )}
           {!showAllFulfillmentOrders && fulfillmentOrders.length > CollapsedListLimit ? (
@@ -368,9 +310,9 @@ export function OrdersTab({ selectedStore, onAcceptOrder, onRejectOrder, onFinis
             <p className="text-sm text-slate-500">当前暂无历史订单。</p>
           ) : (
             displayedHistoryOrders.map((order) => (
-              <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
+              <MerchantOrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)}>
                 {renderContactActions(order)}
-              </OrderCard>
+              </MerchantOrderCard>
             ))
           )}
           {!showAllHistoryOrders && merchantHistoryOrders.length > CollapsedListLimit ? (

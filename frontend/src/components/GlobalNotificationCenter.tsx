@@ -18,112 +18,31 @@ import { useAuthSession } from '@/hooks/useAuthSession'
 import type { AuthSession } from '@/lib/auth-session'
 import { cn } from '@/lib/utils'
 import type { Merchant } from '@/objects/merchant/Merchant'
-import type { Order } from '@/objects/order/Order'
-import type { OrderChatRole } from '@/objects/order/OrderChatMessage'
 import type { OrderChatUnreadCount } from '@/objects/order/OrderChatUnreadCount'
-import type { Rider } from '@/objects/rider/Rider'
 import type { Promotion } from '@/objects/shared/Promotion'
 import { OrderStatuses, RefundStatuses, UserRoles } from '@/objects/shared/ids'
 
-type GlobalNotification = {
-  id: string
-  message: string
-  target: string
-  createdAt: number
-}
-
-type NotificationSnapshot = {
-  initialized: boolean
-  seenEvents: string[]
-  chatCounts: Record<string, number>
-}
-
-type NotificationContext = {
-  orders: Order[]
-  merchants: Merchant[]
-  currentRider?: Rider | null
-}
-
-const emptySnapshot: NotificationSnapshot = {
-  initialized: false,
-  seenEvents: [],
-  chatCounts: {},
-}
+import {
+  formatNotificationTime,
+  latestMessageSummary,
+  makeNotification,
+  merchantName,
+  mergeNotifications,
+  peerDisplayName,
+  refundFeedbackMessage,
+  roleLabel,
+  type NotificationContext,
+} from './notifications/notificationDisplay'
+import {
+  readNotifications,
+  readSnapshot,
+  writeNotifications,
+  writeSnapshot,
+  type GlobalNotification,
+  type NotificationSnapshot,
+} from './notifications/notificationStorage'
 
 const pollIntervalMs = 8000
-
-function storageKey(session: AuthSession, suffix: string) {
-  return `delivery-global-notifications:${session.role}:${session.account}:${suffix}`
-}
-
-function safeReadJson<T>(key: string, fallback: T): T {
-  try {
-    const raw = window.localStorage.getItem(key)
-    return raw ? (JSON.parse(raw) as T) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function readSnapshot(session: AuthSession): NotificationSnapshot {
-  const value = safeReadJson<Partial<NotificationSnapshot>>(storageKey(session, 'snapshot'), emptySnapshot)
-  return {
-    initialized: Boolean(value.initialized),
-    seenEvents: Array.isArray(value.seenEvents) ? value.seenEvents : [],
-    chatCounts: value.chatCounts && typeof value.chatCounts === 'object' ? value.chatCounts : {},
-  }
-}
-
-function writeSnapshot(session: AuthSession, snapshot: NotificationSnapshot) {
-  window.localStorage.setItem(storageKey(session, 'snapshot'), JSON.stringify(snapshot))
-}
-
-function readNotifications(session: AuthSession): GlobalNotification[] {
-  const value = safeReadJson<GlobalNotification[]>(storageKey(session, 'items'), [])
-  return Array.isArray(value) ? value : []
-}
-
-function writeNotifications(session: AuthSession, notifications: GlobalNotification[]) {
-  window.localStorage.setItem(storageKey(session, 'items'), JSON.stringify(notifications))
-}
-
-function roleLabel(role: string) {
-  if (role === UserRoles.customer) return '顾客'
-  if (role === UserRoles.merchant) return '商家'
-  if (role === UserRoles.rider) return '骑手'
-  return role
-}
-
-function merchantName(order: Order | undefined, context: NotificationContext) {
-  if (!order) return '未知店铺'
-  return context.merchants.find((merchant) => merchant.id === order.merchantId)?.storeName ?? `店铺 ${order.merchantId}`
-}
-
-function peerDisplayName(order: Order | undefined, peerRole: OrderChatRole | string, context: NotificationContext) {
-  if (peerRole === UserRoles.customer) return order?.customerName || order?.customerId || '顾客'
-  if (peerRole === UserRoles.merchant) return merchantName(order, context)
-  if (peerRole === UserRoles.rider) {
-    if (context.currentRider && (!order?.riderId || context.currentRider.id === order.riderId)) return context.currentRider.name
-    return order?.riderId ? `骑手 ${order.riderId}` : '骑手'
-  }
-  return roleLabel(peerRole)
-}
-
-function latestMessageSummary(count: OrderChatUnreadCount) {
-  if (count.latestMessageType === 'image') return '发送了图片'
-  const content = count.latestContent?.trim()
-  if (!content) return `发送了 ${count.unreadCount} 条新消息`
-  return `发送了：“${content.length > 48 ? `${content.slice(0, 48)}...` : content}”`
-}
-
-function refundFeedbackMessage(order: Order, context: NotificationContext) {
-  const storeName = merchantName(order, context)
-  if (order.refundStatus === RefundStatuses.accepted) return `店铺「${storeName}」的订单 ${order.id} 退款申请已通过`
-  if (order.refundStatus === RefundStatuses.rejected) return `店铺「${storeName}」的订单 ${order.id} 退款申请已被平台驳回`
-  if (order.refundStatus === RefundStatuses.merchantRejected) return `店铺「${storeName}」驳回了订单 ${order.id} 的退款申请`
-  if (order.refundStatus === RefundStatuses.adminPending) return `你已将店铺「${storeName}」的订单 ${order.id} 退款申请提交平台仲裁`
-  return null
-}
 
 function enabledPromotionKeys(merchants: Merchant[], platformPromotions: Promotion[]) {
   const platform = platformPromotions
@@ -135,23 +54,6 @@ function enabledPromotionKeys(merchants: Merchant[], platformPromotions: Promoti
       .map((promotion) => `merchant:${store.id}:${promotion.id}:${promotion.title}`),
   )
   return [...platform, ...merchant]
-}
-
-function makeNotification(id: string, message: string, target: string): GlobalNotification {
-  return { id, message, target, createdAt: Date.now() }
-}
-
-function mergeNotifications(current: GlobalNotification[], incoming: GlobalNotification[]) {
-  const byId = new Map(current.map((item) => [item.id, item]))
-  incoming.forEach((item) => {
-    byId.set(item.id, byId.get(item.id) ?? item)
-  })
-  return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt)
-}
-
-function formatNotificationTime(createdAt: number) {
-  const date = new Date(createdAt)
-  return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
 }
 
 async function customerEvents() {

@@ -11,55 +11,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { useOrderChatUnreadCounts } from '@/hooks/useOrderChatUnreadCounts'
-import type { AIDietWeeklyReportResponse } from '@/objects/ai/apiTypes/AIDietWeeklyReportResponse'
-import type { AIOrderProgressNarrativesResponse } from '@/objects/ai/apiTypes/AIOrderProgressNarrativesResponse'
 import type { Merchant } from '@/objects/merchant/Merchant'
 import type { Product } from '@/objects/merchant/Product'
-import type { Order } from '@/objects/order/Order'
 import { compactTimelineText } from '@/lib/order-timeline'
-import { OrderStatuses, RefundStatuses, type MerchantId, type OrderId, type ProductId, type VoucherId } from '@/objects/shared/ids'
-import type { Voucher } from '@/objects/shared/Voucher'
+import { OrderStatuses, RefundStatuses, type OrderId } from '@/objects/shared/ids'
 
-const getTodayStart = () => {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-}
-
-const isVoucherExpired = (voucher: Voucher, todayStart: number) => {
-  const time = Date.parse(`${voucher.expiresAt}T00:00:00`)
-  return Number.isNaN(time) || time < todayStart
-}
-
-const CollapsedListLimit = 3
-
-type ProfilePanel = 'main' | 'contacts' | 'pending' | 'history' | 'favorites' | 'coupons'
-
-type ProfileTabProps = {
-  username: string
-  walletBalance: number
-  merchants: Merchant[]
-  products: Product[]
-  pendingOrders: Order[]
-  historyOrders: Order[]
-  vouchers: Voucher[]
-  foodiePoints: number
-  foodieLevel: number
-  favoriteMerchantIds: MerchantId[]
-  favoriteProductIds: ProductId[]
-  aiDietReport: AIDietWeeklyReportResponse | null
-  aiDietReportLoading: boolean
-  aiDietReportError: string | null
-  aiOrderProgressNarratives: AIOrderProgressNarrativesResponse | null
-  onOpenRecharge: () => void
-  onSelectOrder: (orderId: OrderId) => void
-  onCompleteOrder: (orderId: OrderId) => void
-  onAppealRefund: (orderId: OrderId) => void
-  onReorderOrder: (orderId: OrderId) => void
-  onGenerateAIDietReport: () => void
-  onDiscardExpiredVoucher: (voucherId: VoucherId) => void
-  onToggleMerchantFavorite: (merchantId: MerchantId) => void
-  onToggleProductFavorite: (productId: ProductId) => void
-}
+import { CollapsedListLimit, getOrderStatusDescription } from '../functions/profileOrderDisplay'
+import { getRefundFeedback } from '../functions/refundFeedback'
+import { getTodayStart, isVoucherExpired } from '../functions/voucherFilters'
+import type { ProfilePanel, ProfileTabProps } from '../objects/profilePanels'
 
 export function ProfileTab({
   username,
@@ -92,70 +52,6 @@ export function ProfileTab({
   const [activePanel, setActivePanel] = useState<ProfilePanel>('main')
   const getMerchantName = (merchantId: string) =>
     merchants.find((merchant) => merchant.id === merchantId)?.storeName ?? '未知商家'
-
-  const getOrderStatusDescription = (order: Order) => {
-    if (order.status === OrderStatuses.waitingForMerchantAcceptance) {
-      return '订单已提交，正在等待商家确认接单'
-    }
-    if (order.status === OrderStatuses.cooking) {
-      return '商家已接单，后厨正在制作餐品'
-    }
-    if (order.status === OrderStatuses.waitingForRiderAcceptance) {
-      return '商家已出餐，正在等待骑手接单取餐'
-    }
-    if (order.status === OrderStatuses.delivering) {
-      return '骑手已接单，餐品正在配送途中'
-    }
-    if (order.status === OrderStatuses.delivered) {
-      return '餐品已送达，可确认完成'
-    }
-    if (order.status === OrderStatuses.canceled) {
-      return '订单已取消，款项已按规则退回钱包'
-    }
-    if (order.status === OrderStatuses.refunded) {
-      return '退款已通过，款项已退回钱包'
-    }
-    return null
-  }
-
-  const getRefundFeedback = (order: Order) => {
-    if (order.refundStatus === RefundStatuses.accepted) {
-      return {
-        title: '退款已通过',
-        message: order.refundAdminReason?.trim() || order.refundMerchantReason?.trim() || '退款申请已通过，款项已退回钱包。',
-        className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-      }
-    }
-    if (order.refundStatus === RefundStatuses.rejected) {
-      return {
-        title: '退款已驳回',
-        message: order.refundAdminReason?.trim() || '管理员已驳回退款申请。',
-        className: 'border-rose-200 bg-rose-50 text-rose-700',
-      }
-    }
-    if (order.refundStatus === RefundStatuses.merchantRejected) {
-      return {
-        title: '商家已驳回',
-        message: order.refundMerchantReason?.trim() || '商家已驳回退款申请，可提交管理员仲裁。',
-        className: 'border-rose-200 bg-rose-50 text-rose-700',
-      }
-    }
-    if (order.refundStatus === RefundStatuses.adminPending) {
-      return {
-        title: '管理员仲裁中',
-        message: '退款申请已提交管理员仲裁，请等待处理结果。',
-        className: 'border-amber-200 bg-amber-50 text-amber-700',
-      }
-    }
-    if (order.refundStatus === RefundStatuses.pending || order.refundStatus === RefundStatuses.legacyPending) {
-      return {
-        title: '等待商家处理',
-        message: '退款申请已提交给商家，超过30分钟未处理将自动通过。',
-        className: 'border-amber-200 bg-amber-50 text-amber-700',
-      }
-    }
-    return null
-  }
 
   const [orderProgressCycleSeed] = useState(() => Math.floor(Date.now() / 15000))
   const [showAllPendingOrders, setShowAllPendingOrders] = useState(false)

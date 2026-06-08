@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAppChrome } from '@/hooks/useAppChrome'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
-import { bundleBasePrice, bundleLineUnitPrice, bundleSelectionSummary } from '@/lib/bundles'
-import { maxCartLineQuantity, maxOrderQuantity, productAvailable } from '@/lib/cart-inventory'
+import { bundleBasePrice, bundleLineUnitPrice, bundleSelectionSummary, isBundleProduct } from '@/lib/bundles'
+import { cartLineKey, maxCartLineQuantity, maxOrderQuantity, productAvailable } from '@/lib/cart-inventory'
 import { merchantAvailability } from '@/lib/merchant-business-hours'
 import { isPromotionActive, promotionDisplayName, promotionSummary, roundMoney } from '@/lib/promotions'
 import { cn } from '@/lib/utils'
@@ -21,57 +21,15 @@ import type { MerchantId } from '@/objects/shared/ids'
 import type { ProductId } from '@/objects/shared/ids'
 import type { AIReviewSummaryResponse } from '@/objects/ai/apiTypes/AIReviewSummaryResponse'
 import type { Product } from '@/objects/merchant/Product'
-import type { CheckoutBundleSelection } from '@/objects/order/CheckoutLine'
 import type { MerchantReviewsResponse } from '@/objects/review/apiTypes/MerchantReviewsResponse'
 import { useCustomerPortalStore } from '@/stores/pages/use-customer-portal-store'
 
 import { BundleSelectionDialog } from './BundleSelectionDialog'
+import { discountRateText } from '../functions/priceDisplay'
+import { productCategoryName, productLimitText, productStockText } from '../functions/productDisplay'
+import { highlightedSummaryParts } from '../functions/reviewSummaryParts'
 
 type MerchantPane = 'menu' | 'reviews'
-
-const productCategoryName = (product: { categoryName?: string | null }) => product.categoryName?.trim() || '默认分类'
-const isBundleProduct = (product: { bundleGroups?: unknown[] | null }) => (product.bundleGroups ?? []).length > 0
-const discountRateText = (originalPrice: number, currentPrice: number) =>
-  originalPrice > 0 && currentPrice > 0 ? `${(currentPrice / originalPrice * 10).toFixed(1)}折` : '优惠价'
-
-const bundleLineKey = (line: { merchantId: string; productId: string; bundleSelections?: CheckoutBundleSelection[] }) =>
-  `${line.merchantId}::${line.productId}::${JSON.stringify(line.bundleSelections ?? [])}`
-
-function productStockText(product: Product) {
-  if ((product.inventoryMode ?? 'finite') === 'unlimited') return '无限库存'
-  if (!productAvailable(product)) return '已售罄'
-  return `剩余 ${product.remainingStock} 份`
-}
-
-function productLimitText(product: Product) {
-  return product.maxPerOrder ? `每单限购 ${product.maxPerOrder} 份` : '不限购'
-}
-
-function highlightedSummaryParts(summary: string, highlights: string[]) {
-  const cleanHighlights = highlights.filter((item) => item.trim() && summary.includes(item)).slice(0, 4)
-  const parts: Array<{ text: string; highlighted: boolean }> = []
-  let cursor = 0
-
-  while (cursor < summary.length) {
-    const next = cleanHighlights
-      .map((highlight) => ({ highlight, index: summary.indexOf(highlight, cursor) }))
-      .filter((item) => item.index >= 0)
-      .sort((a, b) => a.index - b.index || b.highlight.length - a.highlight.length)[0]
-
-    if (!next) {
-      parts.push({ text: summary.slice(cursor), highlighted: false })
-      break
-    }
-
-    if (next.index > cursor) {
-      parts.push({ text: summary.slice(cursor, next.index), highlighted: false })
-    }
-    parts.push({ text: next.highlight, highlighted: true })
-    cursor = next.index + next.highlight.length
-  }
-
-  return parts
-}
 
 export default function CustomerMerchantOrderPage() {
   const { merchantId: merchantIdParam } = useParams<{ merchantId: string }>()
@@ -852,11 +810,11 @@ export default function CustomerMerchantOrderPage() {
                   {linesForMerchant.map((line) => {
                     const product = products.find((item) => item.id === line.productId)
                     if (!product) return null
-                    const lineKey = bundleLineKey(line)
+                    const lineKey = cartLineKey(line)
                     const selectionSummary = bundleSelectionSummary(product, line.bundleSelections, products)
                     const unitPrice = bundleLineUnitPrice(product, line.bundleSelections, products)
                     const linePromotion = productPromotionForDisplay(product.id, unitPrice)
-                    const maxQuantity = maxCartLineQuantity(line, products, linesForMerchant.filter((item) => bundleLineKey(item) !== lineKey))
+                    const maxQuantity = maxCartLineQuantity(line, products, linesForMerchant.filter((item) => cartLineKey(item) !== lineKey))
                     const reachedLimit = Number.isFinite(maxQuantity) ? line.quantity >= maxQuantity : false
                     const available = productAvailable(product) && maxQuantity > 0
                     return (

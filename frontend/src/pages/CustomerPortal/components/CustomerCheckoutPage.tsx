@@ -14,18 +14,15 @@ import { useAppChrome } from '@/hooks/useAppChrome'
 import { appendContact, normalizedDeliveryContacts } from '@/lib/deliveryContacts'
 import { resolveApiMediaUrl } from '@/lib/api-media-url'
 import { bundleLineUnitPrice, bundleSelectionSummary } from '@/lib/bundles'
+import { cartLineKey } from '@/lib/cart-inventory'
 import { createOrderPriceBreakdown, priceBreakdownAmountClassName, priceBreakdownAmountText } from '@/lib/order-price-breakdown'
 import { bestPromotion, promotionDisplayName, promotionSummary, roundMoney } from '@/lib/promotions'
-import type { CheckoutBundleSelection } from '@/objects/order/CheckoutLine'
 import type { MerchantId } from '@/objects/shared/ids'
 import { useCustomerPortalStore } from '@/stores/pages/use-customer-portal-store'
 
 import { DeliveryContactAddDialog } from './DeliveryContactAddDialog'
-
-const checkoutLineKey = (line: { merchantId: string; productId: string; bundleSelections?: CheckoutBundleSelection[] }) =>
-  `${line.merchantId}::${line.productId}::${JSON.stringify(line.bundleSelections ?? [])}`
-const discountRateText = (originalPrice: number, currentPrice: number) =>
-  originalPrice > 0 && currentPrice > 0 ? `${(currentPrice / originalPrice * 10).toFixed(1)}折` : '优惠价'
+import { discountRateText } from '../functions/priceDisplay'
+import { getTodayStart, isDateOnlyExpired, voucherUnavailableReason } from '../functions/voucherFilters'
 
 export default function CustomerCheckoutPage() {
   const [searchParams] = useSearchParams()
@@ -98,18 +95,11 @@ export default function CustomerCheckoutPage() {
   const afterMerchantDiscount = Math.max(0, roundMoney(total - merchantDiscount))
 
   const vouchers = customerAccount?.profile.vouchers ?? []
-  const todayStart = useMemo(() => {
-    const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  }, [])
-  const isVoucherExpired = (expiresAt: string) => {
-    const time = Date.parse(`${expiresAt}T00:00:00`)
-    return Number.isNaN(time) || time < todayStart
-  }
+  const todayStart = useMemo(() => getTodayStart(), [])
   const usableVouchers = vouchers.filter(
-    (voucher) => voucher.remainingCount > 0 && afterMerchantDiscount >= voucher.minSpend && !isVoucherExpired(voucher.expiresAt),
+    (voucher) => voucher.remainingCount > 0 && afterMerchantDiscount >= voucher.minSpend && !isDateOnlyExpired(voucher.expiresAt, todayStart),
   )
-  const checkoutVouchers = vouchers.filter((voucher) => !isVoucherExpired(voucher.expiresAt))
+  const checkoutVouchers = vouchers.filter((voucher) => !isDateOnlyExpired(voucher.expiresAt, todayStart))
   const selectedVoucher = usableVouchers.find((voucher) => voucher.id === selectedVoucherId)
   const voucherDiscount = selectedVoucher ? Math.min(selectedVoucher.discountAmount, afterMerchantDiscount) : 0
   const promotionLines = lines.flatMap((line) => {
@@ -223,13 +213,6 @@ export default function CustomerCheckoutPage() {
       return
     }
     showNotice(result.message, 'error')
-  }
-
-  const voucherUnavailableReason = (voucher: (typeof vouchers)[number]) => {
-    if (voucher.remainingCount <= 0) return '已使用完'
-    if (isVoucherExpired(voucher.expiresAt)) return '已过期'
-    if (afterMerchantDiscount < voucher.minSpend) return `还差 ¥${(voucher.minSpend - afterMerchantDiscount).toFixed(2)} 可用`
-    return null
   }
 
   if (!bootstrapDone) {
@@ -360,7 +343,7 @@ export default function CustomerCheckoutPage() {
               const selectionSummary = bundleSelectionSummary(product, line.bundleSelections, products)
               return (
                 <div
-                  key={checkoutLineKey(line)}
+                  key={cartLineKey(line)}
                   className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -465,7 +448,7 @@ export default function CustomerCheckoutPage() {
                 </p>
               ) : null}
               {checkoutVouchers.map((voucher) => {
-                const reason = voucherUnavailableReason(voucher)
+                const reason = voucherUnavailableReason(voucher, todayStart, afterMerchantDiscount)
                 const disabled = reason !== null
                 const selected = selectedVoucherId === voucher.id && !disabled
                 return (
