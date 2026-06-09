@@ -103,13 +103,20 @@ src/
 
 路由守卫位于 `src/components/RoleRouteGuards.tsx`，根据 `src/lib/auth-session.ts` 中保存的 JWT 与角色控制访问。
 
+全局壳层由 `src/components/AppChromeProvider.tsx` 挂载，统一承载 toast、全局通知中心、反馈弹窗和预览检查桥接；`src/components/GlobalNotificationCenter.tsx` 会按当前角色聚合业务事件并同步通知已读状态。
+
 ## 页面功能结构
+
+### 登录与注册：`src/pages/Login/`、`src/pages/Register/`
+
+- 登录页和注册页均通过 `components/` 拆分表单 UI，通过 `objects/` 保存页面局部常量和类型。
+- 表单提交统一调用 `src/apis/user/` 下的一文件 API，成功后写入 `src/lib/auth-session.ts` 的 JWT、账号和角色信息。
 
 ### 顾客端：`src/pages/CustomerPortal/`
 
 - `index.tsx`：顾客门户入口、数据启动和自动刷新。
 - `components/HomeTab.tsx`：商家目录、AI 搜索入口。
-- `components/CustomerMerchantOrderPage.tsx`：店内点餐、套餐选择、店铺购物车、跳转结算。
+- `components/CustomerMerchantOrderPage.tsx`：店内点餐、套餐选择、店铺购物车、商家评价列表/筛选/投票、AI 评价摘要、跳转结算。
 - `components/CustomerCheckoutPage.tsx`：收货信息、优惠券、价格明细、钱包校验、提交结算。
 - `components/CartTab.tsx`：购物车汇总和数量修改。
 - `components/ProfileTab.tsx`：钱包、吃货等级、优惠券、待收货订单、历史订单、AI 周报。
@@ -119,7 +126,7 @@ src/
 - `functions/`：价格展示、优惠券过滤、退款反馈、订单状态文案等纯函数。
 - `objects/`：页面局部面板、视图常量和类型。
 
-顾客端支持浏览商家与商品、AI 推荐、普通菜品/套餐加购、库存限购约束、结算、订单时间线、聊天、通知、退款、评价、钱包、积分和优惠券。
+顾客端支持浏览商家与商品、AI 推荐、AI 评价摘要、普通菜品/套餐加购、库存限购约束、结算、订单时间线、聊天、通知、退款、评价、钱包、积分和优惠券。
 
 ### 商家端：`src/pages/MerchantConsole/`
 
@@ -130,7 +137,7 @@ src/
 - `components/orders/MerchantOrderCard.tsx`：商家订单卡片。
 - `components/ProfileTab.tsx`：店铺资料、公告、营业状态、营业时间、图片。
 - `components/BusinessDataTab.tsx`：经营数据和 AI 经营建议。
-- `components/MerchantReviewsTab.tsx`：顾客评价、回复与摘要。
+- `components/MerchantReviewsTab.tsx`：退款申请处理、顾客评价、商家回复与评价摘要。
 - `components/MerchantAICopywritingCard.tsx`：AI 店铺描述和菜品描述生成。
 - `functions/`：商品表单映射、订单展示文案、通用 helper。
 - `objects/`：商品草稿、商家订单视图类型。
@@ -144,9 +151,9 @@ src/
 - `components/DispatchCard.tsx`：可抢订单。
 - `components/TaskListCard.tsx`：配送中任务和状态更新。
 - `components/EnergyTimeoutCard.tsx`：服务能量、超时免责卡。
-- `components/SalaryCard.tsx`：薪资与配送统计。
+- `components/SalaryCard.tsx`：薪资、配送统计、骑手评分和顾客评价列表。
 
-骑手端支持可抢订单、抢单、配送状态更新、完成配送、薪资结算、能量值、超时和免责卡。
+骑手端支持可抢订单、抢单、配送状态更新、完成配送、薪资结算、能量值、超时、免责卡、骑手评分和评价展示。
 
 ### 管理员端：`src/pages/AdminConsole/`
 
@@ -304,17 +311,15 @@ src/stores/
 - `src/lib/promotions.ts`：商家/平台优惠匹配与金额计算。
 - `src/lib/order-price-breakdown.ts`：结构化结算明细解释器。
 - `src/lib/order-timeline.ts`：订单状态时间线、预计送达和异常提示。
-- `src/lib/media-url.ts`：图片 URL 规范化。
+- `src/lib/api-media-url.ts`：API 返回媒体路径解析，处理 `/api/...` 与 `VITE_API_BASE`。
 
 ## 数据刷新策略
 
-顾客门户的自动刷新位于 `src/pages/CustomerPortal/index.tsx`：
-
-- 首次进入时执行 `bootstrap`。
-- 页面重新可见时立即刷新。
-- 自动刷新间隔为 15 秒。
-- 页面隐藏时跳过刷新。
-- AI 订单进度文案按天缓存，不在每轮短周期刷新中重复生成。
+- 顾客门户 `src/pages/CustomerPortal/index.tsx`：首次进入执行 `bootstrap`；页面重新可见时立即刷新；自动刷新间隔为 15 秒；页面隐藏时跳过刷新；AI 订单进度文案按天缓存。
+- 商家控制台 `src/pages/MerchantConsole/index.tsx`：约 5 秒刷新一次商家账号、店铺、订单等数据。
+- 骑手工作台 `src/pages/RiderApp/index.tsx`：约 5 秒刷新一次骑手资料、可抢订单和配送任务。
+- 全局通知中心 `src/components/GlobalNotificationCenter.tsx`：约 8 秒轮询不同角色的业务事件，并通过通知已读 API 持久化已读状态。
+- 订单聊天未读数 `src/hooks/useOrderChatUnreadCounts.ts`：约 5 秒刷新一次当前角色的订单聊天未读数。
 
 ## UI 与样式
 
