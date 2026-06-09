@@ -40,6 +40,7 @@ export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get)
   setNewStoreName: (newStoreName) => set({ newStoreName }),
   setNewStoreAddress: (newStoreAddress) => set({ newStoreAddress }),
   setNewStoreDescription: (newStoreDescription) => set({ newStoreDescription }),
+  setNewStoreTags: (newStoreTags) => set({ newStoreTags }),
   refreshMerchant: async () => {
     const me = await runTask(fetchMerchantMeIO())
     const nextStores = me.merchantAccount.profile.stores
@@ -65,11 +66,12 @@ export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get)
     }
   },
   createStore: async () => {
-    const { newStoreName, newStoreAddress, newStoreDescription } = get()
+    const { newStoreName, newStoreAddress, newStoreDescription, newStoreTags } = get()
     const createStoreInput = normalizeCreateStoreDraft({
       name: newStoreName,
       address: newStoreAddress,
       description: newStoreDescription,
+      tags: newStoreTags,
     })
 
     if (!createStoreInput) {
@@ -82,6 +84,7 @@ export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get)
       newStoreName: '',
       newStoreAddress: '',
       newStoreDescription: '',
+      newStoreTags: [],
     })
     return requestId
   },

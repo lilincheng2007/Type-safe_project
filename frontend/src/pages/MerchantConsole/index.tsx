@@ -30,6 +30,7 @@ export default function MerchantConsole() {
   const newStoreName = useMerchantConsoleStore((state) => state.newStoreName)
   const newStoreAddress = useMerchantConsoleStore((state) => state.newStoreAddress)
   const newStoreDescription = useMerchantConsoleStore((state) => state.newStoreDescription)
+  const newStoreTags = useMerchantConsoleStore((state) => state.newStoreTags)
   const stores = useMerchantConsoleStore((state) => state.stores)
   const storeOnboardingRequests = useMerchantConsoleStore((state) => state.storeOnboardingRequests)
   const prepareForSession = useMerchantConsoleStore((state) => state.prepareForSession)
@@ -39,6 +40,7 @@ export default function MerchantConsole() {
   const setNewStoreName = useMerchantConsoleStore((state) => state.setNewStoreName)
   const setNewStoreAddress = useMerchantConsoleStore((state) => state.setNewStoreAddress)
   const setNewStoreDescription = useMerchantConsoleStore((state) => state.setNewStoreDescription)
+  const setNewStoreTags = useMerchantConsoleStore((state) => state.setNewStoreTags)
   const bootstrap = useMerchantConsoleStore((state) => state.bootstrap)
   const refreshMerchant = useMerchantConsoleStore((state) => state.refreshMerchant)
   const createStore = useMerchantConsoleStore((state) => state.createStore)
@@ -83,7 +85,7 @@ export default function MerchantConsole() {
       if (requestId) {
         showNotice('店铺入驻申请已提交，等待管理员审核。', 'success')
       } else {
-        showNotice('请填写店铺名称、地址和描述。', 'error')
+        showNotice('请填写店铺名称、地址、描述并至少选择一个标签。', 'error')
       }
     } catch (error) {
       showNotice(error instanceof Error ? error.message : '提交店铺申请失败', 'error')
@@ -236,6 +238,7 @@ export default function MerchantConsole() {
         newStoreName={newStoreName}
         newStoreAddress={newStoreAddress}
         newStoreDescription={newStoreDescription}
+        newStoreTags={newStoreTags}
         stores={stores}
         storeOnboardingRequests={storeOnboardingRequests}
         onOpenChange={setIsStoreDialogOpen}
@@ -243,6 +246,7 @@ export default function MerchantConsole() {
         onChangeStoreName={setNewStoreName}
         onChangeStoreAddress={setNewStoreAddress}
         onChangeStoreDescription={setNewStoreDescription}
+        onChangeStoreTags={setNewStoreTags}
         onEnterSelectedStore={() => {
           if (!selectedStoreId) {
             return

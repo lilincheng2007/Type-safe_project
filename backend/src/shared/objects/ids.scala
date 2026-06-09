@@ -16,7 +16,7 @@ object UserRole:
 end UserRole
 
 enum MerchantCategory derives CanEqual:
-  case 中餐, 西餐, 零售, 饮品甜点, 夜宵
+  case 中餐, 西餐, 零售, 饮品甜点, 夜宵, 其它
 end MerchantCategory
 
 object MerchantCategory:

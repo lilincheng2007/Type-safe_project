@@ -243,7 +243,15 @@ export function MerchantReviewsTab({ selectedStore }: MerchantReviewsTabProps) {
                     const status = order.refundStatus ?? RefundStatuses.pending
                     const isPending = isMerchantPendingRefund(order)
                     return (
-                      <article key={order.id} className="rounded-xl border border-orange-100 p-3 text-sm text-slate-700">
+                      <article
+                        key={order.id}
+                        className={cn(
+                          'rounded-2xl border p-4 text-sm shadow-sm',
+                          isPending
+                            ? 'border-orange-200 bg-orange-50/70 text-slate-800'
+                            : 'border-orange-100 bg-white text-slate-700',
+                        )}
+                      >
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
@@ -410,22 +418,25 @@ export function MerchantReviewsTab({ selectedStore }: MerchantReviewsTabProps) {
           setRefundReviewReason('')
         }
       }}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="max-h-[min(88vh,34rem)] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-orange-100 bg-white p-5 shadow-2xl sm:p-6">
+          <DialogHeader className="rounded-2xl border border-orange-100 bg-orange-50/70 px-4 py-3">
             <DialogTitle>{reviewingRefund?.action === 'accept' ? '同意退款' : '驳回退款'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="refund-review-reason">
-              {reviewingRefund?.action === 'accept' ? '处理说明（选填）' : '驳回理由'}
-            </Label>
-            <Textarea
-              id="refund-review-reason"
-              value={refundReviewReason}
-              maxLength={300}
-              placeholder={reviewingRefund?.action === 'accept' ? '例如：已核实情况，同意退款。' : '请说明驳回原因，顾客会看到这条反馈。'}
-              onChange={(event) => setRefundReviewReason(event.target.value)}
-            />
-            <p className="text-xs text-slate-500">{refundReviewReason.trim().length}/300</p>
+          <div className="rounded-2xl border border-orange-100 bg-orange-50/60 p-4">
+            <div className="space-y-2">
+              <Label htmlFor="refund-review-reason">
+                {reviewingRefund?.action === 'accept' ? '处理说明（选填）' : '驳回理由'}
+              </Label>
+              <Textarea
+                id="refund-review-reason"
+                value={refundReviewReason}
+                maxLength={300}
+                className="min-h-32 resize-y rounded-xl border-orange-200 bg-white"
+                placeholder={reviewingRefund?.action === 'accept' ? '例如：已核实情况，同意退款。' : '请说明驳回原因，顾客会看到这条反馈。'}
+                onChange={(event) => setRefundReviewReason(event.target.value)}
+              />
+              <p className="text-xs text-slate-500">{refundReviewReason.trim().length}/300</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReviewingRefund(null)}>取消</Button>

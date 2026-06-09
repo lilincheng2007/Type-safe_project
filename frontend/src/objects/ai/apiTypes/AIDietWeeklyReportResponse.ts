@@ -13,6 +13,7 @@ export interface DietWeeklySummary {
 
 export interface AIDietWeeklyReportResponse {
   summary: DietWeeklySummary
+  dietAnalysis: string
   nutritionAnalysis: DietNutritionItem[]
   suggestions: string[]
   weeklyTrend: string

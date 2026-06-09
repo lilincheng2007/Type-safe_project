@@ -82,17 +82,19 @@ export function DeliveryContactAddDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-h-[min(88vh,34rem)] max-w-md overflow-y-auto rounded-2xl border border-border/70 bg-card p-5 shadow-2xl sm:p-6">
+        <DialogHeader className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-1">
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <div className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="dc-add-name">联系人</Label>
             <Input
               id="dc-add-name"
               value={name}
+              className="border-border/70 bg-background"
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
               placeholder="收货人姓名"
@@ -103,6 +105,7 @@ export function DeliveryContactAddDialog({
             <Input
               id="dc-add-phone"
               value={phone}
+              className="border-border/70 bg-background"
               onChange={(e) => setPhone(e.target.value)}
               autoComplete="tel"
               placeholder="手机号码"
@@ -113,6 +116,7 @@ export function DeliveryContactAddDialog({
             <Input
               id="dc-add-address"
               value={address}
+              className="border-border/70 bg-background"
               onChange={(e) => setAddress(e.target.value)}
               autoComplete="street-address"
               placeholder="详细收货地址"
@@ -122,7 +126,8 @@ export function DeliveryContactAddDialog({
             <Checkbox checked={asDefault} onCheckedChange={(v) => setAsDefault(v === true)} />
             <span>设为默认收货信息</span>
           </label>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            {error ? <p className="rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
+          </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" className="cursor-pointer" onClick={() => handleOpenChange(false)}>

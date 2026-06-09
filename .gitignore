@@ -24,6 +24,7 @@ coverage/
 # Caches
 .eslintcache
 .cache/
+backend/.codex-tmp/
 
 # OS
 .DS_Store

@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { MerchantStoreProfile } from '@/objects/merchant/MerchantStoreProfile'
 import type { StoreOnboardingRequest, StoreOnboardingStatus } from '@/objects/admin/StoreOnboardingRequest'
+import { storeTagOptions } from '../objects/storeTags'
 
 const statusLabels: Record<StoreOnboardingStatus, string> = {
   pending: '待审批',
@@ -31,6 +32,7 @@ type StoreSelectorDialogProps = {
   newStoreName: string
   newStoreAddress: string
   newStoreDescription: string
+  newStoreTags: string[]
   stores: MerchantStoreProfile[]
   storeOnboardingRequests: StoreOnboardingRequest[]
   onOpenChange: (open: boolean) => void
@@ -38,6 +40,7 @@ type StoreSelectorDialogProps = {
   onChangeStoreName: (value: string) => void
   onChangeStoreAddress: (value: string) => void
   onChangeStoreDescription: (value: string) => void
+  onChangeStoreTags: (value: string[]) => void
   onEnterSelectedStore: () => void
   onCreateStore: () => void
 }
@@ -48,6 +51,7 @@ export function StoreSelectorDialog({
   newStoreName,
   newStoreAddress,
   newStoreDescription,
+  newStoreTags,
   stores,
   storeOnboardingRequests,
   onOpenChange,
@@ -55,9 +59,15 @@ export function StoreSelectorDialog({
   onChangeStoreName,
   onChangeStoreAddress,
   onChangeStoreDescription,
+  onChangeStoreTags,
   onEnterSelectedStore,
   onCreateStore,
 }: StoreSelectorDialogProps) {
+  const selectedStoreTags = new Set(newStoreTags)
+  const toggleStoreTag = (tag: string) => {
+    onChangeStoreTags(selectedStoreTags.has(tag) ? newStoreTags.filter((item) => item !== tag) : [...newStoreTags, tag])
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[min(92vh,46rem)] w-[min(42rem,calc(100vw-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-2xl border border-orange-100 bg-white p-0">
@@ -90,6 +100,15 @@ export function StoreSelectorDialog({
                         <Badge variant="outline">{storeItem.merchant.category}</Badge>
                       </div>
                       <p className="mt-1 break-words text-xs text-slate-500">{storeItem.merchant.address}</p>
+                      {storeItem.merchant.tags.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {storeItem.merchant.tags.map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-[11px]">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
                     </button>
                   ))
                 )}
@@ -122,6 +141,15 @@ export function StoreSelectorDialog({
                       </summary>
                       <div className="border-t border-slate-200 px-4 py-3">
                         <p className="break-words text-sm leading-6 text-slate-600">{request.description}</p>
+                        {request.tags.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap gap-1">
+                            {request.tags.map((tag) => (
+                              <Badge key={tag} variant="secondary" className="text-[11px]">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : null}
                         <div className="mt-3 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">
                           <p>提交时间：{formatDate(request.createdAt)}</p>
                           <p>审核时间：{formatDate(request.reviewedAt)}</p>
@@ -167,6 +195,27 @@ export function StoreSelectorDialog({
                   className="min-h-24 resize-y"
                   onChange={(event) => onChangeStoreDescription(event.target.value)}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>店铺标签</Label>
+                <div className="flex flex-wrap gap-2">
+                  {storeTagOptions.map((tag) => {
+                    const isSelected = selectedStoreTags.has(tag)
+                    return (
+                      <Button
+                        key={tag}
+                        type="button"
+                        variant={isSelected ? 'default' : 'outline'}
+                        size="sm"
+                        className={isSelected ? 'border-orange-500 bg-orange-500 text-white hover:bg-orange-600' : 'border-orange-200 text-slate-700 hover:bg-orange-50'}
+                        onClick={() => toggleStoreTag(tag)}
+                      >
+                        {tag}
+                      </Button>
+                    )
+                  })}
+                </div>
+                <p className="text-xs text-slate-500">至少选择一个标签，可多选。</p>
               </div>
               <Button type="button" variant="outline" onClick={onCreateStore}>
                 提交入驻申请

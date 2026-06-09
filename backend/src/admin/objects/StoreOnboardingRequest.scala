@@ -6,6 +6,7 @@ final case class StoreOnboardingRequest(
     storeName: String,
     address: String,
     description: String,
+    tags: List[String],
     status: String,
     rejectionReason: Option[String],
     reviewedBy: Option[String],

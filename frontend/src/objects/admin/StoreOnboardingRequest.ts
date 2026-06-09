@@ -6,6 +6,7 @@ export interface StoreOnboardingRequest {
   storeName: string
   address: string
   description: string
+  tags: string[]
   status: StoreOnboardingStatus
   rejectionReason?: string | null
   reviewedBy?: string | null

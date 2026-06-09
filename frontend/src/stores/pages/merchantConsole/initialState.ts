@@ -15,6 +15,7 @@ export const initialState = {
   newStoreName: '',
   newStoreAddress: '',
   newStoreDescription: '',
+  newStoreTags: [] as string[],
   stores: [] as MerchantStoreProfile[],
   storeOnboardingRequests: [] as StoreOnboardingRequest[],
 }

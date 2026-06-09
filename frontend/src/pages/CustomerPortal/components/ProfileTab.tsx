@@ -276,6 +276,26 @@ export function ProfileTab({
                   </div>
                 </section>
 
+                {aiDietReport.dietAnalysis && (
+                  <section className="rounded-2xl border border-[#6366F1]/15 bg-[#6366F1]/5 px-4 py-3">
+                    <h4 className="text-sm font-medium text-foreground">顾客饮食分析</h4>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{aiDietReport.dietAnalysis}</p>
+                  </section>
+                )}
+
+                {aiDietReport.suggestions.length > 0 && (
+                  <section className="space-y-2">
+                    <h4 className="text-sm font-medium text-foreground">饮食建议</h4>
+                    <ol className="space-y-1.5 pl-4">
+                      {aiDietReport.suggestions.slice(0, 3).map((suggestion, index) => (
+                        <li key={index} className="list-decimal text-sm text-muted-foreground">
+                          {suggestion}
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                )}
+
                 <div className="flex items-center justify-between pt-1">
                   <p className="text-xs text-muted-foreground">报告生成于 {aiDietReport.generatedAt}</p>
                   <Button
@@ -900,6 +920,13 @@ export function ProfileTab({
                   <p className="mt-1 text-base font-semibold text-foreground">{aiDietReport.summary.topMerchant}</p>
                 </div>
               </section>
+
+              {aiDietReport.dietAnalysis && (
+                <section className="rounded-2xl border border-[#6366F1]/15 bg-[#6366F1]/5 px-4 py-3">
+                  <h4 className="text-sm font-medium text-foreground">顾客饮食分析</h4>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{aiDietReport.dietAnalysis}</p>
+                </section>
+              )}
 
               {aiDietReport.nutritionAnalysis.length > 0 && (
                 <section className="space-y-2">

@@ -24,11 +24,11 @@ final case class AdminStoreOnboardingAcceptAPIMessage(requestId: String) extends
         merchant = Merchant(
           id = s"m-local-$nowMillis",
           storeName = onboarding.storeName,
-          category = MerchantCategory.中餐,
+          category = categoryFromTags(onboarding.tags),
           address = onboarding.address,
           phone = merchantAccount.profile.phone,
           rating = 5,
-          tags = List("新店"),
+          tags = if onboarding.tags.nonEmpty then onboarding.tags else List("新店"),
           featuredProductIds = Nil,
           imageUrl = None,
           description = onboarding.description
@@ -36,3 +36,11 @@ final case class AdminStoreOnboardingAcceptAPIMessage(requestId: String) extends
         _ <- MerchantStoreTable.upsert(connection, onboarding.ownerUsername, merchant)
         _ <- StoreOnboardingRequestTable.accept(connection, onboarding.id, username)
       yield OkResponse(ok = true)
+
+  private def categoryFromTags(tags: List[String]): MerchantCategory =
+    tags.collectFirst {
+      case "中餐"   => MerchantCategory.中餐
+      case "西餐"   => MerchantCategory.西餐
+      case "饮品甜点" => MerchantCategory.饮品甜点
+      case "其它"   => MerchantCategory.其它
+    }.getOrElse(MerchantCategory.中餐)

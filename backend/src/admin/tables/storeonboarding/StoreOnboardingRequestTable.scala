@@ -2,6 +2,10 @@ package delivery.admin.tables.storeonboarding
 
 import cats.effect.IO
 import delivery.admin.objects.StoreOnboardingRequest
+import delivery.shared.json.ApiJsonCodecs.given
+import io.circe.parser.decode
+import io.circe.syntax.*
+import org.postgresql.util.PGobject
 
 import java.sql.{Connection, ResultSet}
 
@@ -10,9 +14,9 @@ object StoreOnboardingRequestTable:
   private val insertSql: String =
     """
       |INSERT INTO store_onboarding_requests (
-      |  id, owner_username, store_name, address, description, status, created_at
+      |  id, owner_username, store_name, address, description, tags, status, created_at
       |)
-      |VALUES (?, ?, ?, ?, ?, 'pending', now())
+      |VALUES (?, ?, ?, ?, ?, ?, 'pending', now())
       |""".stripMargin
 
   def create(connection: Connection, request: StoreOnboardingRequest): IO[StoreOnboardingRequest] =
@@ -24,6 +28,7 @@ object StoreOnboardingRequestTable:
         statement.setString(3, request.storeName)
         statement.setString(4, request.address)
         statement.setString(5, request.description)
+        statement.setObject(6, jsonb(request.tags.asJson.noSpaces))
         val _ = statement.executeUpdate()
         request
       finally statement.close()
@@ -31,7 +36,7 @@ object StoreOnboardingRequestTable:
 
   private val listSql: String =
     """
-      |SELECT id, owner_username, store_name, address, description, status, rejection_reason, reviewed_by, created_at, reviewed_at
+      |SELECT id, owner_username, store_name, address, description, tags, status, rejection_reason, reviewed_by, created_at, reviewed_at
       |FROM store_onboarding_requests
       |ORDER BY
       |  CASE status WHEN 'pending' THEN 0 WHEN 'rejected' THEN 1 ELSE 2 END,
@@ -53,7 +58,7 @@ object StoreOnboardingRequestTable:
 
   private val listByOwnerSql: String =
     """
-      |SELECT id, owner_username, store_name, address, description, status, rejection_reason, reviewed_by, created_at, reviewed_at
+      |SELECT id, owner_username, store_name, address, description, tags, status, rejection_reason, reviewed_by, created_at, reviewed_at
       |FROM store_onboarding_requests
       |WHERE owner_username = ?
       |ORDER BY
@@ -77,7 +82,7 @@ object StoreOnboardingRequestTable:
 
   private val findPendingSql: String =
     """
-      |SELECT id, owner_username, store_name, address, description, status, rejection_reason, reviewed_by, created_at, reviewed_at
+      |SELECT id, owner_username, store_name, address, description, tags, status, rejection_reason, reviewed_by, created_at, reviewed_at
       |FROM store_onboarding_requests
       |WHERE id = ? AND status = 'pending'
       |""".stripMargin
@@ -136,11 +141,18 @@ object StoreOnboardingRequestTable:
       storeName = resultSet.getString("store_name"),
       address = resultSet.getString("address"),
       description = resultSet.getString("description"),
+      tags = decode[List[String]](resultSet.getString("tags")).getOrElse(Nil),
       status = resultSet.getString("status"),
       rejectionReason = Option(resultSet.getString("rejection_reason")),
       reviewedBy = Option(resultSet.getString("reviewed_by")),
       createdAt = resultSet.getTimestamp("created_at").toInstant.toString,
       reviewedAt = Option(resultSet.getTimestamp("reviewed_at")).map(_.toInstant.toString)
     )
+
+  private def jsonb(value: String): PGobject =
+    val pg = PGobject()
+    pg.setType("jsonb")
+    pg.setValue(value)
+    pg
 
 end StoreOnboardingRequestTable

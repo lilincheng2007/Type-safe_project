@@ -19,6 +19,7 @@ export const MerchantCategories = {
   retail: '零售',
   dessert: '饮品甜点',
   nightSnack: '夜宵',
+  other: '其它',
 } as const
 export type MerchantCategory = (typeof MerchantCategories)[keyof typeof MerchantCategories]
 

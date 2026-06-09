@@ -15,6 +15,7 @@ final case class DietWeeklySummary(
 
 final case class AIDietWeeklyReportResponse(
     summary: DietWeeklySummary,
+    dietAnalysis: String,
     nutritionAnalysis: List[DietNutritionItem],
     suggestions: List[String],
     weeklyTrend: String,

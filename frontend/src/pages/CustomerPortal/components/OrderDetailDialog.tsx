@@ -90,13 +90,14 @@ export function OrderDetailDialog({
 
   return (
     <Dialog open={selectedOrder !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-2xl border border-orange-100 bg-white p-6">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(90vh,46rem)] max-w-md flex-col gap-0 overflow-hidden rounded-2xl border border-orange-100 bg-white p-0">
+        <DialogHeader className="shrink-0 px-6 pt-6 pr-12 pb-4">
           <DialogTitle>订单详情</DialogTitle>
           <DialogDescription>{selectedOrder ? `订单号：${selectedOrder.id}` : '查看订单商品与金额信息'}</DialogDescription>
         </DialogHeader>
         {selectedOrder ? (
-          <div className="space-y-3">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+            <div className="space-y-3">
             <div className="space-y-2 rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-rose-50 px-4 py-3 text-sm text-slate-700">
               {breakdown?.lines.map((line) => {
                 const isTotal = line.kind === 'total'
@@ -188,8 +189,9 @@ export function OrderDetailDialog({
               })}
             </div>
           </div>
+          </div>
         ) : null}
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t border-orange-100 px-6 py-4">
           {selectedOrder && canComplete(selectedOrder) ? (
             <Button onClick={() => onCompleteOrder(selectedOrder)}>
               完成订单

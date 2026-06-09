@@ -24,6 +24,7 @@ export type MerchantConsoleStore = {
   newStoreName: string
   newStoreAddress: string
   newStoreDescription: string
+  newStoreTags: string[]
   stores: MerchantStoreProfile[]
   storeOnboardingRequests: StoreOnboardingRequest[]
   resetPage: () => void
@@ -34,6 +35,7 @@ export type MerchantConsoleStore = {
   setNewStoreName: (name: string) => void
   setNewStoreAddress: (address: string) => void
   setNewStoreDescription: (description: string) => void
+  setNewStoreTags: (tags: string[]) => void
   refreshMerchant: () => Promise<MerchantAccountPublic>
   bootstrap: () => Promise<void>
   createStore: () => Promise<string | null>
