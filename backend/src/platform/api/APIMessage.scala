@@ -2,7 +2,7 @@ package delivery.platform.api
 
 import cats.effect.IO
 import cats.syntax.all.*
-import delivery.auth.JwtSupport
+import delivery.auth.JwtTokenService
 import delivery.db.DatabaseSession
 import delivery.platform.json.ApiJsonCodecs.given
 import delivery.domain.ErrorBody
@@ -118,7 +118,7 @@ object APIMessageRouter:
         bearerToken(req) match
           case None => IO.raiseError(HttpApiError.Unauthorized("缺少 Authorization Bearer token"))
           case Some(token) =>
-            JwtSupport.verifyToken(token).flatMap {
+            JwtTokenService.verifyToken(token).flatMap {
               case Left(msg) => IO.raiseError(HttpApiError.Unauthorized(msg))
               case Right((username, role)) =>
                 if expectedRoles.contains(role) then IO.pure(Some(username))

@@ -2,7 +2,8 @@ package delivery.merchant.api
 
 import cats.effect.IO
 import delivery.merchant.tables.merchantstore.MerchantStoreTable
-import delivery.merchant.utils.MerchantApiSupport
+import delivery.merchant.services.MerchantOwnedProductService
+import delivery.merchant.validators.MerchantStoreOwnershipValidator
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.{MerchantId, Promotion}
 import delivery.domain.apiTypes.OkResponse
@@ -16,8 +17,8 @@ final case class MerchantStorePromotionsAPIMessage(merchantId: MerchantId, promo
       case Some(message) => IO.raiseError(HttpApiError.BadRequest(message))
       case None =>
         for
-          merchant <- MerchantApiSupport.requireOwnedStore(connection, username, merchantId)
-          products <- MerchantApiSupport.listOwnedProducts(connection, username, merchantId)
+          merchant <- MerchantStoreOwnershipValidator.requireOwnedStore(connection, username, merchantId)
+          products <- MerchantOwnedProductService.listOwnedProducts(connection, username, merchantId)
           productPromotionError = promotions.collectFirst {
             case promotion if promotion.discountType == "productAmount" =>
               val matchedProducts = products.filter(product => promotion.productIds.contains(product.id))

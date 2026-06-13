@@ -2,7 +2,7 @@ package delivery.merchant.api
 
 import cats.effect.IO
 import delivery.merchant.tables.merchantstore.MerchantStoreTable
-import delivery.merchant.utils.MerchantApiSupport
+import delivery.merchant.validators.MerchantStoreOwnershipValidator
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.{MerchantId}
 import delivery.domain.apiTypes.{OkResponse}
@@ -16,6 +16,6 @@ final case class MerchantStoreDescriptionAPIMessage(merchantId: MerchantId, desc
     else if trimmed.length > 240 then IO.raiseError(HttpApiError.BadRequest("店铺描述不能超过 240 个字符"))
     else
       for
-        merchant <- MerchantApiSupport.requireOwnedStore(connection, username, merchantId)
+        merchant <- MerchantStoreOwnershipValidator.requireOwnedStore(connection, username, merchantId)
         _ <- MerchantStoreTable.upsert(connection, username, merchant.copy(description = trimmed))
       yield OkResponse(ok = true)

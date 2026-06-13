@@ -3,6 +3,7 @@ package delivery.merchant.services
 import cats.effect.IO
 import delivery.merchant.objects.{Merchant, Product, ProductBundleGroup}
 import delivery.merchant.tables.merchantstore.MerchantStoreTable
+import delivery.merchant.validators.MerchantStoreOwnershipValidator
 import delivery.platform.api.HttpApiError
 import delivery.domain.{InventoryStatus, ListingStatus, MerchantId, OrderStatus}
 
@@ -37,9 +38,7 @@ object MerchantBusinessService:
     value.filter(_ > 0).map(limit => math.min(limit, 999))
 
   def requireOwnedStore(connection: Connection, username: String, merchantId: MerchantId): IO[Merchant] =
-    MerchantStoreTable.listByOwner(connection, username).flatMap { stores =>
-      IO.fromOption(stores.find(_.id == merchantId))(HttpApiError.BadRequest("无权操作该店铺"))
-    }
+    MerchantStoreOwnershipValidator.requireOwnedStore(connection, username, merchantId)
 
   def listOwnedStores(connection: Connection, username: String): IO[List[Merchant]] =
     MerchantStoreTable.listByOwner(connection, username)

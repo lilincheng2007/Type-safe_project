@@ -7,7 +7,7 @@ import pdi.jwt.{JwtAlgorithm, JwtClaim}
 import pdi.jwt.JwtCirce
 import scala.util.{Failure, Success}
 
-object JwtSupport:
+object JwtTokenService:
 
   private val DefaultSecret = "dev-delivery-jwt-secret-change-me"
   private val algo = JwtAlgorithm.HS256
@@ -42,4 +42,4 @@ object JwtSupport:
         else IO.pure(Left("Invalid token payload"))
     }
 
-end JwtSupport
+end JwtTokenService

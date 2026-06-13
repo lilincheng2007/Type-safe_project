@@ -9,7 +9,7 @@ import delivery.rider.objects.{Rider, RiderProfile}
 import delivery.rider.tables.RiderAccountRecord
 import delivery.rider.tables.rideraccount.RiderAccountTable
 import delivery.domain.{MerchantCategory, RiderStatus, UserRole, Voucher, VoucherId}
-import delivery.promotion.services.VoucherSupport
+import delivery.promotion.services.StandardPlatformVoucherService
 import delivery.user.objects.{Customer, CustomerDeliveryContact, CustomerProfile, CustomerProfilePatch}
 import delivery.user.tables.CustomerAccountRecord
 import delivery.user.tables.customer.CustomerTable
@@ -35,7 +35,7 @@ object UserAccountService:
       else Right(trimmed)
 
   private def welcomeVoucher(customerId: String, nowMillis: Long): Voucher =
-    VoucherSupport.standardPlatformVoucher(customerId, 1)
+    StandardPlatformVoucherService.standardPlatformVoucher(customerId, 1)
 
   private def isVoucherExpired(voucher: Voucher): Boolean =
     Try(LocalDate.parse(voucher.expiresAt)).toOption.forall(_.isBefore(LocalDate.now()))

@@ -6,7 +6,7 @@ import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.{VoucherId}
 import delivery.domain.apiTypes.{OkResponse}
 import delivery.user.tables.customerprofile.CustomerProfileTable
-import delivery.user.utils.UserApiSupport
+import delivery.user.validators.CustomerAccountValidator
 
 import java.sql.Connection
 
@@ -15,7 +15,7 @@ final case class CustomerVoucherDiscardAPIMessage(voucherId: VoucherId) extends 
     for
       account <- CustomerProfileTable.findByUsername(connection, username).flatMap {
         case Some(value) => IO.pure(value)
-        case None        => IO.raiseError(HttpApiError.NotFound(UserApiSupport.customerNotFound.error))
+        case None        => IO.raiseError(HttpApiError.NotFound(CustomerAccountValidator.AccountNotFoundMessage))
       }
       nextAccount <- UserAccountService.discardExpiredVoucher(account, voucherId) match
         case Left(msg) => IO.raiseError(HttpApiError.BadRequest(msg))

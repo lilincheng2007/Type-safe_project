@@ -7,7 +7,7 @@ import delivery.order.tables.order.OrderTable
 import delivery.rider.tables.riderassignment.RiderAssignmentTable
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.{OrderId, OrderStatus}
-import delivery.promotion.services.VoucherSupport
+import delivery.promotion.services.StandardPlatformVoucherService
 import delivery.user.tables.customerprofile.CustomerProfileTable
 
 import java.sql.Connection
@@ -32,7 +32,7 @@ final case class OrderCompleteAPIMessage(orderId: OrderId) extends APIWithRoleMe
       nextPoints = currentPoints + earnedPoints
       nextLevel = OrderCheckoutService.levelOf(nextPoints)
       rewardCount = math.max(0, nextLevel - currentLevel)
-      nextVouchers = VoucherSupport.addStandardPlatformVouchers(account.profile.id, account.profile.vouchers, rewardCount)
+      nextVouchers = StandardPlatformVoucherService.addStandardPlatformVouchers(account.profile.id, account.profile.vouchers, rewardCount)
       completedOrder <- OrderStatusTransitionService.transition(
         connection,
         order,

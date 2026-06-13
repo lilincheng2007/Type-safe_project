@@ -10,10 +10,9 @@ import delivery.order.objects.{CheckoutLine}
 import delivery.order.objects.apiTypes.{CheckoutRequest, CheckoutResponse, OrderMerchantNote}
 import delivery.order.tables.checkoutrequest.CheckoutRequestTable
 import delivery.order.tables.order.OrderTable
-import delivery.order.utils.OrderApiSupport
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.VoucherId
-import delivery.promotion.services.{PromotionUsage, VoucherSupport}
+import delivery.promotion.services.{PromotionUsage, StandardPlatformVoucherService}
 import delivery.user.tables.customerprofile.CustomerProfileTable
 
 import java.sql.Connection
@@ -31,9 +30,9 @@ final case class CheckoutAPIMessage(
     for
       account <- CustomerProfileTable.findByUsername(connection, username).flatMap {
         case Some(value) => IO.pure(value)
-        case None        => IO.raiseError(HttpApiError.NotFound(OrderApiSupport.customerNotFound.error))
+        case None        => IO.raiseError(HttpApiError.NotFound("未找到顾客"))
       }
-      normalizedAccount = account.copy(profile = account.profile.copy(vouchers = VoucherSupport.mergeStandardPlatformVouchers(account.profile.id, account.profile.vouchers)))
+      normalizedAccount = account.copy(profile = account.profile.copy(vouchers = StandardPlatformVoucherService.mergeStandardPlatformVouchers(account.profile.id, account.profile.vouchers)))
       products <- CatalogProductTable.listForUpdate(connection)
       merchants <- MerchantStoreTable.listCatalog(connection)
       platformPromotions <- PlatformPromotionTable.get(connection)
@@ -43,7 +42,7 @@ final case class CheckoutAPIMessage(
               if n.trim.nonEmpty && ph.trim.nonEmpty && ad.trim.nonEmpty =>
             normalizedAccount.profile.copy(name = n.trim, phone = ph.trim, defaultAddress = ad.trim)
           case _ => normalizedAccount.profile
-      built <- OrderCheckoutService.buildOrdersForCheckout(products, merchants, platformPromotions, profileForOrders, body.lines.map(OrderApiSupport.normalizeLine), body.voucherId, body.merchantNotes)
+      built <- OrderCheckoutService.buildOrdersForCheckout(products, merchants, platformPromotions, profileForOrders, body.lines, body.voucherId, body.merchantNotes)
       result <- built match
         case Left(msg) => IO.raiseError(HttpApiError.BadRequest(msg))
         case Right(checkout) =>
@@ -56,7 +55,7 @@ final case class CheckoutAPIMessage(
             )
           )
           for
-            _ <- OrderCheckoutService.inventoryDeductions(products, body.lines.map(OrderApiSupport.normalizeLine)).traverse_(CatalogProductTable.upsert(connection, _))
+            _ <- OrderCheckoutService.inventoryDeductions(products, body.lines).traverse_(CatalogProductTable.upsert(connection, _))
             _ <- checkout.orders.traverse_(OrderTable.upsert(connection, _))
             _ <- persistPromotionUsage(connection, username, merchants, platformPromotions, checkout.orders)
             _ <- CheckoutRequestTable.insert(connection, username, body, checkout.orders.map(_.id))

@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.syntax.all.*
 import delivery.merchant.objects.ProductDescriptionPatch
 import delivery.merchant.tables.catalogproduct.CatalogProductTable
-import delivery.merchant.utils.MerchantApiSupport
+import delivery.merchant.services.MerchantOwnedProductService
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.{MerchantId}
 import delivery.domain.apiTypes.{OkResponse}
@@ -19,7 +19,7 @@ final case class MerchantProductDescriptionsAPIMessage(
     if descriptions.isEmpty then IO.raiseError(HttpApiError.BadRequest("请提供需要保存的菜品描述"))
     else
       for
-        products <- MerchantApiSupport.listOwnedProducts(connection, username, merchantId)
+        products <- MerchantOwnedProductService.listOwnedProducts(connection, username, merchantId)
         _ <- if products.isEmpty then IO.raiseError(HttpApiError.BadRequest("请先创建菜品后再保存菜品描述")) else IO.unit
         productById = products.map(product => product.id -> product).toMap
         normalized <- descriptions.distinctBy(_.productId).traverse { patch =>

@@ -4,7 +4,8 @@ import cats.effect.IO
 import delivery.ai.objects.apiTypes.AIMerchantBusinessSuggestionsResponse
 import delivery.ai.utils.OpenAIClient
 import delivery.merchant.objects.{Merchant, Product}
-import delivery.merchant.utils.MerchantApiSupport
+import delivery.merchant.services.MerchantOwnedProductService
+import delivery.merchant.validators.MerchantStoreOwnershipValidator
 import delivery.order.objects.Order
 import delivery.order.tables.order.OrderTable
 import delivery.review.tables.MerchantReviewTable
@@ -25,8 +26,8 @@ final case class AIMerchantBusinessSuggestionsAPIMessage(merchantId: MerchantId)
       _ <- OpenAIClient.configured.flatMap { ok =>
         if !ok then IO.raiseError(HttpApiError.BadRequest("AI 服务未配置，请联系管理员")) else IO.unit
       }
-      merchant <- MerchantApiSupport.requireOwnedStore(connection, username, merchantId)
-      products <- MerchantApiSupport.listOwnedProducts(connection, username, merchantId)
+      merchant <- MerchantStoreOwnershipValidator.requireOwnedStore(connection, username, merchantId)
+      products <- MerchantOwnedProductService.listOwnedProducts(connection, username, merchantId)
       orders <- OrderTable.listByMerchantIds(connection, List(merchantId))
       reviews <- MerchantReviewTable.listByMerchant(connection, merchantId)
       prompt = buildPrompt(merchant, products, orders, reviews)

@@ -1,16 +1,14 @@
-package delivery.rider.utils
+package delivery.rider.services
 
 import delivery.order.objects.Order
 import delivery.rider.objects.{RiderAccountPublic, RiderDeliveryStatus}
-import delivery.rider.objects.apiTypes.{RiderMeResponse}
+import delivery.rider.objects.apiTypes.RiderMeResponse
 import delivery.rider.tables.RiderAccountRecord
-import delivery.domain.{ErrorBody, UserRole}
+import delivery.domain.UserRole
 
-object RiderApiSupport:
+object RiderMeResponseAssembler:
 
-  def riderNotFound: ErrorBody = ErrorBody("未找到账号")
-
-  def riderMeResponse(
+  def assemble(
       username: String,
       account: RiderAccountRecord,
       availableOrders: List[Order],
@@ -24,4 +22,4 @@ object RiderApiSupport:
       deliveryStatuses = deliveryStatuses
     )
 
-end RiderApiSupport
+end RiderMeResponseAssembler

@@ -8,7 +8,8 @@ import delivery.merchant.objects.apiTypes.{MerchantMeResponse}
 import delivery.merchant.tables.catalogproduct.CatalogProductTable
 import delivery.merchant.tables.merchantaccount.MerchantAccountTable
 import delivery.merchant.tables.merchantstore.MerchantStoreTable
-import delivery.merchant.utils.MerchantApiSupport
+import delivery.merchant.services.MerchantMeResponseAssembler
+import delivery.merchant.validators.MerchantAccountValidator
 import delivery.order.tables.order.OrderTable
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 
@@ -39,11 +40,11 @@ final case class MerchantMeAPIMessage() extends APIWithRoleMessage[MerchantMeRes
               )
             }
             Some(
-              MerchantApiSupport
-                .merchantMeResponse(username, value.copy(profile = value.profile.copy(stores = storeProfiles)))
+              MerchantMeResponseAssembler
+                .assemble(username, value.copy(profile = value.profile.copy(stores = storeProfiles)))
                 .copy(onboardingRequests = onboardingRequests)
             )
       output <- response match
-        case None => IO.raiseError(HttpApiError.NotFound(MerchantApiSupport.merchantNotFound.error))
+        case None => IO.raiseError(HttpApiError.NotFound(MerchantAccountValidator.AccountNotFoundMessage))
         case Some(value) => IO.pure(value)
     yield output

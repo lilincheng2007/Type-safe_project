@@ -4,7 +4,7 @@ import cats.effect.IO
 import delivery.merchant.objects.{MerchantHolidayBusinessHour, MerchantWeeklyBusinessHour}
 import delivery.merchant.services.MerchantBusinessHoursService
 import delivery.merchant.tables.merchantstore.MerchantStoreTable
-import delivery.merchant.utils.MerchantApiSupport
+import delivery.merchant.validators.MerchantStoreOwnershipValidator
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.MerchantId
 import delivery.domain.apiTypes.OkResponse
@@ -29,7 +29,7 @@ final case class MerchantBusinessHoursAPIMessage(
 
     for
       _ <- if weeklyBusinessHours.length != normalizedWeekly.length then IO.raiseError(HttpApiError.BadRequest("每周营业时间包含非法日期或时间")) else IO.unit
-      merchant <- MerchantApiSupport.requireOwnedStore(connection, username, merchantId)
+      merchant <- MerchantStoreOwnershipValidator.requireOwnedStore(connection, username, merchantId)
       updated = merchant.copy(businessStatus = status, weeklyBusinessHours = normalizedWeekly, holidayBusinessHours = normalizedHoliday)
       _ <- MerchantStoreTable.upsert(connection, username, updated)
     yield OkResponse(ok = true)

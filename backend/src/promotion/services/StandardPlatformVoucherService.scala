@@ -2,7 +2,7 @@ package delivery.promotion.services
 
 import delivery.domain.{Voucher, VoucherId}
 
-object VoucherSupport:
+object StandardPlatformVoucherService:
   private val StandardDiscountAmount = 10.0
   private val StandardMinSpend = 30.0
   private val StandardExpiresAt = "2026-12-31"
@@ -34,4 +34,4 @@ object VoucherSupport:
   private def isThirtyTenVoucher(voucher: Voucher): Boolean =
     voucher.discountAmount == StandardDiscountAmount && voucher.minSpend == StandardMinSpend
 
-end VoucherSupport
+end StandardPlatformVoucherService

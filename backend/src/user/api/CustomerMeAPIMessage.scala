@@ -2,10 +2,11 @@ package delivery.user.api
 
 import cats.effect.IO
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
-import delivery.promotion.services.VoucherSupport
+import delivery.promotion.services.StandardPlatformVoucherService
 import delivery.user.objects.apiTypes.CustomerMeResponse
 import delivery.user.tables.customerprofile.CustomerProfileTable
-import delivery.user.utils.UserApiSupport
+import delivery.user.services.CustomerMeResponseAssembler
+import delivery.user.validators.CustomerAccountValidator
 
 import java.sql.Connection
 
@@ -14,10 +15,10 @@ final case class CustomerMeAPIMessage() extends APIWithRoleMessage[CustomerMeRes
     for
       response <- CustomerProfileTable.findByUsername(connection, username)
       output <- response.map { account =>
-        val normalized = account.copy(profile = account.profile.copy(vouchers = VoucherSupport.mergeStandardPlatformVouchers(account.profile.id, account.profile.vouchers)))
-        if normalized == account then IO.pure(UserApiSupport.customerMeResponse(username, normalized))
-        else CustomerProfileTable.upsert(connection, normalized).map(_ => UserApiSupport.customerMeResponse(username, normalized))
+        val normalized = account.copy(profile = account.profile.copy(vouchers = StandardPlatformVoucherService.mergeStandardPlatformVouchers(account.profile.id, account.profile.vouchers)))
+        if normalized == account then IO.pure(CustomerMeResponseAssembler.assemble(username, normalized))
+        else CustomerProfileTable.upsert(connection, normalized).map(_ => CustomerMeResponseAssembler.assemble(username, normalized))
       } match
-        case None => IO.raiseError(HttpApiError.NotFound(UserApiSupport.customerNotFound.error))
+        case None => IO.raiseError(HttpApiError.NotFound(CustomerAccountValidator.AccountNotFoundMessage))
         case Some(value) => value
     yield output

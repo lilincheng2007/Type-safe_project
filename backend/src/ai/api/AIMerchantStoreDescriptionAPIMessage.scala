@@ -4,7 +4,8 @@ import cats.effect.IO
 import delivery.ai.objects.apiTypes.AIMerchantStoreDescriptionResponse
 import delivery.ai.utils.OpenAIClient
 import delivery.merchant.objects.{Merchant, Product}
-import delivery.merchant.utils.MerchantApiSupport
+import delivery.merchant.services.MerchantOwnedProductService
+import delivery.merchant.validators.MerchantStoreOwnershipValidator
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.MerchantId
 import io.circe.Json
@@ -26,8 +27,8 @@ final case class AIMerchantStoreDescriptionAPIMessage(merchantId: MerchantId, ke
         _ <- OpenAIClient.configured.flatMap { ok =>
           if !ok then IO.raiseError(HttpApiError.BadRequest("AI 服务未配置，请联系管理员")) else IO.unit
         }
-        merchant <- MerchantApiSupport.requireOwnedStore(connection, username, merchantId)
-        products <- MerchantApiSupport.listOwnedProducts(connection, username, merchantId)
+        merchant <- MerchantStoreOwnershipValidator.requireOwnedStore(connection, username, merchantId)
+        products <- MerchantOwnedProductService.listOwnedProducts(connection, username, merchantId)
         resultJson <- OpenAIClient.chatCompletion(buildPrompt(merchant, products), trimmedKeywords)
         description <- parseDescription(resultJson, merchant, trimmedKeywords)
       yield AIMerchantStoreDescriptionResponse(merchantId, description, LocalDateTime.now().format(dateFormatter))

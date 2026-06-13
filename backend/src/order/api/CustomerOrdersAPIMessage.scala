@@ -7,7 +7,6 @@ import delivery.order.objects.{Order, OrderChatMessage}
 import delivery.order.objects.apiTypes.CustomerOrdersResponse
 import delivery.order.tables.order.OrderTable
 import delivery.order.tables.orderchat.OrderChatMessageTable
-import delivery.order.utils.OrderApiSupport
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.OrderStatus
 import delivery.user.tables.customerprofile.CustomerProfileTable
@@ -23,7 +22,7 @@ final case class CustomerOrdersAPIMessage() extends APIWithRoleMessage[CustomerO
     for
       account <- CustomerProfileTable.findByUsername(connection, username)
       output <- account match
-        case None => IO.raiseError(HttpApiError.NotFound(OrderApiSupport.customerNotFound.error))
+        case None => IO.raiseError(HttpApiError.NotFound("未找到顾客"))
         case Some(value) =>
           for
             customerOrders <- OrderTable.listByCustomerId(connection, value.profile.id)

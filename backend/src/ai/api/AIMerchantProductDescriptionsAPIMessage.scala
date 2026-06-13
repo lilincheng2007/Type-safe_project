@@ -5,7 +5,8 @@ import delivery.ai.objects.{AIGeneratedProductDescription}
 import delivery.ai.objects.apiTypes.{AIMerchantProductDescriptionsResponse}
 import delivery.ai.utils.OpenAIClient
 import delivery.merchant.objects.{Merchant, Product}
-import delivery.merchant.utils.MerchantApiSupport
+import delivery.merchant.services.MerchantOwnedProductService
+import delivery.merchant.validators.MerchantStoreOwnershipValidator
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.{MerchantId, ProductId}
 import io.circe.Json
@@ -27,8 +28,8 @@ final case class AIMerchantProductDescriptionsAPIMessage(merchantId: MerchantId,
         _ <- OpenAIClient.configured.flatMap { ok =>
           if !ok then IO.raiseError(HttpApiError.BadRequest("AI 服务未配置，请联系管理员")) else IO.unit
         }
-        merchant <- MerchantApiSupport.requireOwnedStore(connection, username, merchantId)
-        products <- MerchantApiSupport.listOwnedProducts(connection, username, merchantId)
+        merchant <- MerchantStoreOwnershipValidator.requireOwnedStore(connection, username, merchantId)
+        products <- MerchantOwnedProductService.listOwnedProducts(connection, username, merchantId)
         _ <- if products.isEmpty then IO.raiseError(HttpApiError.BadRequest("请先创建菜品后再生成菜品描述")) else IO.unit
         resultJson <- OpenAIClient.chatCompletion(buildPrompt(merchant, products), trimmedKeywords)
         descriptions = parseDescriptions(resultJson, merchant, products, trimmedKeywords)

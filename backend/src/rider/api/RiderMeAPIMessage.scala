@@ -7,7 +7,8 @@ import delivery.review.tables.RiderReviewTable
 import delivery.rider.objects.apiTypes.RiderMeResponse
 import delivery.rider.tables.rideraccount.RiderAccountTable
 import delivery.rider.tables.riderassignment.RiderAssignmentTable
-import delivery.rider.utils.RiderApiSupport
+import delivery.rider.services.RiderMeResponseAssembler
+import delivery.rider.validators.RiderAccountValidator
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 
 import java.sql.Connection
@@ -37,8 +38,8 @@ final case class RiderMeAPIMessage() extends APIWithRoleMessage[RiderMeResponse]
               )
             )
             val deliveryStatuses = records.map(record => RiderDeliveryService.statusView(record, nextAccount.profile.rider.timeoutCardCount > 0))
-            Some(RiderApiSupport.riderMeResponse(username, nextAccount, availableOrders, deliveryStatuses).copy(reviewSummary = reviewSummary, reviews = reviews))
+            Some(RiderMeResponseAssembler.assemble(username, nextAccount, availableOrders, deliveryStatuses).copy(reviewSummary = reviewSummary, reviews = reviews))
       output <- response match
-        case None => IO.raiseError(HttpApiError.NotFound(RiderApiSupport.riderNotFound.error))
+        case None => IO.raiseError(HttpApiError.NotFound(RiderAccountValidator.AccountNotFoundMessage))
         case Some(value) => IO.pure(value)
     yield output

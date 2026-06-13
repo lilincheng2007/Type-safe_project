@@ -1,6 +1,6 @@
 # Type-safe_project 长期可维护性优化计划
 
-> 本文档用于记录结构、命名与分层优化计划。当前阶段只做计划沉淀，不修改业务代码。
+> 本文档用于记录结构、命名与分层优化计划，并持续沉淀每批优化后的复盘摘要与下一批建议。
 
 ## 1. 总目标
 
@@ -253,6 +253,7 @@ cd frontend && npx eslint <changed-files>
 | 2026-06-13 | 已通过既有审计 | 后端编译、前端类型检查、类型安全审计、可维护性审计曾通过；后续批次仍需重新验证。 |
 | 2026-06-13 | 已完成第二轮静态分析 | 识别出 `api/` 错位 service、泛化 `Support` 命名、中心化 JSON codec、字符串枚举、大页面 / 大 store、前端结算与通知推导等后续优化点。 |
 | 2026-06-13 | 已完成第一批迁移 | 将错放在 `api/` 层的订单状态流转、退款流程、时间线、聊天通知模板、商家营业时间和管理员订单监控支撑逻辑迁入 `services/` / `validators/`；同步更新引用和 `backend/README.md`。 |
+| 2026-06-13 | 已完成第二批清理 | 清理泛化 `Support` / `ApiSupport` 命名，将响应装配、归属校验、自有商品列表、标准平台券和 JWT 能力迁到语义明确的 service / validator。 |
 
 ## 6. 当前代码现状快照
 
@@ -266,11 +267,14 @@ cd frontend && npx eslint <changed-files>
 - 可维护性审计脚本已经能捕捉部分结构退化问题。
 - 第一批已将 `OrderStatusTransitionService`、`RefundWorkflowService`、`OrderTimelineService`、`OrderChatNotificationTemplateService`、`MerchantBusinessHoursService`、`AdminOrderMonitorService` 迁出 `api/` 包。
 - 订单状态流转规则已从 `order/api/OrderStatusTransitionRules.scala` 收敛到 `order/validators/OrderStatusTransitionValidator.scala`。
+- 第二批已删除后端源码中的 `*Support.scala` 文件；`MerchantApiSupport`、`OrderApiSupport`、`RiderApiSupport`、`UserApiSupport`、`VoucherSupport`、`JwtSupport` 均已由更明确命名替代。
+- Me 响应装配已收敛到 `CustomerMeResponseAssembler`、`MerchantMeResponseAssembler`、`RiderMeResponseAssembler`。
+- 商家店铺归属校验已落到 `MerchantStoreOwnershipValidator`，商家自有商品列表已落到 `MerchantOwnedProductService`。
+- 标准平台券生成已改为 `StandardPlatformVoucherService`，JWT 能力已改为 `JwtTokenService`。
 
 ### 仍需优化的结构
 
-- 多个 `Support` / `ApiSupport` 文件职责不够明确，长期容易继续吸纳杂项逻辑。
-- 多个 `validators/` 目录存在但内容不足，真实规则仍散落在 API 或大 service 中。
+- 多个 `validators/` 目录虽然已有入口，但真实规则仍有不少散落在 API 或大 service 中。
 - `OrderCheckoutService` 职责过宽，是后续结算维护的主要复杂点。
 - `platform/json/ApiJsonCodecs.scala` 仍较中心化，模块 `json/` 当前更多是 re-export。
 - `domain/CompatibilityAliases.scala` 仍隐藏部分对象真实归属，应作为短期兼容层逐步收敛。
@@ -286,14 +290,15 @@ cd frontend && npx eslint <changed-files>
 | 日期 | 批次 | 已完成内容 | 验证结果 | 后续遗留 |
 |---|---|---|---|---|
 | 2026-06-13 | 第一批：迁移错位的后端 service / rules / support | 移动并重命名 `order/api` 下的状态流转、时间线、退款流程、聊天模板文件；移动并重命名 `merchant/api/MerchantBusinessHoursSupport.scala` 与 `admin/api/AdminOrderMonitorSupport.scala`；补齐跨包 import；同步 `backend/README.md`。 | `cd backend && sbt -batch compile` 通过；类型安全审计通过（45 pass / 0 fail）；可维护性审计通过（10 pass / 0 warn / 0 fail）；相关文件无 IDE lint 诊断。 | 第二批继续清理泛化 `Support` / `ApiSupport` 命名；本批未处理仍保留的 `JwtSupport`、`MerchantApiSupport`、`OrderApiSupport`、`RiderApiSupport`、`UserApiSupport`、`VoucherSupport`。 |
+| 2026-06-13 | 第二批：清理泛化 `Support` / `ApiSupport` 命名 | 删除 `MerchantApiSupport`、`OrderApiSupport`、`RiderApiSupport`、`UserApiSupport`；新增 `MerchantStoreOwnershipValidator`、`MerchantOwnedProductService`、三类 Me 响应装配器和账号 validator；将 `VoucherSupport` 重命名为 `StandardPlatformVoucherService`，将 `JwtSupport` 重命名为 `JwtTokenService`；同步 `backend/README.md`。 | `cd backend && sbt -batch compile` 通过；类型安全审计通过（45 pass / 0 fail）；可维护性审计通过（10 pass / 0 warn / 0 fail）；后端源码已无 `*Support.scala`。 | 第三批继续补齐 validators：本批只先建立少量 validator / assembler 落点，尚未系统迁出购物车、营业时间、促销、评价图片等复杂规则。 |
 
-## 8. 下一批次建议：第二批 `Support` / `ApiSupport` 命名清理
+## 8. 下一批次建议：第三批补齐 validators，并把规则从 API / 大 service 中迁出
 
-建议按低风险到高风险推进：
+建议按“先就近、再抽大服务”的顺序推进：
 
-1. 先处理 `backend/src/order/utils/OrderApiSupport.scala`：`normalizeLine` 是 identity，可确认无实际引用后删除；`customerNotFound` 可就近内联或迁到更明确的错误对象。
-2. 再处理响应装配类支撑：将 `UserApiSupport.customerMeResponse`、`MerchantApiSupport.merchantMeResponse` 拆为 `CustomerMeResponseAssembler`、`MerchantMeResponseAssembler`。
-3. 再处理归属校验：将 `MerchantApiSupport.requireOwnedStore` 迁到 `merchant/validators/MerchantStoreOwnershipValidator.scala` 或并入现有 `MerchantBusinessService` 的明确入口。
-4. `RiderApiSupport` 可按职责拆为骑手账号查询 / 骑手响应装配，避免继续作为杂项 utils。
-5. `VoucherSupport` 建议改名为 `StandardPlatformVoucherService`，为后续优惠券校验和兑换服务拆分做准备。
-6. `JwtSupport` 属于基础设施，可改为 `JwtTokenService` 或 `JwtTokenCodec`，但要放在第二批末尾处理，避免一次影响认证链路过大。
+1. 先处理 `MerchantBusinessHoursAPIMessage`：将营业状态归一化、每周营业时间格式、节假日日期格式等输入规则迁到 `merchant/validators/MerchantBusinessHoursValidator.scala`，让 API 只调用 validator 和 service。
+2. 处理 `CheckoutAPIMessage` / `OrderCheckoutService` 的入口校验：新增 `order/validators/CheckoutLineValidator.scala`，先迁出购物车行数量、套餐选择、无效菜品、每单限购等校验中最独立的部分。
+3. 扩展现有 `OrderStatusTransitionValidator`：继续收敛 actor role 字符串、非法状态迁移错误消息，为第五批 enum 化做准备。
+4. 新增 `promotion/validators/PromotionValidator.scala`：迁出优惠类型、触发条件、金额边界、商品优惠目标校验，减少 `MerchantStorePromotionsAPIMessage` 和促销服务中的内联判断。
+5. 新增 `review/validators/ReviewImageValidator.scala`：集中评价图片数量、URL 前缀、格式与大小边界，避免后续图片规则散在 API 中。
+6. 第三批完成后建议补强可维护性审计脚本：检查 `validators/` 是否只有空目录、API 文件是否仍包含明显复杂校验块。

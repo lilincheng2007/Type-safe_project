@@ -517,7 +517,7 @@ AI 功能包括：
 
 ### JWT
 
-JWT 实现在 `src/auth/JwtSupport.scala`。开发环境会使用默认密钥，生产或多人协作环境建议显式配置：
+JWT 实现在 `src/auth/JwtTokenService.scala`。开发环境会使用默认密钥，生产或多人协作环境建议显式配置：
 
 ```bash
 export JWT_SECRET=replace-with-a-strong-secret

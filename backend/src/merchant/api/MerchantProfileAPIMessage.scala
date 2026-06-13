@@ -5,7 +5,7 @@ import cats.syntax.all.*
 import delivery.merchant.objects.MerchantProfile
 import delivery.merchant.tables.merchantaccount.MerchantAccountTable
 import delivery.merchant.tables.merchantstore.MerchantStoreTable
-import delivery.merchant.utils.MerchantApiSupport
+import delivery.merchant.validators.MerchantAccountValidator
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.apiTypes.OkResponse
 
@@ -17,7 +17,7 @@ final case class MerchantProfileAPIMessage(profile: MerchantProfile) extends API
       existing <- MerchantAccountTable.findByUsername(connection, username)
       account <- existing match
         case Some(value) => IO.pure(value)
-        case None        => IO.raiseError(HttpApiError.NotFound(MerchantApiSupport.merchantNotFound.error))
+        case None        => IO.raiseError(HttpApiError.NotFound(MerchantAccountValidator.AccountNotFoundMessage))
       nextAccount = account.copy(profile = profile)
       _ <- MerchantAccountTable.upsert(connection, nextAccount)
       _ <- profile.stores.traverse_(store => MerchantStoreTable.upsert(connection, username, store.merchant))

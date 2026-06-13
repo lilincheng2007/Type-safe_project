@@ -2,7 +2,7 @@ package delivery.platform.http
 
 import cats.effect.IO
 import cats.syntax.all.*
-import delivery.auth.JwtSupport
+import delivery.auth.JwtTokenService
 import delivery.platform.json.ApiJsonCodecs.given
 import delivery.domain.ErrorBody
 import org.http4s.*
@@ -24,7 +24,7 @@ object AuthHttp:
     bearerToken(req) match
       case None => unauthorizedJson("缺少 Authorization Bearer token")
       case Some(token) =>
-        JwtSupport.verifyToken(token).flatMap {
+        JwtTokenService.verifyToken(token).flatMap {
           case Left(msg)   => unauthorizedJson(msg)
           case Right(pair) => f(pair._1, pair._2)
         }
