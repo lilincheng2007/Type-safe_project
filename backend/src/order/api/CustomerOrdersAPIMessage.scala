@@ -1,6 +1,6 @@
 package delivery.order.api
 
-import delivery.order.services.{OrderCheckoutService, OrderChatNotificationTemplateService}
+import delivery.order.services.OrderChatNotificationTemplateService
 import cats.effect.IO
 import cats.syntax.all.*
 import delivery.order.objects.{Order, OrderChatMessage}
@@ -28,8 +28,8 @@ final case class CustomerOrdersAPIMessage() extends APIWithRoleMessage[CustomerO
             customerOrders <- OrderTable.listByCustomerId(connection, value.profile.id)
             refreshedOrders <- notifyPrepTimeouts(connection, customerOrders)
           yield CustomerOrdersResponse(
-            pendingOrders = refreshedOrders.filterNot(order => OrderCheckoutService.isHistoryOrderStatus(order.status)),
-            historyOrders = refreshedOrders.filter(order => OrderCheckoutService.isHistoryOrderStatus(order.status))
+            pendingOrders = refreshedOrders.filterNot(order => OrderStatus.history.contains(order.status)),
+            historyOrders = refreshedOrders.filter(order => OrderStatus.history.contains(order.status))
           )
     yield output
 

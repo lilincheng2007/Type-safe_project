@@ -1,6 +1,6 @@
 package delivery.order.api
 
-import delivery.order.services.{OrderCheckoutService, OrderStatusTransitionService}
+import delivery.order.services.OrderStatusTransitionService
 import cats.effect.IO
 import delivery.order.objects.Order
 import delivery.order.tables.order.OrderTable
@@ -8,6 +8,7 @@ import delivery.rider.tables.riderassignment.RiderAssignmentTable
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.{OrderId, OrderStatus}
 import delivery.promotion.services.StandardPlatformVoucherService
+import delivery.user.services.CustomerLoyaltyService
 import delivery.user.tables.customerprofile.CustomerProfileTable
 
 import java.sql.Connection
@@ -28,9 +29,9 @@ final case class OrderCompleteAPIMessage(orderId: OrderId) extends APIWithRoleMe
         else IO.unit
       earnedPoints = math.floor(if order.payableAmount > 0 then order.payableAmount else order.totalAmount).toInt
       currentPoints = account.profile.foodiePoints
-      currentLevel = math.max(account.profile.foodieLevel, OrderCheckoutService.levelOf(currentPoints))
+      currentLevel = math.max(account.profile.foodieLevel, CustomerLoyaltyService.levelOf(currentPoints))
       nextPoints = currentPoints + earnedPoints
-      nextLevel = OrderCheckoutService.levelOf(nextPoints)
+      nextLevel = CustomerLoyaltyService.levelOf(nextPoints)
       rewardCount = math.max(0, nextLevel - currentLevel)
       nextVouchers = StandardPlatformVoucherService.addStandardPlatformVouchers(account.profile.id, account.profile.vouchers, rewardCount)
       completedOrder <- OrderStatusTransitionService.transition(

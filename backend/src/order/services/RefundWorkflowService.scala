@@ -1,7 +1,7 @@
 package delivery.order.services
 
-import delivery.order.services.OrderCheckoutService
 import cats.effect.IO
+import delivery.user.services.CustomerLoyaltyService
 import delivery.order.objects.Order
 import delivery.platform.api.HttpApiError
 import delivery.domain.{OrderStatus, RefundStatus}
@@ -46,9 +46,9 @@ object RefundWorkflowService:
       )
       nextPoints = math.max(0, account.profile.foodiePoints - order.pointsAwarded)
       nextProfile = account.profile.copy(
-        walletBalance = OrderCheckoutService.roundMoney(account.profile.walletBalance + refundAmount),
+        walletBalance = CheckoutPricingService.roundMoney(account.profile.walletBalance + refundAmount),
         foodiePoints = nextPoints,
-        foodieLevel = OrderCheckoutService.levelOf(nextPoints),
+        foodieLevel = CustomerLoyaltyService.levelOf(nextPoints),
         historyOrders = refundedOrder :: account.profile.historyOrders.filterNot(_.id == order.id),
         pendingOrders = account.profile.pendingOrders.filterNot(_.id == order.id)
       )

@@ -1,6 +1,6 @@
 package delivery.order.api
 
-import delivery.order.services.OrderCheckoutService
+import delivery.order.services.{CheckoutInventoryService, CheckoutPricingService, OrderCheckoutService}
 import cats.effect.IO
 import cats.syntax.all.*
 import delivery.admin.tables.platformpromotion.PlatformPromotionTable
@@ -12,7 +12,7 @@ import delivery.order.tables.checkoutrequest.CheckoutRequestTable
 import delivery.order.tables.order.OrderTable
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
 import delivery.domain.VoucherId
-import delivery.promotion.services.{PromotionUsage, StandardPlatformVoucherService}
+import delivery.promotion.services.{PromotionUsage, StandardPlatformVoucherService, VoucherRedemptionService}
 import delivery.user.tables.customerprofile.CustomerProfileTable
 
 import java.sql.Connection
@@ -46,16 +46,16 @@ final case class CheckoutAPIMessage(
       result <- built match
         case Left(msg) => IO.raiseError(HttpApiError.BadRequest(msg))
         case Right(checkout) =>
-          val nextVouchers = checkout.usedVoucher.map(voucher => OrderCheckoutService.consumeVoucher(normalizedAccount.profile, voucher)).getOrElse(normalizedAccount.profile.vouchers)
+          val nextVouchers = checkout.usedVoucher.map(voucher => VoucherRedemptionService.consumeVoucher(normalizedAccount.profile, voucher)).getOrElse(normalizedAccount.profile.vouchers)
           val nextAccount = normalizedAccount.copy(profile =
             normalizedAccount.profile.copy(
-              walletBalance = OrderCheckoutService.roundMoney(normalizedAccount.profile.walletBalance - checkout.payableAmount),
+              walletBalance = CheckoutPricingService.roundMoney(normalizedAccount.profile.walletBalance - checkout.payableAmount),
               pendingOrders = checkout.orders.reverse ::: normalizedAccount.profile.pendingOrders,
               vouchers = nextVouchers
             )
           )
           for
-            _ <- OrderCheckoutService.inventoryDeductions(products, body.lines).traverse_(CatalogProductTable.upsert(connection, _))
+            _ <- CheckoutInventoryService.inventoryDeductions(products, body.lines).traverse_(CatalogProductTable.upsert(connection, _))
             _ <- checkout.orders.traverse_(OrderTable.upsert(connection, _))
             _ <- persistPromotionUsage(connection, username, merchants, platformPromotions, checkout.orders)
             _ <- CheckoutRequestTable.insert(connection, username, body, checkout.orders.map(_.id))

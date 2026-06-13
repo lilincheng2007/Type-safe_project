@@ -1,7 +1,7 @@
 package delivery.merchant.api
 
 import delivery.merchant.services.MerchantBusinessService
-import delivery.order.services.OrderCheckoutService
+import delivery.order.services.CheckoutPricingService
 import cats.effect.IO
 import delivery.order.services.OrderStatusTransitionService
 import delivery.order.tables.order.OrderTable
@@ -29,6 +29,6 @@ final case class MerchantOrderRejectAPIMessage(orderId: OrderId) extends APIWith
       }
       refundAmount = if order.payableAmount > 0 then order.payableAmount else order.totalAmount
       canceledOrder <- OrderStatusTransitionService.transition(connection, order, OrderStatus.已取消, actorRole = "merchant")
-      nextAccount = account.copy(profile = account.profile.copy(walletBalance = OrderCheckoutService.roundMoney(account.profile.walletBalance + refundAmount)))
+      nextAccount = account.copy(profile = account.profile.copy(walletBalance = CheckoutPricingService.roundMoney(account.profile.walletBalance + refundAmount)))
       _ <- CustomerProfileTable.upsert(connection, nextAccount)
     yield OkResponse(ok = true)
