@@ -217,7 +217,6 @@
 
 - 确认并删除无引用的 `storeImageExtension` 等媒体迁移遗留函数。
 - 统一订单图片上传路径，避免一部分直接调 `StoredImageService`、一部分走 `OrderImageFileService`。
-- 明确 `.cursor/skills/` 是否属于项目维护资产；如保留，应在文档中说明与 `.codebuddy/skills/` 的关系。
 - 更新 `API_INVENTORY.md`、`DIRECTORY_LAYERING_GUIDE.md`、`AGENTS.md`、`README.full.md`。
 - 扩展可维护性审计脚本：检查错位 `api/` service、空 `validators/`、新增 `Support` 命名、过大 codec 等。
 
@@ -309,14 +308,15 @@ cd frontend && npx eslint <changed-files>
 | 2026-06-14 | 第五批：收敛字符串枚举和前后端类型契约 | 新增后端枚举 `MerchantBusinessStatus`、`ProductInventoryMode`、`ProductBundleSelectionType`、`PromotionDiscountType`、`PromotionTriggerType`、`OrderChatRole`、`OrderChatMessageType`；更新领域对象、业务服务、表读写和 APIMessage；前端补齐同名类型文件并复用现有 union。 | `cd backend && sbt -batch compile` 通过；`npm run typecheck --prefix frontend` 通过；类型安全审计通过（45 pass / 0 fail）；可维护性审计通过（10 pass / 0 warn / 0 fail）；后端核心字段已无目标裸 `String`。 | 第六批进入 JSON codec 模块化；本批为了控制风险仍将 enum codec 注册在 `platform/json/ApiJsonCodecs.scala` 聚合入口。 |
 | 2026-06-14 | 第六批：模块化 JSON codec | 新增 `platform/json/CommonJsonCodecs.scala`；将促销、订单、商家、顾客、管理员、评价、骑手、AI 的 codec 从 `ApiJsonCodecs.scala` 下沉到各模块 `json/*JsonCodecs.scala`；保留 `Order`、`Merchant`、`CustomerProfile`、`CheckoutRequest` 等手写 decoder / encoder 的历史字段兼容；同步 `DIRECTORY_LAYERING_GUIDE.md`、`AGENTS.md`、`backend/README.md`。 | `cd backend && sbt -batch compile` 通过；`npm run typecheck --prefix frontend` 通过；类型安全审计通过（45 pass / 0 fail）；可维护性审计通过（10 pass / 0 warn / 0 fail）；`ApiJsonCodecs.scala` 已收敛为 14 行聚合导出；相关文件无 IDE lint 诊断。 | 第七批进入过宽 API 与 compatibility alias 收敛；优先确认 `MerchantProfileAPIMessage` 是否仍被前端使用，再处理 `MerchantStoreAPIMessage` 命名和 `CompatibilityAliases` 依赖。 |
 | 2026-06-14 | 第七批：收敛过宽 API 与兼容 alias | 删除后端 `MerchantProfileAPIMessage.scala` 与前端 `MerchantProfileAPI.ts`；新增 `MerchantCreateStoreOnboardingRequestAPIMessage.scala` 与 `MerchantCreateStoreOnboardingRequestAPI.ts`，并将旧 `MerchantStoreAPIMessage` / `MerchantStoreAPI.ts` 收敛为兼容包装；更新 `MerchantRoutes.scala`、`API_INVENTORY.md`、`backend/README.md`、`frontend/README.md`；将后端 `Promotion` / `Voucher` / `ErrorBody` 导入切换到真实归属模块。 | `cd backend && sbt -batch compile` 通过；`npm run typecheck --prefix frontend` 通过；类型安全审计通过（45 pass / 0 fail）；可维护性审计通过（10 pass / 0 warn / 0 fail）；相关文件无 IDE lint 诊断。 | 第八批进入前端大页面和大 store 拆分，优先 `OrderChatPage`、`AdminConsole`、`CustomerPortal` store。 |
+| 2026-06-14 | 第八批：前端大页面和大 store 拆分 | `OrderChatPage/index.tsx` 拆分为 `hooks/useOrderChatMessages.ts`、`hooks/useOrderChatPeerContext.ts`、`hooks/usePendingChatImage.ts` 与 `components/ChatHeader.tsx`、`components/MessageList.tsx`、`components/ChatComposer.tsx`；`AdminConsole/index.tsx` 拆分为 `hooks/useAdminConsoleData.ts`、`hooks/useRefundReviewDialog.ts` 与 `components/AdminMetricCards.tsx`、`components/OnboardingRequestList.tsx`、`components/RefundReviewDialog.tsx`；`use-customer-portal-store.ts` 拆分为 `portalDataActions`、`cartActions`、`orderReviewActions`、`checkoutActions`、`profileAiActions` 子域 action builder 组合。 | `npm run typecheck --prefix frontend` 通过；`cd backend && sbt -batch compile` 通过；类型安全审计通过（45 pass / 0 fail）；可维护性审计通过（10 pass / 0 warn / 0 fail）；相关文件无 IDE lint 诊断。 | 第九批进入通知与结算预估后端化，优先补齐 `CheckoutQuoteAPI` 与 `NotificationFeedService`。 |
 
-## 8. 下一批次建议：第八批前端大页面和大 store 拆分
+## 8. 下一批次建议：第九批通知与结算预估后端化
 
-建议按“页面入口装配化、业务副作用下沉 hooks/store actions、展示组件纯化”推进：
+建议按“先新增后端事实源 API，再逐步切前端消费路径”的方式推进：
 
-1. 优先拆分 `frontend/src/pages/OrderChatPage/index.tsx`：抽出 `useOrderChatMessages`、`useOrderChatPeerContext`、`usePendingChatImage`，并将头部、消息列表、输入区拆到 `components/`。
-2. 拆分 `frontend/src/pages/AdminConsole/index.tsx`：抽出数据加载与对话框状态 hook，拆出入驻列表、退款审核弹窗、指标卡片组件。
-3. 拆分 `frontend/src/pages/CustomerPortal/stores/use-customer-portal-store.ts`：按购物车/结算、订单、评价、资料、AI 周报等子域拆 action 与 helper，避免单文件持续膨胀。
-4. 保持页面私有能力就近落位到 `pages/{Page}/components|hooks|functions|objects|stores`，避免回流到全局 `stores/`。
-5. 关键原则是前端不复制后端业务事实源：结算、优惠、通知已读等真实状态仍以 API 返回为准。
-6. 验证重点为前端 typecheck、受影响文件 lint、类型安全审计；同时确认页面行为与现有交互一致。
+1. 新增 `CheckoutQuoteAPI`（建议 `order/api/CheckoutQuoteAPIMessage.scala` + 前端 `CheckoutQuoteAPI.ts`），后端统一返回预估金额、商家优惠、平台优惠、券抵扣、余额校验和失败原因。
+2. 将前端 `CustomerPortal` 的本地预估逻辑从 `checkoutActions` 中抽离为“读取 quote + 展示”模式，保留短期兼容兜底并逐步删除本地计价分支。
+3. 新增 `NotificationFeedService` 与对应 APIMessage，统一聚合订单、退款、聊天、评价等通知事件；前端通知中心仅负责展示、轮询和已读回写。
+4. 为通知 feed 增加已读状态与分页游标，避免前端本地推导未读数导致跨端不一致。
+5. 本批文档需同步 `API_INVENTORY.md`、`backend/README.md`、`frontend/README.md`，明确“结算预估与通知事件以后端为准”。
+6. 验证重点：后端编译、前端 typecheck、类型安全审计、可维护性审计，并额外核对前端是否仍残留大段本地计价/通知推导逻辑。
