@@ -557,9 +557,9 @@ export OPENAI_MODEL=gpt-4o-mini
 
 1. 在对应模块 `objects/` 新增领域对象；请求/响应 wrapper 放入 `objects/apiTypes/`。
 2. 在对应模块 `api/` 新增单个 `*APIMessage.scala`，文件名与 case class 一致。
-3. 如逻辑较复杂，将可复用逻辑拆到同模块 `Support`、`Rules` 或 helper 文件，保留 APIMessage 入口简洁。
-4. 在 `routes/` 中使用 `api`、`apiWithRole` 或 `apiWithRoles` 注册。
-5. 在 `src/platform/json/ApiJsonCodecs.scala` 注册 Codec。
+3. 如逻辑较复杂，将可复用流程拆到同模块 `services/`，规则校验拆到 `validators/`，保留 APIMessage 入口简洁。
+4. 在对应模块 `json/{Module}JsonCodecs.scala` 注册 Codec，并确认 `platform/json/ApiJsonCodecs.scala` 已聚合导出。
+5. 在 `routes/` 中使用 `api`、`apiWithRole` 或 `apiWithRoles` 注册。
 6. 同步前端 `frontend/src/apis/*/XxxAPI.ts` 与 `frontend/src/objects/*` 的契约。
 7. 运行 `sbt -batch compile`、前端 `npm run typecheck --prefix frontend` 和类型安全审计脚本验证。
 

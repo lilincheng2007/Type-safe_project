@@ -143,7 +143,7 @@ GET /api/reviews/images/{fileName}
 - 不要新增 `*APIMessageSupport.scala` 这类模糊支撑文件；已有同类文件触碰时按职责迁移到 `services/`、`validators/`、`utils/` 或 `media/`。
 - 订单状态、库存扣减、钱包余额、优惠结算、退款状态等关键规则必须在后端校验。
 - 长 SQL 的字段列表、`VALUES` 占位符和 `PreparedStatement` 绑定索引必须同步检查。
-- JSON 编解码当前统一走 `platform/json/ApiJsonCodecs.scala` 聚合；新增响应类型时确认模块 `json/` 入口和聚合 codec 可用。
+- JSON 编解码采用模块 `json/{Module}JsonCodecs.scala` 定义、`platform/json/ApiJsonCodecs.scala` 聚合导出；新增响应类型时优先维护对应模块 codec，并确认聚合入口可用。
 - 不再新增 `backend/src/shared/**/*.scala`；基础设施拆到 `platform/auth/db/bootstrap/domain/media`，业务对象回到对应业务模块或 `promotion`。
 - AI 能力统一复用 `backend/src/ai/utils/OpenAIClient.scala`，不要在业务 API 中散落 HTTP 客户端实现。
 

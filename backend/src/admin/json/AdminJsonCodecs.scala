@@ -1,4 +1,20 @@
 package delivery.admin.json
 
+import delivery.admin.objects.*
+import delivery.admin.objects.apiTypes.*
+import delivery.order.json.OrderJsonCodecs.given
+import delivery.platform.json.CommonJsonCodecs.given
+import delivery.promotion.json.PromotionJsonCodecs.given
+import io.circe.Codec
+import io.circe.generic.semiauto.*
+
 object AdminJsonCodecs:
-  export delivery.platform.json.ApiJsonCodecs.given
+
+  given Codec[StoreOnboardingRequest] = deriveCodec
+  given Codec[StoreOnboardingRequestsResponse] = deriveCodec
+  given Codec[AdminRefundRequestsResponse] = deriveCodec
+  given Codec[AdminOrderMonitorItem] = deriveCodec
+  given Codec[AdminOrderMonitorResponse] = deriveCodec
+  given Codec[PlatformPromotionsResponse] = deriveCodec
+
+end AdminJsonCodecs

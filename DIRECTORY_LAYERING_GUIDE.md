@@ -106,18 +106,20 @@ backend/src/{module}/
 
 ## 3. JSON 序列化规范
 
-当前项目使用 `backend/src/platform/json/ApiJsonCodecs.scala` 作为 Circe codec 统一聚合入口，并在各模块 `json/` 目录提供 codec 发现入口。
+当前项目采用“模块 codec 定义 + 平台聚合导出”的结构：业务对象的 Circe `Encoder` / `Decoder` / `Codec` 优先维护在 `backend/src/{module}/json/{Module}JsonCodecs.scala`，`backend/src/platform/json/ApiJsonCodecs.scala` 只作为统一导出入口，`backend/src/platform/json/CommonJsonCodecs.scala` 承载平台级通用 codec 与枚举 helper。
 
 新增或修改类型时：
 
-1. 新增领域对象或 API DTO 后，确认 `ApiJsonCodecs.scala` 中有对应 `Encoder` / `Decoder` / `Codec`。
-2. 不在 API 文件中临时手写零散 JSON 编解码。
-3. 若类型只属于单个模块，优先让 codec 命名带模块语义，避免同名冲突。
-4. 当 `ApiJsonCodecs.scala` 继续膨胀时，逐步迁移为模块化 codec：
+1. 新增领域对象或 API DTO 后，优先在对应模块 `json/{Module}JsonCodecs.scala` 中维护 `Encoder` / `Decoder` / `Codec`。
+2. 只有平台级通用对象、跨模块稳定枚举和 HTTP 通用 DTO 放入 `CommonJsonCodecs.scala`。
+3. `ApiJsonCodecs.scala` 只做聚合 `export`，不要继续放入具体业务对象的手写 codec。
+4. 不在 API 文件中临时手写零散 JSON 编解码。
+5. 若类型只属于单个模块，codec 命名和 import 依赖应带模块语义，避免同名冲突和循环依赖。
 
 ```text
-backend/src/{module}/json/{Module}JsonCodecs.scala
-backend/src/platform/json/ApiJsonCodecs.scala  # 统一聚合导出各模块 codec
+backend/src/{module}/json/{Module}JsonCodecs.scala       # 模块 codec 定义
+backend/src/platform/json/CommonJsonCodecs.scala          # 平台级通用 codec
+backend/src/platform/json/ApiJsonCodecs.scala             # 统一聚合导出各模块 codec
 ```
 
 前端 TypeScript 类型仍需与后端手写对齐；新增 API 后同步更新 `API_INVENTORY.md`，并运行类型安全审计。
