@@ -200,8 +200,8 @@ APIMessage class -> sendAPI -> POST /api/{apiName}
 |---|---|
 | `catalogapi` | 获取商家目录 |
 | `merchantmeapi` | 获取商家账号与店铺资料 |
-| `merchantprofileapi` | 更新商家资料 |
-| `merchantstoreapi` | 创建/更新店铺 |
+| `merchantcreatestoreonboardingrequestapi` | 提交店铺入驻申请 |
+| `merchantstoreapi` | 兼容旧店铺创建调用（建议迁移） |
 | `merchantstoreonboardingrequestsapi` | 商家查看入驻申请 |
 | `merchantstoredescriptionapi` / `merchantstoreannouncementapi` | 保存店铺描述/公告 |
 | `merchantbusinesshoursapi` | 保存营业状态和营业时间 |

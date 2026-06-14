@@ -163,8 +163,8 @@ CustomerVoucherDiscardAPIMessage -> POST /api/customervoucherdiscardapi
 |---|---|---|
 | `catalogapi` | 公开 | `CatalogResponse` |
 | `merchantmeapi` | merchant | `MerchantMeResponse` |
-| `merchantprofileapi` | merchant | `OkResponse` |
-| `merchantstoreapi` | merchant | `String` |
+| `merchantcreatestoreonboardingrequestapi` | merchant | `String` |
+| `merchantstoreapi` | merchant | `String`（兼容旧调用，建议迁移） |
 | `merchantstoreonboardingrequestsapi` | merchant | `StoreOnboardingRequestsResponse` |
 | `merchantstoredescriptionapi` | merchant | `OkResponse` |
 | `merchantstoreannouncementapi` | merchant | `OkResponse` |

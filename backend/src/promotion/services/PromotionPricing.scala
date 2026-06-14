@@ -1,6 +1,6 @@
 package delivery.promotion.services
 
-import delivery.domain.Promotion
+import delivery.promotion.objects.Promotion
 import delivery.promotion.objects.{PromotionDiscountType, PromotionTriggerType}
 
 import java.time.{LocalDate, LocalTime}

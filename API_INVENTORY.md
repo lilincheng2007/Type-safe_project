@@ -67,8 +67,8 @@ POST /api/{apiName}
 |---|---|---|---|---|
 | `catalogapi` | public | `backend/src/merchant/api/CatalogAPIMessage.scala` | `frontend/src/apis/merchant/CatalogAPI.ts` | `CatalogResponse` |
 | `merchantmeapi` | `merchant` | `backend/src/merchant/api/MerchantMeAPIMessage.scala` | `frontend/src/apis/merchant/MerchantMeAPI.ts` | `MerchantMeResponse` |
-| `merchantprofileapi` | `merchant` | `backend/src/merchant/api/MerchantProfileAPIMessage.scala` | `frontend/src/apis/merchant/MerchantProfileAPI.ts` | `OkResponse` |
-| `merchantstoreapi` | `merchant` | `backend/src/merchant/api/MerchantStoreAPIMessage.scala` | `frontend/src/apis/merchant/MerchantStoreAPI.ts` | `String` |
+| `merchantcreatestoreonboardingrequestapi` | `merchant` | `backend/src/merchant/api/MerchantCreateStoreOnboardingRequestAPIMessage.scala` | `frontend/src/apis/merchant/MerchantCreateStoreOnboardingRequestAPI.ts` | `String` |
+| `merchantstoreapi` | `merchant` | `backend/src/merchant/api/MerchantStoreAPIMessage.scala` | `frontend/src/apis/merchant/MerchantStoreAPI.ts` | `String`（兼容旧调用，建议迁移） |
 | `merchantstoreonboardingrequestsapi` | `merchant` | `backend/src/merchant/api/MerchantStoreOnboardingRequestsAPIMessage.scala` | `frontend/src/apis/merchant/MerchantStoreOnboardingRequestsAPI.ts` | `StoreOnboardingRequestsResponse` |
 | `merchantstoredescriptionapi` | `merchant` | `backend/src/merchant/api/MerchantStoreDescriptionAPIMessage.scala` | `frontend/src/apis/merchant/MerchantStoreDescriptionAPI.ts` | `OkResponse` |
 | `merchantstoreannouncementapi` | `merchant` | `backend/src/merchant/api/MerchantStoreAnnouncementAPIMessage.scala` | `frontend/src/apis/merchant/MerchantStoreAnnouncementAPI.ts` | `OkResponse` |

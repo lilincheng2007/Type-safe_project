@@ -1,7 +1,7 @@
 package delivery.promotion.validators
 
 import delivery.merchant.objects.Product
-import delivery.domain.Promotion
+import delivery.promotion.objects.Promotion
 import delivery.promotion.objects.{PromotionDiscountType, PromotionTriggerType}
 
 object PromotionValidator:

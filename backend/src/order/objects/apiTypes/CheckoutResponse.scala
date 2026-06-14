@@ -1,7 +1,7 @@
 package delivery.order.objects.apiTypes
 
 import delivery.order.objects.Order
-import delivery.domain.Voucher
+import delivery.promotion.objects.Voucher
 
 final case class CheckoutResponse(
     orders: List[Order],

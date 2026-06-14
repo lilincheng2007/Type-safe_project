@@ -1,6 +1,6 @@
 package delivery.promotion.services
 
-import delivery.domain.Promotion
+import delivery.promotion.objects.Promotion
 
 object PromotionUsage:
   def decrement(promotions: List[Promotion], usedIds: Set[String]): List[Promotion] =

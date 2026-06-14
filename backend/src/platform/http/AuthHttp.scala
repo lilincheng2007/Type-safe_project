@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.syntax.all.*
 import delivery.auth.JwtTokenService
 import delivery.platform.json.ApiJsonCodecs.given
-import delivery.domain.ErrorBody
+import delivery.platform.http.objects.ErrorBody
 import org.http4s.*
 import org.http4s.circe.CirceEntityCodec.given
 import org.http4s.dsl.io.*

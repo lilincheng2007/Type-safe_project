@@ -3,7 +3,7 @@ package delivery.user.tables.customerprofile
 import cats.effect.IO
 import delivery.order.objects.Order
 import delivery.platform.json.ApiJsonCodecs.given
-import delivery.domain.Voucher
+import delivery.promotion.objects.Voucher
 import delivery.user.objects.{CustomerDeliveryContact, CustomerProfile}
 import delivery.user.tables.CustomerAccountRecord
 import io.circe.parser.decode

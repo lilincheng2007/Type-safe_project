@@ -2,7 +2,7 @@ package delivery.user.tables.customer
 
 import cats.effect.IO
 import delivery.platform.json.ApiJsonCodecs.given
-import delivery.domain.Voucher
+import delivery.promotion.objects.Voucher
 import delivery.user.objects.Customer
 import io.circe.parser.decode
 import io.circe.syntax.*

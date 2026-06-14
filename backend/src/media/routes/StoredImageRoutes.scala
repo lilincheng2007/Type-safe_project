@@ -1,7 +1,7 @@
 package delivery.media.routes
 
 import cats.effect.IO
-import delivery.domain.ErrorBody
+import delivery.platform.http.objects.ErrorBody
 import delivery.platform.json.ApiJsonCodecs.given
 import delivery.media.tables.storedimage.StoredImageTable
 import fs2.Stream

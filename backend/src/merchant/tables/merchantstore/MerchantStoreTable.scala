@@ -188,7 +188,7 @@ object MerchantStoreTable:
       imageUrl = Option(resultSet.getString("image_url")),
       description = Option(resultSet.getString("description")).getOrElse(""),
       announcement = Option(resultSet.getString("announcement")).getOrElse(""),
-      promotions = Option(resultSet.getString("promotions")).flatMap(raw => decode[List[delivery.domain.Promotion]](raw).toOption).getOrElse(Nil),
+      promotions = Option(resultSet.getString("promotions")).flatMap(raw => decode[List[delivery.promotion.objects.Promotion]](raw).toOption).getOrElse(Nil),
       businessStatus = MerchantBusinessStatus.normalize(Option(resultSet.getString("business_status")).getOrElse("open")),
       weeklyBusinessHours = Option(resultSet.getString("weekly_business_hours")).flatMap(raw => decode[List[delivery.merchant.objects.MerchantWeeklyBusinessHour]](raw).toOption).getOrElse(Nil),
       holidayBusinessHours = Option(resultSet.getString("holiday_business_hours")).flatMap(raw => decode[List[delivery.merchant.objects.MerchantHolidayBusinessHour]](raw).toOption).getOrElse(Nil)

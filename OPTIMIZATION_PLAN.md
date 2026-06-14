@@ -258,6 +258,7 @@ cd frontend && npx eslint <changed-files>
 | 2026-06-13 | 已完成第四批结算服务拆分 | 将 `OrderCheckoutService` 的库存扣减、价格明细、订单构造、优惠券兑换和积分等级职责拆入独立 service，`OrderCheckoutService` 保留结算编排门面。 |
 | 2026-06-14 | 已完成第五批枚举收敛 | 新增并接入商家营业状态、商品库存模式、套餐选择类型、促销类型、聊天角色和聊天消息类型枚举；前端补齐对应类型文件，JSON 值保持兼容字符串。 |
 | 2026-06-14 | 已完成第六批 JSON codec 模块化 | 将业务 codec 下沉到各模块 `json/*JsonCodecs.scala`，新增平台 `CommonJsonCodecs`，`ApiJsonCodecs.scala` 收敛为 14 行聚合导出。 |
+| 2026-06-14 | 已完成第七批过宽 API 与兼容 alias 收敛 | 删除未使用 `merchantprofileapi`；新增 `merchantcreatestoreonboardingrequestapi` 并保留 `merchantstoreapi` 兼容入口；清理后端 `Promotion`/`Voucher`/`ErrorBody` compatibility alias 导入。 |
 
 ## 6. 当前代码现状快照
 
@@ -307,14 +308,15 @@ cd frontend && npx eslint <changed-files>
 | 2026-06-13 | 第四批：拆分 `OrderCheckoutService` | 新增 `CheckoutInventoryService`、`CheckoutPricingService`、`CheckoutOrderFactory`、`VoucherRedemptionService`、`CustomerLoyaltyService`；更新结算、取消、拒单、退款、完成订单和顾客订单列表相关调用，移除外部对 `OrderCheckoutService` 的价格 / 库存 / 券 / 等级依赖。 | `cd backend && sbt -batch compile` 通过；类型安全审计通过（45 pass / 0 fail）；可维护性审计通过（10 pass / 0 warn / 0 fail）；相关目录无 IDE lint 诊断。 | 第五批进入字符串枚举收敛；本批仍保留 `OrderCheckoutService.buildOrdersForCheckout` 作为兼容编排门面。 |
 | 2026-06-14 | 第五批：收敛字符串枚举和前后端类型契约 | 新增后端枚举 `MerchantBusinessStatus`、`ProductInventoryMode`、`ProductBundleSelectionType`、`PromotionDiscountType`、`PromotionTriggerType`、`OrderChatRole`、`OrderChatMessageType`；更新领域对象、业务服务、表读写和 APIMessage；前端补齐同名类型文件并复用现有 union。 | `cd backend && sbt -batch compile` 通过；`npm run typecheck --prefix frontend` 通过；类型安全审计通过（45 pass / 0 fail）；可维护性审计通过（10 pass / 0 warn / 0 fail）；后端核心字段已无目标裸 `String`。 | 第六批进入 JSON codec 模块化；本批为了控制风险仍将 enum codec 注册在 `platform/json/ApiJsonCodecs.scala` 聚合入口。 |
 | 2026-06-14 | 第六批：模块化 JSON codec | 新增 `platform/json/CommonJsonCodecs.scala`；将促销、订单、商家、顾客、管理员、评价、骑手、AI 的 codec 从 `ApiJsonCodecs.scala` 下沉到各模块 `json/*JsonCodecs.scala`；保留 `Order`、`Merchant`、`CustomerProfile`、`CheckoutRequest` 等手写 decoder / encoder 的历史字段兼容；同步 `DIRECTORY_LAYERING_GUIDE.md`、`AGENTS.md`、`backend/README.md`。 | `cd backend && sbt -batch compile` 通过；`npm run typecheck --prefix frontend` 通过；类型安全审计通过（45 pass / 0 fail）；可维护性审计通过（10 pass / 0 warn / 0 fail）；`ApiJsonCodecs.scala` 已收敛为 14 行聚合导出；相关文件无 IDE lint 诊断。 | 第七批进入过宽 API 与 compatibility alias 收敛；优先确认 `MerchantProfileAPIMessage` 是否仍被前端使用，再处理 `MerchantStoreAPIMessage` 命名和 `CompatibilityAliases` 依赖。 |
+| 2026-06-14 | 第七批：收敛过宽 API 与兼容 alias | 删除后端 `MerchantProfileAPIMessage.scala` 与前端 `MerchantProfileAPI.ts`；新增 `MerchantCreateStoreOnboardingRequestAPIMessage.scala` 与 `MerchantCreateStoreOnboardingRequestAPI.ts`，并将旧 `MerchantStoreAPIMessage` / `MerchantStoreAPI.ts` 收敛为兼容包装；更新 `MerchantRoutes.scala`、`API_INVENTORY.md`、`backend/README.md`、`frontend/README.md`；将后端 `Promotion` / `Voucher` / `ErrorBody` 导入切换到真实归属模块。 | `cd backend && sbt -batch compile` 通过；`npm run typecheck --prefix frontend` 通过；类型安全审计通过（45 pass / 0 fail）；可维护性审计通过（10 pass / 0 warn / 0 fail）；相关文件无 IDE lint 诊断。 | 第八批进入前端大页面和大 store 拆分，优先 `OrderChatPage`、`AdminConsole`、`CustomerPortal` store。 |
 
-## 8. 下一批次建议：第七批收敛过宽 API 与兼容 alias
+## 8. 下一批次建议：第八批前端大页面和大 store 拆分
 
-建议先做使用面盘点，再小步收敛，避免破坏前后端契约：
+建议按“页面入口装配化、业务副作用下沉 hooks/store actions、展示组件纯化”推进：
 
-1. 先搜索并确认 `MerchantProfileAPIMessage` / `MerchantProfileAPI.ts` 是否仍有真实前端调用；如果无调用，优先标记废弃并删除前后端 API 与 inventory 记录。
-2. 如果 `MerchantProfileAPIMessage` 仍需保留，应缩窄为商家账号资料更新，不再承担店铺、商品、订单等整包写回语义。
-3. 评估 `MerchantStoreAPIMessage` 的真实动作：如主要用于提交入驻申请，建议重命名或新增窄接口 `MerchantCreateStoreOnboardingRequestAPIMessage`，并保持过渡兼容策略。
-4. 盘点 `delivery.domain.CompatibilityAliases` 的业务对象 alias 使用，按模块替换为真实归属导入，优先处理 `Promotion`、`Voucher`、`ErrorBody`、`HealthOk`。
-5. 更新 `API_INVENTORY.md`、`backend/README.md` 与相关前端 API 文件，确保 API 名称能直接表达动作。
-6. 验证重点为后端编译、前端 typecheck、类型安全审计和可维护性审计；若删除 API，应额外搜索旧 API 名称和 `apiName` 字符串残留。
+1. 优先拆分 `frontend/src/pages/OrderChatPage/index.tsx`：抽出 `useOrderChatMessages`、`useOrderChatPeerContext`、`usePendingChatImage`，并将头部、消息列表、输入区拆到 `components/`。
+2. 拆分 `frontend/src/pages/AdminConsole/index.tsx`：抽出数据加载与对话框状态 hook，拆出入驻列表、退款审核弹窗、指标卡片组件。
+3. 拆分 `frontend/src/pages/CustomerPortal/stores/use-customer-portal-store.ts`：按购物车/结算、订单、评价、资料、AI 周报等子域拆 action 与 helper，避免单文件持续膨胀。
+4. 保持页面私有能力就近落位到 `pages/{Page}/components|hooks|functions|objects|stores`，避免回流到全局 `stores/`。
+5. 关键原则是前端不复制后端业务事实源：结算、优惠、通知已读等真实状态仍以 API 返回为准。
+6. 验证重点为前端 typecheck、受影响文件 lint、类型安全审计；同时确认页面行为与现有交互一致。

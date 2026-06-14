@@ -3,12 +3,8 @@ import type { TaskIO } from '@/apis/shared/TaskIO'
 import { sendAPI } from '@/apis/shared/sendAPI'
 import type { CreateStoreRequest } from '@/objects/merchant/apiTypes/CreateStoreRequest'
 
-/**
- * @deprecated 仅兼容旧 apiName: merchantstoreapi。
- * 新代码请改用 MerchantCreateStoreOnboardingRequestAPI。
- */
-class MerchantStoreAPI extends APIMessage<string> {
-  readonly apiName = 'merchantstoreapi'
+class MerchantCreateStoreOnboardingRequestAPI extends APIMessage<string> {
+  readonly apiName = 'merchantcreatestoreonboardingrequestapi'
   readonly storeName: string
   readonly address: string
   readonly description: string
@@ -23,9 +19,6 @@ class MerchantStoreAPI extends APIMessage<string> {
   }
 }
 
-/**
- * @deprecated 请改用 createMerchantStoreOnboardingRequestIO。
- */
-export function createMerchantStoreIO(input: CreateStoreRequest): TaskIO<string> {
-  return sendAPI(new MerchantStoreAPI(input.storeName, input.address, input.description, input.tags))
+export function createMerchantStoreOnboardingRequestIO(input: CreateStoreRequest): TaskIO<string> {
+  return sendAPI(new MerchantCreateStoreOnboardingRequestAPI(input.storeName, input.address, input.description, input.tags))
 }

@@ -75,7 +75,7 @@ final case class CheckoutAPIMessage(
       connection: Connection,
       username: String,
       merchants: List[delivery.merchant.objects.Merchant],
-      platformPromotions: List[delivery.domain.Promotion],
+      platformPromotions: List[delivery.promotion.objects.Promotion],
       orders: List[delivery.order.objects.Order]
   ): IO[Unit] =
     val platformIds = platformPromotions.map(_.id).toSet

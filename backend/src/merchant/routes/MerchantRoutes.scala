@@ -16,7 +16,7 @@ object MerchantRoutes:
     val registered = List(
     api[CatalogAPIMessage, CatalogResponse],
     apiWithRole[MerchantMeAPIMessage, MerchantMeResponse]("merchant"),
-    apiWithRole[MerchantProfileAPIMessage, OkResponse]("merchant"),
+    apiWithRole[MerchantCreateStoreOnboardingRequestAPIMessage, String]("merchant"),
     apiWithRole[MerchantStoreAPIMessage, String]("merchant"),
     apiWithRole[MerchantStoreOnboardingRequestsAPIMessage, StoreOnboardingRequestsResponse]("merchant"),
     apiWithRole[MerchantStoreDescriptionAPIMessage, OkResponse]("merchant"),

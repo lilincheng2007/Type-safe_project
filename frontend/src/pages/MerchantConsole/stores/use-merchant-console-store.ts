@@ -17,7 +17,7 @@ import { updateMerchantStoreAnnouncementIO } from '@/apis/merchant/MerchantStore
 import { updateMerchantStorePromotionsIO } from '@/apis/merchant/MerchantStorePromotionsAPI'
 import { updateMerchantStoreDescriptionIO } from '@/apis/merchant/MerchantStoreDescriptionAPI'
 import { updateMerchantStoreImageIO } from '@/apis/merchant/MerchantStoreImageAPI'
-import { createMerchantStoreIO } from '@/apis/merchant/MerchantStoreAPI'
+import { createMerchantStoreOnboardingRequestIO } from '@/apis/merchant/MerchantCreateStoreOnboardingRequestAPI'
 import { runTask } from '@/apis/shared/client'
 import type { MerchantStoreProfile } from '@/objects/merchant/MerchantStoreProfile'
 import { normalizeCreateStoreDraft, normalizeProductCategoryName, resolveSelectedStoreId } from './merchantConsole/helpers'
@@ -78,7 +78,7 @@ export const useMerchantConsoleStore = create<MerchantConsoleStore>()((set, get)
       return null
     }
 
-    const requestId = await runTask(createMerchantStoreIO(createStoreInput))
+    const requestId = await runTask(createMerchantStoreOnboardingRequestIO(createStoreInput))
     await get().refreshMerchant()
     set({
       newStoreName: '',

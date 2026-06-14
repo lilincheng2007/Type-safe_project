@@ -5,7 +5,7 @@ import cats.syntax.all.*
 import delivery.auth.JwtTokenService
 import delivery.db.DatabaseSession
 import delivery.platform.json.ApiJsonCodecs.given
-import delivery.domain.ErrorBody
+import delivery.platform.http.objects.ErrorBody
 import io.circe.{Decoder, Encoder, Json}
 import io.circe.syntax.*
 import org.http4s.*

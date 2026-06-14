@@ -3,7 +3,7 @@ package delivery.admin.api
 import cats.effect.IO
 import delivery.admin.tables.platformpromotion.PlatformPromotionTable
 import delivery.platform.api.{APIWithRoleMessage, HttpApiError}
-import delivery.domain.Promotion
+import delivery.promotion.objects.Promotion
 import delivery.domain.apiTypes.OkResponse
 import delivery.promotion.validators.PromotionValidator
 
